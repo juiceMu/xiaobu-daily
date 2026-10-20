@@ -1,0 +1,7 @@
+node_modules
+.expo
+dist
+dist-web
+package-lock.json
+src/domain/engineCore.mjs
+tests/engine.test.mjs
