@@ -2,7 +2,7 @@
   "expo": {
     "name": "小步日常",
     "slug": "sprout-checkin-native",
-    "version": "1.0.0",
+    "version": "1.0.7",
     "icon": "./assets/icon.png",
     "scheme": "sprout",
     "orientation": "default",
@@ -12,6 +12,7 @@
       "bundleIdentifier": "com.smallsteps.checkin"
     },
     "android": {
+      "versionCode": 8,
       "package": "com.smallsteps.checkin",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

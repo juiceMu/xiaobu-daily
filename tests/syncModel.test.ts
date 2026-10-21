@@ -75,7 +75,7 @@ test('首次无昵称也建立稳定owner/device、完整初始索引与初始�
   assert.equal(state.giftState, undefined);
   assert.equal(state.storageVersion, 1);
   assert.equal(state.sync.dataVersion, 4);
-  assert.equal(Object.keys(state.sync.entities).length, 7);
+  assert.equal(Object.keys(state.sync.entities).length, 5);
   assert.equal(
     new Set(state.sync.outbox.map((op) => op.transactionId)).size,
     1,
@@ -112,6 +112,7 @@ test('兑换、里程碑与赠收回执覆盖全部实体类型，同一业务�
   const owner = state.sync.accountId;
   state = change(state, (draft) => {
     ensureGiftProfile(draft, { id: owner, name: '本机' });
+    draft.tasks[0].target = 3;
     for (let i = 0; i < 3; i++) checkIn(draft, 'task-1', NOW);
     redeemTicket(draft, NOW);
     configureMilestoneGoal(draft, {

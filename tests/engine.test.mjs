@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MILESTONE_ICONS, DEFAULT_MILESTONE_ICON, updateMilestoneIcon } from '../src/domain/engineCore.mjs';
-import { createInitialState, dateKey, weekKey, getWeekStats, getTaskCount, checkIn, undoCheckIn, redeemTicket, useTicket, getTicketStatus, addTask, updateTask, archiveTask, restoreTask, updateSettings, configureWeightGoal, configureMilestoneGoal, addMilestoneGoal, updateMilestoneGoal, deleteMilestoneGoal, recordMilestoneValue, setMilestoneEnabled, recordWeight, disableWeightGoal, migrateState } from '../src/domain/engineCore.mjs';
+import { createInitialState, dateKey, weekKey, getWeekStats, getTaskCount, checkIn, undoCheckIn, redeemTicket, useTicket, getTicketStatus, addTask, updateTask, archiveTask, restoreTask, deleteTask, updateSettings, configureWeightGoal, configureMilestoneGoal, addMilestoneGoal, updateMilestoneGoal, deleteMilestoneGoal, recordMilestoneValue, setMilestoneEnabled, recordWeight, disableWeightGoal, migrateState } from '../src/domain/engineCore.mjs';
 
 test('里程碑可选独立图标，永久奖券保存对应图标且旧API使用默认图标', () => {
   const state = createInitialState();
@@ -94,12 +94,13 @@ test('旧存档缺图标保持原样可重载，新增图标后补齐券且拒�
 const monday = new Date(2026, 9, 19, 10);
 const water = 'task-1';
 const fill = (state, now = monday, count = 3) => {
+  assert.equal(updateTask(state, water, { target: count }).ok, true);
   for (let i = 0; i < count; i += 1) assert.equal(checkIn(state, water, now).ok, true);
 };
 
 test('初始真实零数据与每日任务目标', () => {
   const state = createInitialState(monday);
-  assert.deepEqual(state.tasks.map((task) => task.target), [3, 1, 1, 1]);
+  assert.deepEqual(state.tasks.map((task) => [task.name, task.target, task.icon]), [['早睡', 1, '🌙'], ['运动', 1, '🏃']]);
   assert.equal(state.checkins.length, 0);
   assert.equal(state.tickets.length, 0);
   assert.equal(getWeekStats(state, monday).total, 0);
@@ -119,9 +120,10 @@ test('本地日期和周一边界跨月跨年', () => {
 test('合计各任务次数手动兑换且禁止超额兑换', () => {
   const state = createInitialState();
   assert.equal(redeemTicket(state, monday).ok, false);
+  assert.equal(addTask(state, { name: '临时', target: 1 }).ok, true);
   checkIn(state, water, monday);
   checkIn(state, 'task-2', monday);
-  checkIn(state, 'task-3', monday);
+  checkIn(state, state.tasks.at(-1).id, monday);
   assert.equal(state.tickets.length, 0);
   const { ticket, ok } = redeemTicket(state, monday);
   assert.equal(ok, true);
@@ -179,8 +181,9 @@ test('门槛改变按历史成本计账，不重复消费已兑换次数', () =>
   redeemTicket(state, monday);
   updateSettings(state, { threshold: 2 });
   assert.equal(redeemTicket(state, monday).ok, false);
+  assert.equal(addTask(state, { name: '临时', target: 1 }).ok, true);
   checkIn(state, 'task-2', monday);
-  checkIn(state, 'task-3', monday);
+  checkIn(state, state.tasks.at(-1).id, monday);
   assert.equal(redeemTicket(state, monday).ok, true);
   assert.equal(getWeekStats(state, monday).spent, 5);
   updateSettings(state, { threshold: 1 });
@@ -202,6 +205,28 @@ test('撤销当天最后一次且保护已兑换成本', () => {
   assert.equal(undoCheckIn(state, water, monday).ok, true);
   assert.equal(undoCheckIn(state, water, monday).ok, false);
   assert.equal(undoCheckIn(state, water, new Date(2026, 9, 20)).ok, false);
+});
+
+test('删除任务与归档分离，历史打卡保留且不可恢复到列表', () => {
+  const state = createInitialState();
+  checkIn(state, water, monday);
+  assert.equal(deleteTask(state, water).ok, true);
+  assert.equal(state.tasks[0].deleted, true);
+  assert.equal(state.tasks[0].archived, false);
+  assert.equal(state.checkins.length, 1);
+  assert.equal(getWeekStats(state, monday).total, 1);
+  assert.equal(checkIn(state, water, monday).ok, false);
+  assert.equal(archiveTask(state, water).ok, false);
+  assert.equal(restoreTask(state, water).ok, false);
+  assert.equal(updateTask(state, water, { name: '改名' }).ok, false);
+  assert.equal(deleteTask(state, water).ok, false);
+  assert.equal(deleteTask(state, 'missing').ok, false);
+  const archived = state.tasks[1];
+  assert.equal(archiveTask(state, archived.id).ok, true);
+  assert.equal(deleteTask(state, archived.id).ok, true);
+  assert.equal(archived.deleted, true);
+  assert.equal(archived.archived, false);
+  assert.equal(state.tasks.filter((task) => task.archived && !task.deleted).length, 0);
 });
 
 test('周统计重置，旧周次数不能兑换，新周撤销不受旧周消费影响', () => {
@@ -756,6 +781,7 @@ test('额外目标保持数值精度和单次发券上限，拒绝时不影响�
 
 test('归档任务可恢复且保留历史打卡和设置，不允许恢复未知或活跃任务', () => {
   const state = createInitialState();
+  assert.equal(updateTask(state, water, { target: 2 }).ok, true);
   checkIn(state, water, monday);
   archiveTask(state, water);
   const beforeHistory = JSON.stringify(state.checkins);

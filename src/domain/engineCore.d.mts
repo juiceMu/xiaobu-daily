@@ -108,6 +108,7 @@ export function updateTask(
 ): ActionResult;
 export function archiveTask(state: AppState, id: string): ActionResult;
 export function restoreTask(state: AppState, id: string): ActionResult;
+export function deleteTask(state: AppState, id: string): ActionResult;
 export function updateSettings(
   state: Pick<AppState, 'settings'>,
   input: SettingsInput,

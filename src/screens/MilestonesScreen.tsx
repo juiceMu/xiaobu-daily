@@ -65,12 +65,22 @@ function MilestoneTab({
 }) {
   const { colors } = useAppTheme();
   const keyboardFocus = useKeyboardFocus();
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const hot = !disabled && (hovered || pressed);
   return (
     <TouchableRipple
       testID="milestone-goal-tab"
       disabled={disabled}
       onPress={onPress}
-      rippleColor={Platform.OS === 'web' ? 'transparent' : undefined}
+      rippleColor={'transparent'}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => {
+        setHovered(false);
+        setPressed(false);
+      }}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
       onFocus={keyboardFocus.onFocus}
       onBlur={keyboardFocus.onBlur}
       accessibilityRole="tab"
@@ -79,7 +89,13 @@ function MilestoneTab({
         item.name +
         (item.archived ? '，已归档' : item.enabled ? '，进行中' : '，已暂停')
       }
-      style={{ borderRadius: 16, minHeight: 48, justifyContent: 'center' }}
+      style={{
+        borderRadius: 16,
+        minHeight: 48,
+        justifyContent: 'center',
+        overflow: 'hidden',
+        backgroundColor: 'transparent',
+      }}
     >
       <View
         style={[
@@ -93,7 +109,9 @@ function MilestoneTab({
             paddingVertical: 6,
             backgroundColor: selected
               ? colors.primaryContainer
-              : colors.surface,
+              : hot
+                ? colors.field
+                : colors.surface,
           },
           Platform.OS === 'web' && {
             outlineWidth: !disabled && keyboardFocus.focusVisible ? 2 : 0,
@@ -377,7 +395,8 @@ export function MilestonesScreen() {
             horizontal
             data={visibleGoals}
             keyExtractor={(item) => item.id}
-            showsHorizontalScrollIndicator
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
             extraData={goal?.id}
             onScrollToIndexFailed={({ index, averageItemLength }) =>
               tabList.current?.scrollToOffset({
@@ -669,6 +688,7 @@ export function MilestonesScreen() {
           </ActionButton>
         </>
       )}
+      {historyOpen ? (
       <Modal
         visible={historyOpen}
         animationType="none"
@@ -691,6 +711,8 @@ export function MilestonesScreen() {
               style={styles.listViewport}
               data={rewards}
               keyExtractor={(value) => String(value)}
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.list}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
               renderItem={({ item }) =>
@@ -700,6 +722,7 @@ export function MilestonesScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+      ) : null}
       <FormModal
         visible={!!form}
         title={form?.id ? '里程碑设置' : '新的成长目标'}

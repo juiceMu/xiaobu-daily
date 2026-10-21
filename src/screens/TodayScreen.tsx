@@ -8,6 +8,7 @@ import {
   archiveTask,
   checkIn,
   dateKey,
+  deleteTask,
   getTaskCount,
   getWeekStats,
   getTicketStatus,
@@ -50,13 +51,24 @@ export function TodayScreen() {
     (ticket) => getTicketStatus(ticket, state, now) === 'available',
   ).length;
   const summaryCardStyle = { minWidth: 0, padding: 8 };
-  const tasks = state.tasks.filter((task) => !task.archived || !isToday);
+  const tasks = state.tasks.filter(
+    (task) => !task.deleted && (!task.archived || !isToday),
+  );
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
   const [dateError, setDateError] = useState('');
+  const [calendarView, setCalendarView] = useState<'day' | 'month' | 'year'>(
+    'day',
+  );
   const [calendarMonth, setCalendarMonth] = useState(
     () => dateKey(now).slice(0, 7) + '-01',
   );
+  const todayKey = dateKey(now);
+  const todayYear = Number(todayKey.slice(0, 4));
+  const todayMonth = Number(todayKey.slice(5, 7));
+  const calendarYear = Number(calendarMonth.slice(0, 4));
+  const calendarMonthNumber = Number(calendarMonth.slice(5, 7));
+  const yearPageStart = Math.floor(calendarYear / 12) * 12;
   const calendarStart = localDateFromKey(calendarMonth) ?? now;
   const calendarOffset = (calendarStart.getDay() + 6) % 7;
   const calendarEnd = new Date(calendarStart);
@@ -68,6 +80,7 @@ export function TodayScreen() {
     margin: 0,
     width: dateNavigationSize,
     height: dateNavigationSize,
+    borderRadius: dateNavigationSize / 2,
   };
   const [form, setForm] = useState<{
     id?: string;
@@ -79,9 +92,14 @@ export function TodayScreen() {
   const [error, setError] = useState('');
   const [menuId, setMenuId] = useState<string | null>(null);
   const [focusedAction, setFocusedAction] = useState<string | null>(null);
+  const [pressedAction, setPressedAction] = useState<string | null>(null);
   const keyboardFocus = useKeyboardFocus();
   function dateNavigationProps(id: string) {
     return {
+      rippleColor: 'transparent' as const,
+      onPressIn: () => setPressedAction(id),
+      onPressOut: () =>
+        setPressedAction((current) => (current === id ? null : current)),
       onFocus: () => {
         keyboardFocus.onFocus();
         setFocusedAction(id);
@@ -89,11 +107,13 @@ export function TodayScreen() {
       onBlur: () => {
         keyboardFocus.onBlur();
         setFocusedAction(null);
+        setPressedAction((current) => (current === id ? null : current));
       },
       style: [
         dateNavigationStyle,
         {
-          backgroundColor: 'transparent',
+          backgroundColor:
+            pressedAction === id ? colors.primaryContainer : 'transparent',
           borderWidth:
             keyboardFocus.focusVisible && focusedAction === id ? 1 : 0,
           borderColor: colors.primary,
@@ -104,7 +124,7 @@ export function TodayScreen() {
   const taskActionSize = Platform.OS === 'web' ? 36 : 44;
   const [initialForm, setInitialForm] = useState('');
   const [confirm, setConfirm] = useState<{
-    type: 'archive' | 'undo' | 'redeem';
+    type: 'archive' | 'delete' | 'undo' | 'redeem';
     task?: Task;
     date: string;
   } | null>(null);
@@ -135,12 +155,14 @@ export function TodayScreen() {
         ? redeemTicket(draft, new Date(), confirm.date)
         : confirm.type === 'archive'
           ? archiveTask(draft, confirm.task!.id)
-          : undoCheckIn(draft, confirm.task!.id, new Date(), confirm.date),
+          : confirm.type === 'delete'
+            ? deleteTask(draft, confirm.task!.id)
+            : undoCheckIn(draft, confirm.task!.id, new Date(), confirm.date),
     );
     if (result.ok) setConfirm(null);
     else setError(result.message);
   }
-  function ask(type: 'archive' | 'undo' | 'redeem', task?: Task) {
+  function ask(type: 'archive' | 'delete' | 'undo' | 'redeem', task?: Task) {
     setError('');
     setConfirm({ type, task, date: selectedDate });
   }
@@ -158,6 +180,8 @@ export function TodayScreen() {
         style={styles.listViewport}
         data={tasks}
         keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
@@ -212,6 +236,7 @@ export function TodayScreen() {
                   onPress={() => {
                     setDateInput(selectedDate);
                     setCalendarMonth(selectedDate.slice(0, 7) + '-01');
+                    setCalendarView('day');
                     setDateError('');
                     setDatePickerVisible(true);
                   }}
@@ -522,8 +547,12 @@ export function TodayScreen() {
                 >
                   <IconButton
                     testID="task-checkin-button"
-                    rippleColor={
-                      Platform.OS === 'web' ? 'transparent' : undefined
+                    rippleColor={'transparent'}
+                    onPressIn={() => setPressedAction(item.id + '-checkin')}
+                    onPressOut={() =>
+                      setPressedAction((current) =>
+                        current === item.id + '-checkin' ? null : current,
+                      )
                     }
                     onFocus={() => {
                       keyboardFocus.onFocus();
@@ -532,6 +561,9 @@ export function TodayScreen() {
                     onBlur={() => {
                       keyboardFocus.onBlur();
                       setFocusedAction(null);
+                      setPressedAction((current) =>
+                        current === item.id + '-checkin' ? null : current,
+                      );
                     }}
                     hitSlop={0}
                     disabled={busy || complete}
@@ -546,7 +578,9 @@ export function TodayScreen() {
                           backgroundColor:
                             busy || complete
                               ? colors.border
-                              : colors.primaryContainer,
+                              : pressedAction === item.id + '-checkin'
+                                ? colors.primary
+                                : colors.primaryContainer,
                         }}
                       >
                         <Icon
@@ -576,6 +610,7 @@ export function TodayScreen() {
                       margin: 0,
                       width: taskActionSize,
                       height: taskActionSize,
+                      borderRadius: taskActionSize / 2,
                       borderWidth:
                         keyboardFocus.focusVisible &&
                         focusedAction === item.id + '-checkin'
@@ -593,8 +628,12 @@ export function TodayScreen() {
                   />
                   <IconButton
                     testID="task-undo-button"
-                    rippleColor={
-                      Platform.OS === 'web' ? 'transparent' : undefined
+                    rippleColor={'transparent'}
+                    onPressIn={() => setPressedAction(item.id + '-undo')}
+                    onPressOut={() =>
+                      setPressedAction((current) =>
+                        current === item.id + '-undo' ? null : current,
+                      )
                     }
                     onFocus={() => {
                       keyboardFocus.onFocus();
@@ -603,6 +642,9 @@ export function TodayScreen() {
                     onBlur={() => {
                       keyboardFocus.onBlur();
                       setFocusedAction(null);
+                      setPressedAction((current) =>
+                        current === item.id + '-undo' ? null : current,
+                      );
                     }}
                     hitSlop={0}
                     icon="undo-variant"
@@ -615,6 +657,7 @@ export function TodayScreen() {
                       margin: 0,
                       width: taskActionSize,
                       height: taskActionSize,
+                      borderRadius: taskActionSize / 2,
                       borderWidth:
                         keyboardFocus.focusVisible &&
                         focusedAction === item.id + '-undo'
@@ -622,7 +665,10 @@ export function TodayScreen() {
                           : 0,
                       borderColor: colors.primary,
                       flexShrink: 0,
-                      backgroundColor: 'transparent',
+                      backgroundColor:
+                        pressedAction === item.id + '-undo'
+                          ? colors.primaryContainer
+                          : 'transparent',
                     }}
                     disabled={busy || !count}
                     onPress={() => ask('undo', item)}
@@ -638,8 +684,12 @@ export function TodayScreen() {
                     anchor={
                       <IconButton
                         testID="task-more-button"
-                        rippleColor={
-                          Platform.OS === 'web' ? 'transparent' : undefined
+                        rippleColor={'transparent'}
+                        onPressIn={() => setPressedAction(item.id + '-more')}
+                        onPressOut={() =>
+                          setPressedAction((current) =>
+                            current === item.id + '-more' ? null : current,
+                          )
                         }
                         onFocus={() => {
                           keyboardFocus.onFocus();
@@ -648,6 +698,9 @@ export function TodayScreen() {
                         onBlur={() => {
                           keyboardFocus.onBlur();
                           setFocusedAction(null);
+                          setPressedAction((current) =>
+                            current === item.id + '-more' ? null : current,
+                          );
                         }}
                         hitSlop={0}
                         icon="dots-horizontal"
@@ -658,6 +711,7 @@ export function TodayScreen() {
                           margin: 0,
                           width: taskActionSize,
                           height: taskActionSize,
+                          borderRadius: taskActionSize / 2,
                           borderWidth:
                             keyboardFocus.focusVisible &&
                             focusedAction === item.id + '-more'
@@ -665,7 +719,10 @@ export function TodayScreen() {
                               : 0,
                           borderColor: colors.primary,
                           flexShrink: 0,
-                          backgroundColor: 'transparent',
+                          backgroundColor:
+                            pressedAction === item.id + '-more'
+                              ? colors.primaryContainer
+                              : 'transparent',
                         }}
                         onPress={() => setMenuId(item.id)}
                       />
@@ -703,6 +760,24 @@ export function TodayScreen() {
                         ask('archive', item);
                       }}
                     />
+                    <Menu.Item
+                      dense
+                      style={{ minHeight: 40 }}
+                      titleStyle={{ fontSize: 13, lineHeight: 20 }}
+                      title="删除任务"
+                      leadingIcon={({ color }) => (
+                        <Icon
+                          source="trash-can-outline"
+                          size={18}
+                          color={color}
+                        />
+                      )}
+                      disabled={busy}
+                      onPress={() => {
+                        setMenuId(null);
+                        ask('delete', item);
+                      }}
+                    />
                   </Menu>
                 </View>
               </View>
@@ -722,117 +797,275 @@ export function TodayScreen() {
             <IconButton
               icon="chevron-left"
               size={18}
-              {...dateNavigationProps('previous-month')}
-              accessibilityLabel="日历上一月"
-              disabled={busy || calendarMonth === '0001-01-01'}
+              {...dateNavigationProps(
+                calendarView === 'day'
+                  ? 'previous-month'
+                  : calendarView === 'month'
+                    ? 'previous-year'
+                    : 'previous-years',
+              )}
+              accessibilityLabel={
+                calendarView === 'day'
+                  ? '日历上一月'
+                  : calendarView === 'month'
+                    ? '日历上一年'
+                    : '日历上一组年份'
+              }
+              disabled={
+                busy ||
+                (calendarView === 'day'
+                  ? calendarMonth === '0001-01-01'
+                  : calendarView === 'month'
+                    ? calendarYear <= 1
+                    : yearPageStart <= 0)
+              }
               onPress={() => {
-                const date = localDateFromKey(calendarMonth)!;
-                date.setMonth(date.getMonth() - 1);
-                setCalendarMonth(dateKey(date));
+                if (calendarView === 'day') {
+                  const date = localDateFromKey(calendarMonth)!;
+                  date.setMonth(date.getMonth() - 1);
+                  setCalendarMonth(dateKey(date));
+                  return;
+                }
+                if (calendarView === 'month') {
+                  setCalendarMonth(
+                    String(calendarYear - 1).padStart(4, '0') +
+                      calendarMonth.slice(4),
+                  );
+                  return;
+                }
+                setCalendarMonth(
+                  String(Math.max(1, yearPageStart - 12)).padStart(4, '0') +
+                    calendarMonth.slice(4),
+                );
               }}
             />
-            <Text style={{ flex: 1, textAlign: 'center' }}>
-              {calendarMonth.slice(0, 7)}
-            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                calendarView === 'day'
+                  ? '选择月份和年份'
+                  : calendarView === 'month'
+                    ? '选择年份'
+                    : '当前年份范围'
+              }
+              disabled={busy || calendarView === 'year'}
+              onPress={() => {
+                if (calendarView === 'day') setCalendarView('month');
+                else if (calendarView === 'month') setCalendarView('year');
+              }}
+              style={{
+                flex: 1,
+                minHeight: dateNavigationSize,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ textAlign: 'center' }}>
+                {calendarView === 'day'
+                  ? `${calendarYear}年${calendarMonthNumber}月`
+                  : calendarView === 'month'
+                    ? `${calendarYear}年`
+                    : `${yearPageStart}–${yearPageStart + 11}年`}
+              </Text>
+            </Pressable>
             <IconButton
               icon="chevron-right"
               size={18}
-              {...dateNavigationProps('next-month')}
-              accessibilityLabel="日历下一月"
+              {...dateNavigationProps(
+                calendarView === 'day'
+                  ? 'next-month'
+                  : calendarView === 'month'
+                    ? 'next-year'
+                    : 'next-years',
+              )}
+              accessibilityLabel={
+                calendarView === 'day'
+                  ? '日历下一月'
+                  : calendarView === 'month'
+                    ? '日历下一年'
+                    : '日历下一组年份'
+              }
               disabled={
-                busy || calendarMonth.slice(0, 7) >= dateKey(now).slice(0, 7)
+                busy ||
+                (calendarView === 'day'
+                  ? calendarMonth.slice(0, 7) >= todayKey.slice(0, 7)
+                  : calendarView === 'month'
+                    ? calendarYear >= todayYear
+                    : yearPageStart + 12 > todayYear)
               }
               onPress={() => {
-                const date = localDateFromKey(calendarMonth)!;
-                date.setMonth(date.getMonth() + 1);
-                setCalendarMonth(dateKey(date));
+                if (calendarView === 'day') {
+                  const date = localDateFromKey(calendarMonth)!;
+                  date.setMonth(date.getMonth() + 1);
+                  setCalendarMonth(dateKey(date));
+                  return;
+                }
+                if (calendarView === 'month') {
+                  setCalendarMonth(
+                    String(calendarYear + 1).padStart(4, '0') +
+                      calendarMonth.slice(4),
+                  );
+                  return;
+                }
+                setCalendarMonth(
+                  String(yearPageStart + 12).padStart(4, '0') +
+                    calendarMonth.slice(4),
+                );
               }}
             />
           </View>
-          <View style={{ flexDirection: 'row' }}>
-            {['一', '二', '三', '四', '五', '六', '日'].map((day) => (
-              <Text
-                key={day}
-                style={[
-                  styles.muted,
-                  { width: '14.285714%', textAlign: 'center' },
-                ]}
-              >
-                {day}
-              </Text>
-            ))}
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            {Array.from(
-              { length: calendarOffset + calendarLength },
-              (_, index) => {
-                const day = index - calendarOffset + 1;
-                const key =
-                  calendarMonth.slice(0, 8) + String(day).padStart(2, '0');
-                return day < 1 ? (
-                  <View
-                    key={'blank-' + index}
-                    style={{ width: '14.285714%' }}
-                  />
-                ) : (
+          {calendarView === 'day' ? (
+            <>
+              <View style={{ flexDirection: 'row' }}>
+                {['一', '二', '三', '四', '五', '六', '日'].map((day) => (
+                  <Text
+                    key={day}
+                    style={[
+                      styles.muted,
+                      { width: '14.285714%', textAlign: 'center' },
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                ))}
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                {Array.from(
+                  { length: calendarOffset + calendarLength },
+                  (_, index) => {
+                    const day = index - calendarOffset + 1;
+                    const key =
+                      calendarMonth.slice(0, 8) + String(day).padStart(2, '0');
+                    return day < 1 ? (
+                      <View
+                        key={'blank-' + index}
+                        style={{ width: '14.285714%' }}
+                      />
+                    ) : (
+                      <Pressable
+                        key={key}
+                        accessibilityRole="button"
+                        accessibilityLabel={key}
+                        accessibilityState={{
+                          selected: key === dateInput,
+                          disabled: key > todayKey,
+                        }}
+                        disabled={busy || key > todayKey}
+                        onPress={() => {
+                          setDateInput(key);
+                          setDateError('');
+                        }}
+                        style={{
+                          width: '14.285714%',
+                          minHeight: Platform.OS === 'web' ? 40 : 44,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: 'transparent',
+                          opacity: key > todayKey ? 0.35 : 1,
+                        }}
+                      >
+                        <View
+                          testID="month-date-circle"
+                          style={{
+                            minWidth: 32,
+                            minHeight: 32,
+                            padding: 4,
+                            borderRadius: 999,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor:
+                              key === dateInput
+                                ? colors.primaryContainer
+                                : 'transparent',
+                          }}
+                        >
+                          <Text style={styles.body}>{day}</Text>
+                        </View>
+                      </Pressable>
+                    );
+                  },
+                )}
+              </View>
+            </>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {(calendarView === 'month'
+                ? Array.from({ length: 12 }, (_, index) => index + 1)
+                : Array.from({ length: 12 }, (_, index) => yearPageStart + index)
+              ).map((value) => {
+                const isMonth = calendarView === 'month';
+                const disabled = isMonth
+                  ? calendarYear > todayYear ||
+                    (calendarYear === todayYear && value > todayMonth)
+                  : value > todayYear || value < 1;
+                const selected = isMonth
+                  ? value === calendarMonthNumber
+                  : value === calendarYear;
+                const label = isMonth ? `${value}月` : `${value}年`;
+                return (
                   <Pressable
-                    key={key}
+                    key={label}
+                    testID={isMonth ? 'month-picker-option' : 'year-picker-option'}
                     accessibilityRole="button"
-                    accessibilityLabel={key}
-                    accessibilityState={{
-                      selected: key === dateInput,
-                      disabled: key > dateKey(now),
-                    }}
-                    disabled={busy || key > dateKey(now)}
+                    accessibilityLabel={label}
+                    accessibilityState={{ selected, disabled }}
+                    disabled={busy || disabled}
                     onPress={() => {
-                      setDateInput(key);
-                      setDateError('');
+                      if (isMonth) {
+                        setCalendarMonth(
+                          String(calendarYear).padStart(4, '0') +
+                            '-' +
+                            String(value).padStart(2, '0') +
+                            '-01',
+                        );
+                        setCalendarView('day');
+                        return;
+                      }
+                      const nextMonth =
+                        value === todayYear
+                          ? Math.min(calendarMonthNumber, todayMonth)
+                          : calendarMonthNumber;
+                      setCalendarMonth(
+                        String(value).padStart(4, '0') +
+                          '-' +
+                          String(nextMonth).padStart(2, '0') +
+                          '-01',
+                      );
+                      setCalendarView('month');
                     }}
                     style={{
-                      width: '14.285714%',
+                      width: '25%',
                       minHeight: Platform.OS === 'web' ? 40 : 44,
                       alignItems: 'center',
                       justifyContent: 'center',
                       backgroundColor: 'transparent',
-                      opacity: key > dateKey(now) ? 0.35 : 1,
+                      opacity: disabled ? 0.35 : 1,
                     }}
                   >
                     <View
-                      testID="month-date-circle"
                       style={{
-                        minWidth: 32,
+                        minWidth: 56,
                         minHeight: 32,
-                        padding: 4,
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
                         borderRadius: 999,
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor:
-                          key === dateInput
-                            ? colors.primaryContainer
-                            : 'transparent',
+                        backgroundColor: selected
+                          ? colors.primaryContainer
+                          : 'transparent',
                       }}
                     >
-                      <Text style={styles.body}>{day}</Text>
+                      <Text style={styles.body}>{label}</Text>
                     </View>
                   </Pressable>
                 );
-              },
-            )}
-          </View>
+              })}
+            </View>
+          )}
           <Text style={styles.muted}>
-            已选 {dateInput}。
-            可选择今天或任何过去日期，历史周只补记录，不结转本周。
+            已选 {dateInput}。点击上方年月可切换；可选今天或过去日期，历史周只补记录，不结转本周。
           </Text>
-          <TextInput
-            dense
-            mode="outlined"
-            label="日期（YYYY-MM-DD）"
-            placeholder="例如 2026-10-19"
-            value={dateInput}
-            onChangeText={setDateInput}
-            keyboardType="numbers-and-punctuation"
-            disabled={busy}
-          />
           <ErrorText message={dateError} />
           <View style={styles.actions}>
             <ActionButton
@@ -850,7 +1083,7 @@ export function TodayScreen() {
                   !localDateFromKey(dateInput) ||
                   dateInput > dateKey(new Date())
                 ) {
-                  setDateError('请输入有效的今天或过去日期');
+                  setDateError('请选择有效的今天或过去日期');
                   return;
                 }
                 setPickedDate(dateInput);
@@ -968,26 +1201,33 @@ export function TodayScreen() {
       </FormModal>
       <Confirm
         visible={!!confirm}
+        danger={confirm?.type === 'delete'}
         tone={
           confirm?.type === 'archive'
             ? 'archive'
             : confirm?.type === 'redeem'
               ? 'reward'
-              : 'save'
+              : confirm?.type === 'delete'
+                ? 'danger'
+                : 'save'
         }
         title={
           confirm?.type === 'redeem'
             ? '兑换一张奖券？'
             : confirm?.type === 'archive'
               ? '归档这个任务？'
-              : '撤销最近一次打卡？'
+              : confirm?.type === 'delete'
+                ? '删除这个任务？'
+                : '撤销最近一次打卡？'
         }
         description={
           confirm?.type === 'redeem'
             ? `消耗本周 ${state.settings.threshold} 次未兑换打卡。未兑换的打卡次数不会结转下周。`
             : confirm?.type === 'archive'
               ? `「${confirm.task?.name}」会移至更多中的归档任务，历史记录保留，可随时恢复。`
-              : `仅撤销 ${confirm?.date} 最近一次记录。已用于兑换的次数不能撤销。`
+              : confirm?.type === 'delete'
+                ? `「${confirm.task?.name}」删除后不会出现在归档任务，也不能恢复。历史打卡仍计入周统计。`
+                : `仅撤销 ${confirm?.date} 最近一次记录。已用于兑换的次数不能撤销。`
         }
         busy={busy}
         error={error}

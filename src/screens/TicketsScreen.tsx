@@ -54,6 +54,8 @@ export function TicketsScreen() {
         style={styles.listViewport}
         data={rows}
         keyExtractor={(row) => row.key}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={

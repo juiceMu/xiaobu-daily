@@ -21,6 +21,7 @@ import {
 const NOW = new Date(2026, 9, 21, 10);
 test('补卡保存真实创建时间，归属发生日和历史周，不能兑换或结转本周', () => {
   const state = createInitialState();
+  state.tasks[0].target = 3;
   for (let index = 0; index < 3; index += 1)
     assert.equal(checkIn(state, 'task-1', NOW, '2026-10-18').ok, true);
   assert.equal(state.checkins[0].date, '2026-10-18');
@@ -48,6 +49,7 @@ test('历史周已经兑换的次数仍受撤销保护，只能撤销后来新�
   const state = createInitialState();
   const previousNow = new Date(2026, 9, 18, 10);
   updateSettings(state, { threshold: 1 });
+  state.tasks[0].target = 2;
   assert.equal(checkIn(state, 'task-1', previousNow).ok, true);
   assert.equal(redeemTicket(state, previousNow).ok, true);
   assert.equal(undoCheckIn(state, 'task-1', NOW, '2026-10-18').ok, false);

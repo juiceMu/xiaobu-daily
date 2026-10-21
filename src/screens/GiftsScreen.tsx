@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View } from 'react-native';
+import React, { useState, type ComponentType } from 'react';
+import { Keyboard, Platform, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import * as Crypto from 'expo-crypto';
 import {
@@ -27,9 +27,9 @@ import {
   SectionTitle,
 } from '../ui/components';
 import { AppTextInput } from '../ui/AppTextInput';
-import { GiftQrCode } from '../ui/GiftQrCode';
-import { GiftScanner } from '../ui/GiftScanner';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
+import type { GiftScannerProps } from '../ui/GiftScanner';
+import { useAndroidMountReady } from '../ui/useAndroidMountReady';
 import {
   Confirm,
   confirmDiscard,
@@ -43,6 +43,7 @@ export function GiftsScreen() {
   const styles = useScreenStyles();
   const navigation = useNavigation<NavigationProp<{ account: undefined }>>();
   const focused = useIsFocused();
+  const mountReady = useAndroidMountReady();
   const profile = state.giftState?.profile;
   const [savedGiftName, setSavedGiftName] = useState(
     () => state.giftState?.outgoing.at(-1)?.name ?? '心意券',
@@ -52,6 +53,11 @@ export function GiftsScreen() {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [scanner, setScanner] = useState(false);
+  const [ScannerView, setScannerView] =
+    useState<ComponentType<GiftScannerProps> | null>(null);
+  const [QrView, setQrView] = useState<ComponentType<{
+    value: string;
+  }> | null>(null);
   const [selected, setSelected] = useState<GiftEnvelope | null>(null);
   const [incoming, setIncoming] = useState<GiftEnvelope | null>(null);
   const [receiptQr, setReceiptQr] = useState<GiftReceipt | null>(null);
@@ -69,6 +75,11 @@ export function GiftsScreen() {
         () => navigation.dispatch(data.action),
       );
   });
+  async function ensureQr() {
+    if (QrView) return;
+    const module = await import('../ui/GiftQrCode');
+    setQrView(() => module.GiftQrCode);
+  }
   async function makeGift() {
     let giftId: string, ticketId: string;
     try {
@@ -87,6 +98,7 @@ export function GiftsScreen() {
       ),
     );
     if (result.ok && result.gift) {
+      await ensureQr();
       setConfirmCreate(false);
       setGiftName(result.gift.name);
       setSavedGiftName(result.gift.name);
@@ -146,6 +158,12 @@ export function GiftsScreen() {
       title="把心意，做成一张券"
       subtitle="制作新心意券，不消耗或转移已有奖励券。"
     >
+      {!mountReady ? (
+        <Panel>
+          <View collapsable={false} style={{ minHeight: 120 }} />
+        </Panel>
+      ) : (
+        <>
       <Panel>
         <Text style={styles.muted}>
           这是离线赠券。同一码可能被其他设备重复领取；这里只记录本机的发出和收到。昵称与身份仅保存在本机，并非云账号。券码和回执没有防伪认证，请与熟悉的人确认。
@@ -158,7 +176,7 @@ export function GiftsScreen() {
           <Text style={styles.heading}>{profile?.name ?? '尚未设置昵称'}</Text>
         </View>
         {profile && (
-          <Text selectable style={styles.muted}>
+          <Text selectable={Platform.OS !== 'android'} style={styles.muted}>
             身份编号：{profile.id}
           </Text>
         )}
@@ -166,7 +184,10 @@ export function GiftsScreen() {
           tone="save"
           mode="contained"
           disabled={busy}
-          onPress={() => navigation.navigate('account')}
+          onPress={() => {
+            Keyboard.dismiss();
+            navigation.navigate('account');
+          }}
         >
           {profile ? '编辑账户资料' : '设置头像和昵称'}
         </ActionButton>
@@ -218,7 +239,12 @@ export function GiftsScreen() {
           disabled={!profile || busy}
           onPress={() => {
             setError('');
-            setScanner(true);
+            void import('../ui/GiftScanner')
+              .then((module) => {
+                setScannerView(() => module.GiftScanner);
+                setScanner(true);
+              })
+              .catch(() => setError('暂时无法打开相机，请改用粘贴券码。'));
           }}
         >
           打开相机扫码
@@ -276,7 +302,11 @@ export function GiftsScreen() {
                     </Text>
                   ))}
               </View>
-              <ActionButton onPress={() => setSelected(gift)}>
+              <ActionButton
+                onPress={() => {
+                  void ensureQr().then(() => setSelected(gift));
+                }}
+              >
                 查看券码
               </ActionButton>
             </View>
@@ -304,7 +334,11 @@ export function GiftsScreen() {
                   本机已领取 · {formatDate(receipt.receivedAt)}
                 </Text>
               </View>
-              <ActionButton onPress={() => setReceiptQr(receipt)}>
+              <ActionButton
+                onPress={() => {
+                  void ensureQr().then(() => setReceiptQr(receipt));
+                }}
+              >
                 出示回执
               </ActionButton>
             </View>
@@ -338,11 +372,14 @@ export function GiftsScreen() {
         {receiptQr && (
           <View style={styles.form}>
             <Text style={styles.heading}>{receiptQr.gift.name}</Text>
-            <GiftQrCode value={exportGiftReceipt(receiptQr)} />
+            {QrView ? <QrView value={exportGiftReceipt(receiptQr)} /> : null}
             <Text style={styles.muted}>
               请赠送方打开「赠送与领取」扫码记录。回执只表示本机领取记录，没有防伪认证，也不是云端唯一凭证。
             </Text>
-            <Text selectable style={styles.muted}>
+            <Text
+              selectable={Platform.OS !== 'android'}
+              style={styles.muted}
+            >
               {exportGiftReceipt(receiptQr)}
             </Text>
           </View>
@@ -394,11 +431,14 @@ export function GiftsScreen() {
                 ? `${formatDate(selected.expiresAt)} 到期`
                 : '永久有效'}
             </Text>
-            <GiftQrCode value={exportGift(selected)} />
+            {QrView ? <QrView value={exportGift(selected)} /> : null}
             <Text style={styles.muted}>
               已制作并保存在本机；展示二维码不代表对方已经领取。离线券码可被不同设备重复领取，请勿公开传播。
             </Text>
-            <Text selectable style={styles.muted}>
+            <Text
+              selectable={Platform.OS !== 'android'}
+              style={styles.muted}
+            >
               {exportGift(selected)}
             </Text>
             <Text style={styles.muted}>
@@ -412,8 +452,8 @@ export function GiftsScreen() {
         title="扫描赠券"
         onDismiss={() => setScanner(false)}
       >
-        {scanner && focused && (
-          <GiftScanner
+        {scanner && focused && ScannerView && (
+          <ScannerView
             onScan={(value) => {
               setScanner(false);
               preview(value);
@@ -422,6 +462,8 @@ export function GiftsScreen() {
           />
         )}
       </FormModal>
+        </>
+      )}
     </Page>
   );
 }

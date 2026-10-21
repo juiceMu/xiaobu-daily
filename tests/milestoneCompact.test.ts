@@ -29,7 +29,7 @@ function functionSource(name: string) {
 test('目标胶囊Web透明ripple去悬停铺底，原生反馈和独立键盘焦点保留', () => {
   const tab = functionSource('MilestoneTab');
   for (const value of [
-    "Platform.OS === 'web' ? 'transparent' : undefined",
+    "rippleColor={'transparent'}",
     'useKeyboardFocus()',
     'onFocus={keyboardFocus.onFocus}',
     'onBlur={keyboardFocus.onBlur}',

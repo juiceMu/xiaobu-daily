@@ -88,7 +88,12 @@ test('同步上锁阻止快速重复点击，后续操作使用最新已持久�
   assert.equal((await first).ok, true);
   assert.equal(store.getSnapshot().state?.checkins.length, 1);
   assert.equal(
-    (await store.run((state) => checkIn(state, 'task-1', NOW))).ok,
+    (
+      await store.run((state) => {
+        state.tasks[0].target = 2;
+        return checkIn(state, 'task-1', NOW);
+      })
+    ).ok,
     true,
   );
   assert.equal(store.getSnapshot().state?.checkins.length, 2);

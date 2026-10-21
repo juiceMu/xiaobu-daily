@@ -23,10 +23,12 @@ export function ProfileAvatar({
   size?: number;
 }) {
   const { colors } = useAppTheme();
+  // 大图 data URI 进页立刻解码易拖垮低端机；先占位再由父页延迟展示。
   return avatar.kind === 'image' ? (
     <Image
       source={{ uri: avatar.dataUri }}
       accessibilityLabel="本机账户头像"
+      resizeMethod="resize"
       style={{ width: size, height: size, borderRadius: size / 2 }}
     />
   ) : (

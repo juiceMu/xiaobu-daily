@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
+import {
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  View,
+} from 'react-native';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { Icon, Switch, Text, TouchableRipple } from 'react-native-paper';
@@ -30,6 +36,7 @@ import { useKeyboardFocus } from '../ui/useKeyboardFocus';
 import { TimeField } from '../ui/TimeField';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { DemoHistoryPanel } from '../ui/DemoHistoryPanel';
+import { useAndroidMountReady } from '../ui/useAndroidMountReady';
 import { Confirm, confirmDiscard, ErrorText, useScreenStyles } from './shared';
 
 export type MoreRoute =
@@ -74,7 +81,7 @@ export function MoreScreen({
       route: 'archived',
       title: '已归档任务',
       description:
-        state.tasks.filter((task) => task.archived).length +
+        state.tasks.filter((task) => task.archived && !task.deleted).length +
         ' 个任务，历史打卡妥善保留',
       icon: 'archive-outline',
       color: colors.peach,
@@ -91,10 +98,13 @@ export function MoreScreen({
     <Page title="留一点空间，给自己" subtitle="目标、记录和奖励，都在这里。">
       <View style={[styles.column, styles.listHeader]}>
         <TouchableRipple
-          onPress={() => onNavigate('account')}
+          onPress={() => {
+            Keyboard.dismiss();
+            onNavigate('account');
+          }}
           accessibilityRole="button"
           accessibilityLabel="账户资料"
-          style={{ borderRadius: 24 }}
+          style={{ borderRadius: 18, overflow: 'hidden' }}
         >
           <Panel style={styles.card}>
             <View style={styles.row}>
@@ -120,7 +130,7 @@ export function MoreScreen({
             onPress={() => onNavigate(entry.route)}
             accessibilityRole="button"
             accessibilityLabel={entry.title}
-            style={{ borderRadius: 24 }}
+            style={{ borderRadius: 18, overflow: 'hidden' }}
           >
             <Panel style={styles.card}>
               <View style={styles.row}>
@@ -154,10 +164,12 @@ export function GrowthScreen() {
   const stats = getWeekStats(state, day);
   const week = weekKey(day);
   const max = Math.max(1, ...stats.days.map((entry) => entry.count));
-  const tasks = state.tasks.filter((task) =>
-    state.checkins.some(
-      (entry) => entry.taskId === task.id && entry.week === week,
-    ),
+  const tasks = state.tasks.filter(
+    (task) =>
+      !task.deleted &&
+      state.checkins.some(
+        (entry) => entry.taskId === task.id && entry.week === week,
+      ),
   );
   return (
     <Page
@@ -169,6 +181,8 @@ export function GrowthScreen() {
         style={styles.listViewport}
         data={tasks}
         keyExtractor={(task) => task.id}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
@@ -248,7 +262,11 @@ export function GrowthScreen() {
         ListEmptyComponent={
           <Empty
             title="这一周还很安静"
-            description="去今日打卡完成一个小任务，再回来看看吧。"
+            description={
+              stats.total > 0
+                ? '本周次数已计入上方统计，已删除的任务不再单独列出。'
+                : '去今日打卡完成一个小任务，再回来看看吧。'
+            }
           />
         }
         renderItem={({ item }) => (
@@ -304,8 +322,10 @@ export function ArchivedScreen() {
     >
       <FlatList
         style={styles.listViewport}
-        data={state.tasks.filter((task) => task.archived)}
+        data={state.tasks.filter((task) => task.archived && !task.deleted)}
         keyExtractor={(task) => task.id}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
@@ -392,6 +412,7 @@ export function SettingsScreen() {
   const { state, busy, run } = useApp();
   const navigation = useNavigation();
   const headerHeight = useHeaderHeight();
+  const mountReady = useAndroidMountReady();
   const [threshold, setThreshold] = useState(String(state.settings.threshold));
   const [rewardName, setRewardName] = useState(state.settings.rewardName);
   const [expiryEnabled, setExpiryEnabled] = useState(
@@ -441,6 +462,12 @@ export function SettingsScreen() {
         title="给努力，一点小奖励"
         subtitle="规则和颜色，都可以按自己的节奏来。"
       >
+        {!mountReady ? (
+          <Panel style={styles.card}>
+            <View collapsable={false} style={{ minHeight: 120 }} />
+          </Panel>
+        ) : (
+          <>
         <Panel style={styles.card}>
           <View style={styles.form}>
             <Text accessibilityRole="header" style={styles.heading}>
@@ -572,6 +599,8 @@ export function SettingsScreen() {
           </View>
         </Panel>
         {__DEV__ && <DemoHistoryPanel />}
+          </>
+        )}
       </Page>
     </KeyboardAvoidingView>
   );
@@ -596,6 +625,7 @@ function ThemeChoice({
     <TouchableRipple
       onPress={onPress}
       disabled={disabled}
+      rippleColor="transparent"
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
       onFocus={focus.onFocus}
@@ -605,6 +635,7 @@ function ThemeChoice({
       accessibilityState={{ checked: selected, disabled }}
       style={{
         borderRadius: 12,
+        overflow: 'hidden',
         minHeight: 48,
         borderWidth: 0,
         backgroundColor:

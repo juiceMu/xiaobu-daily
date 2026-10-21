@@ -11,6 +11,7 @@ export interface Task {
   color: string;
   target: number;
   archived: boolean;
+  deleted?: boolean;
 }
 
 export interface Checkin {

@@ -109,7 +109,10 @@ export function AppProvider({
             <Text style={styles.detail}>
               原始数据已保留，不会自动清空或覆盖。请检查设备存储后重试。
             </Text>
-            <Text selectable style={styles.detail}>
+            <Text
+              selectable={Platform.OS !== 'android'}
+              style={styles.detail}
+            >
               {snapshot.error}
             </Text>
             <Button

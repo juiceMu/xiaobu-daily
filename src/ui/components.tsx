@@ -63,6 +63,9 @@ export function Page({
       {scroll ? (
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          removeClippedSubviews={false}
           contentContainerStyle={[
             styles.content,
             { paddingHorizontal: gutter },
@@ -133,7 +136,6 @@ export const ActionButton = forwardRef<
     disabled,
     compact = true,
     theme: themeOverrides,
-    rippleColor,
     onPointerEnter,
     onPointerLeave,
     onFocus,
@@ -181,7 +183,12 @@ export const ActionButton = forwardRef<
     (buttonColor === colors.danger
       ? buttonTheme.colors.onError
       : tones[actionTone].text);
-  const active = isWeb && !disabled && (hovered || pressed);
+  // 已选中只保留选中底色；悬停只在网页，避免触摸 pointer 残留导致筛选切换闪烁。
+  const selected = accessibilityState?.selected === true;
+  const active =
+    !disabled &&
+    !selected &&
+    ((isWeb && hovered) || pressed);
   const base = fill === 'transparent' ? colors.surface : fill;
   const strength = pressed ? 0.12 : 0.07;
   // 按压和悬停仅叠加底色，轮廓只用于键盘焦点。
@@ -210,13 +217,14 @@ export const ActionButton = forwardRef<
       theme={themeOverrides}
       buttonColor="transparent"
       textColor={foreground}
-      rippleColor={isWeb ? 'transparent' : rippleColor}
+      rippleColor={'transparent'}
       onPointerEnter={(event) => {
         if (isWeb && !disabled) setHovered(true);
         onPointerEnter?.(event);
       }}
       onPointerLeave={(event) => {
         setHovered(false);
+        setPressed(false);
         onPointerLeave?.(event);
       }}
       onFocus={(event) => {
@@ -229,7 +237,7 @@ export const ActionButton = forwardRef<
         onBlur?.(event);
       }}
       onPressIn={(event) => {
-        if (isWeb && !disabled) setPressed(true);
+        if (!disabled) setPressed(true);
         onPressIn?.(event);
       }}
       onPressOut={(event) => {
@@ -244,7 +252,12 @@ export const ActionButton = forwardRef<
       }
       style={[
         styles.button,
-        isWeb && { minWidth: 40, minHeight: 40 },
+        isWeb && {
+          minWidth: 40,
+          minHeight: 40,
+          // @ts-expect-error RNW 支持关闭过渡，避免筛选切换闪烁
+          transitionDuration: '0ms',
+        },
         style,
         { backgroundColor: 'transparent', borderWidth: 0 },
       ]}
@@ -269,8 +282,13 @@ export const ActionButton = forwardRef<
           borderWidth: 0,
         },
         contentStyle,
-        isWeb && {
+        {
           backgroundColor: active ? feedbackFill : fill,
+          ...(isWeb
+            ? ({ transitionDuration: '0ms' } as ViewStyle)
+            : null),
+        },
+        isWeb && {
           outlineWidth: !disabled && keyboardFocus.focusVisible ? 2 : 0,
           outlineStyle: 'solid',
           outlineColor: foreground,
@@ -369,9 +387,20 @@ function IconChoice({
   const { colors } = useAppTheme();
   const styles = useStyles();
   const keyboardFocus = useKeyboardFocus();
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const hot = hovered || pressed;
   return (
     <TouchableRipple
       onPress={onPress}
+      rippleColor={'transparent'}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => {
+        setHovered(false);
+        setPressed(false);
+      }}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
       onFocus={keyboardFocus.onFocus}
       onBlur={keyboardFocus.onBlur}
       accessibilityRole="radio"
@@ -381,6 +410,8 @@ function IconChoice({
         styles.iconButton,
         {
           backgroundColor: 'transparent',
+          overflow: 'hidden',
+          borderRadius: 10,
           outlineWidth: keyboardFocus.focusVisible ? 2 : 0,
           outlineStyle: 'solid',
           outlineColor: colors.primary,
@@ -392,7 +423,11 @@ function IconChoice({
         style={[
           styles.iconContent,
           {
-            backgroundColor: selected ? colors.selectedIcon : colors.field,
+            backgroundColor: selected
+              ? colors.selectedIcon
+              : hot
+                ? colors.primaryContainer
+                : colors.field,
           },
         ]}
       >
@@ -417,6 +452,8 @@ export function FormModal({
   children: ReactNode;
 }) {
   const styles = useStyles();
+  // 不可见时不挂 Modal，避免进页一次挂多个原生窗口。
+  if (!visible) return null;
   return (
     <Modal
       visible={visible}
@@ -438,10 +475,12 @@ export function FormModal({
             accessibilityLabel="关闭表单"
             size={16}
             hitSlop={0}
+            rippleColor={'transparent'}
             style={{
               margin: 0,
               width: Platform.OS === 'web' ? 32 : 44,
               height: Platform.OS === 'web' ? 32 : 44,
+              borderRadius: Platform.OS === 'web' ? 16 : 22,
               backgroundColor: 'transparent',
             }}
             onPress={onDismiss}
@@ -453,6 +492,9 @@ export function FormModal({
         >
           <ScrollView
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            removeClippedSubviews={false}
             contentContainerStyle={styles.formContent}
           >
             {children}

@@ -30,6 +30,7 @@ export function TimeField({
       <TouchableRipple
         disabled={disabled}
         onPress={open}
+        rippleColor="transparent"
         accessibilityRole="button"
         accessibilityLabel={label + '，' + value + '，点击选择时间'}
         style={styles.trigger}
@@ -39,6 +40,7 @@ export function TimeField({
           <Icon source="clock-outline" size={18} color={colors.primary} />
         </View>
       </TouchableRipple>
+      {visible ? (
       <Modal
         visible={visible}
         transparent
@@ -58,7 +60,7 @@ export function TimeField({
                   <ScrollView
                     style={styles.options}
                     contentContainerStyle={{ gap: 4 }}
-                    showsVerticalScrollIndicator
+                    showsVerticalScrollIndicator={false}
                   >
                     {Array.from(
                       { length: column === 0 ? 24 : 60 },
@@ -111,6 +113,7 @@ export function TimeField({
           </View>
         </View>
       </Modal>
+      ) : null}
     </View>
   );
 }
@@ -122,6 +125,7 @@ const createStyles = (colors: AppColors) =>
       minHeight: 44,
       borderWidth: 0,
       borderRadius: 12,
+      overflow: 'hidden',
       backgroundColor: colors.field,
     },
     triggerContent: {

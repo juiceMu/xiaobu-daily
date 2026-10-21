@@ -59,7 +59,7 @@ test('周月日期仅独立32起步浅蓝圆形选中，列透明且不插入勾
   }
   assert.ok(text.includes('已选'));
   assert.ok(text.includes('disabled={busy || calendar.isFuture}'));
-  assert.ok(text.includes('disabled={busy || key > dateKey(now)}'));
+  assert.ok(text.includes('disabled={busy || key > todayKey}'));
 });
 
 test('颜色选择使用实际tint圆点、12字和已选文本，触控48且保留禁用与按压反馈', () => {
@@ -92,8 +92,25 @@ test('日期前后按钮图标18，Web32原生44并保留键盘焦点和读屏�
     'next-week',
     'previous-month',
     'next-month',
+    'previous-year',
+    'next-year',
+    'previous-years',
+    'next-years',
   ])
-    assert.ok(text.includes("dateNavigationProps('" + id + "')"));
-  for (const label of ['查看上一周', '查看下一周', '日历上一月', '日历下一月'])
-    assert.ok(text.includes('accessibilityLabel="' + label + '"'));
+    assert.ok(text.includes("'" + id + "'"));
+  for (const label of [
+    '查看上一周',
+    '查看下一周',
+    '日历上一月',
+    '日历下一月',
+    '日历上一年',
+    '日历下一年',
+    '选择月份和年份',
+    '选择年份',
+  ])
+    assert.ok(text.includes("'" + label + "'") || text.includes('"' + label + '"'));
+  assert.ok(text.includes("calendarView === 'month'"));
+  assert.ok(text.includes("calendarView === 'year'"));
+  assert.equal(text.includes('日期（YYYY-MM-DD）'), false);
+  assert.equal(text.includes('例如 2026-10-19'), false);
 });

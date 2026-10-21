@@ -96,7 +96,9 @@ function project(state: AppState, sync: SyncState, clock?: SyncClock) {
     if (result.has(key)) fail();
     result.set(key, { type, id, payload: canonical(data), deleted });
   }
-  for (const type of ['tasks', 'checkins', 'tickets', 'redemptions'] as const)
+  for (const item of state.tasks)
+    add('tasks', item.id, item, !!item.deleted);
+  for (const type of ['checkins', 'tickets', 'redemptions'] as const)
     for (const item of state[type]) add(type, item.id, item);
   for (const goal of [state.weight, ...state.milestoneGoals]) {
     const { entries, ...details } = goal;
@@ -340,7 +342,8 @@ export function validateSync(
           !hasText('color') ||
           !Number.isInteger(payload.target) ||
           Number(payload.target) < 1 ||
-          typeof payload.archived !== 'boolean'
+          typeof payload.archived !== 'boolean' ||
+          (payload.deleted !== undefined && typeof payload.deleted !== 'boolean')
         )
           fail();
         break;

@@ -1,7 +1,7 @@
 import { validateGiftState } from './giftCore.mjs';
 import { ICON_KEYS } from './iconCatalog.mjs';
 import { milestoneUnitError } from './milestoneUnit.mjs';
-const DAY_NAMES = ['喝水', '阅读', '运动', '早睡'];
+const DAY_NAMES = ['早睡', '运动'];
 let sequence = 0;
 const makeId = (prefix) => `${prefix}-${Date.now().toString(36)}-${(++sequence).toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const success = (message, extra = {}) => ({ ok: true, message, ...extra });
@@ -15,6 +15,7 @@ const LEGACY_GOAL_ID = 'legacy-weight';
 export const MILESTONE_ICONS = ICON_KEYS;
 export const DEFAULT_MILESTONE_ICON = '🌱';
 const validMilestoneIcon = (icon) => typeof icon === 'string' && MILESTONE_ICONS.includes(icon);
+const isActiveTask = (task) => task && !task.deleted;
 
 // 先校验原始词法再转数值，不能将指数、布尔或残缺小数静默转换成合法值。
 export function numericInputError(input, kind, min, max) {
@@ -49,9 +50,9 @@ export function createInitialState(now = new Date()) {
     version: 4,
     tasks: DAY_NAMES.map((name, index) => ({
       id: `task-${index + 1}`, name,
-      icon: ['💧', '📖', '🏃', '🌙'][index],
-      color: ['blue', 'peach', 'green', 'purple'][index],
-      target: index === 0 ? 3 : 1, archived: false,
+      icon: ['🌙', '🏃'][index],
+      color: ['purple', 'green'][index],
+      target: 1, archived: false,
     })),
     checkins: [], tickets: [], redemptions: [],
     weight: { id: LEGACY_GOAL_ID, ...DEFAULT_GOAL, enabled: false, startWeight: null, entries: [], unlockedMilestones: [] },
@@ -77,7 +78,7 @@ export function migrateState(saved) {
     if (!Array.isArray(state[name]) || state[name].some((entry) => !isObject(entry) || !isText(entry.id))) invalid();
     if (new Set(state[name].map((entry) => entry.id)).size !== state[name].length) invalid();
   }
-  if (state.tasks.some((task) => validateTask(task) || typeof task.target !== 'number' || typeof task.archived !== 'boolean')) invalid();
+  if (state.tasks.some((task) => validateTask(task) || typeof task.target !== 'number' || typeof task.archived !== 'boolean' || (task.deleted !== undefined && typeof task.deleted !== 'boolean'))) invalid();
   if (!isObject(state.settings) || typeof state.settings.threshold !== 'number' || typeof state.settings.expiryDay !== 'number' || !updateSettings({ settings: { ...state.settings } }, {}).ok) invalid();
   const taskIds = new Set(state.tasks.map((task) => task.id));
   const ticketIds = new Set(state.tickets.map((ticket) => ticket.id));
@@ -174,8 +175,8 @@ export function checkIn(state, taskId, now = new Date(), occurredDate) {
   const selected = occurrenceDate(now, occurredDate);
   if (!selected) return failure('请选择有效的今天或过去日期，不能提前打卡');
   const historical = dateKey(selected) < dateKey(now);
-  const task = state.tasks.find((entry) => entry.id === taskId && (!entry.archived || historical));
-  if (!task) return failure('任务不存在或已归档');
+  const task = state.tasks.find((entry) => entry.id === taskId && isActiveTask(entry) && (!entry.archived || historical));
+  if (!task) return failure('任务不存在、已删除或已归档');
   if (getTaskCount(state, taskId, selected) >= task.target) return failure('所选日期的打卡目标已完成');
   state.checkins.push({ id: makeId('checkin'), taskId, date: dateKey(selected), week: weekKey(selected), createdAt: asDate(now).toISOString() });
   return success(historical ? '补卡成功，记录已计入发生日期所在周' : '打卡成功，继续加油！');
@@ -407,8 +408,8 @@ export function addTask(state, input) {
 }
 
 export function updateTask(state, id, input) {
-  const task = state.tasks.find((entry) => entry.id === id && !entry.archived);
-  if (!task) return failure('任务不存在或已归档');
+  const task = state.tasks.find((entry) => entry.id === id && isActiveTask(entry) && !entry.archived);
+  if (!task) return failure('任务不存在、已删除或已归档');
   const next = { name: input.name ?? task.name, target: Object.hasOwn(input, 'target') ? input.target : task.target, icon: input.icon ?? task.icon, color: input.color ?? task.color };
   const error = validateTask(next);
   if (error) return failure(error);
@@ -417,17 +418,25 @@ export function updateTask(state, id, input) {
 }
 
 export function archiveTask(state, id) {
-  const task = state.tasks.find((entry) => entry.id === id && !entry.archived);
-  if (!task) return failure('任务不存在或已归档');
+  const task = state.tasks.find((entry) => entry.id === id && isActiveTask(entry) && !entry.archived);
+  if (!task) return failure('任务不存在、已删除或已归档');
   task.archived = true;
   return success('任务已归档，历史打卡已保留');
 }
 
 export function restoreTask(state, id) {
-  const task = state.tasks.find((entry) => entry.id === id && entry.archived);
-  if (!task) return failure('已归档任务不存在');
+  const task = state.tasks.find((entry) => entry.id === id && isActiveTask(entry) && entry.archived);
+  if (!task) return failure('已归档任务不存在或已删除');
   task.archived = false;
   return success('任务已恢复，历史打卡保持不变');
+}
+
+export function deleteTask(state, id) {
+  const task = state.tasks.find((entry) => entry.id === id && isActiveTask(entry));
+  if (!task) return failure('任务不存在或已删除');
+  // 删除与归档分离：墓碑保留打卡引用，且不会出现在归档列表。
+  Object.assign(task, { deleted: true, archived: false });
+  return success('任务已删除，历史打卡仍计入统计，不会出现在归档');
 }
 
 export function updateSettings(state, input) {

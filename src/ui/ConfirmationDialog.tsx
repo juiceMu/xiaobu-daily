@@ -24,6 +24,8 @@ export function ConfirmationDialog({
   busy?: boolean;
 }) {
   const { colors } = useAppTheme();
+  // 不可见时不挂 Modal，避免进页一次挂多个原生窗口。
+  if (!visible) return null;
   return (
     <Modal
       visible={visible}
@@ -73,6 +75,8 @@ export function ConfirmationDialog({
             </Text>
             <ScrollView
               keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
               style={{ flexShrink: 1 }}
               contentContainerStyle={{ gap: 8 }}
             >

@@ -66,12 +66,12 @@ test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与
     assert.ok(style?.includes('width: taskActionSize'));
     assert.ok(style?.includes('height: taskActionSize'));
     assert.ok(style?.includes('margin: 0'));
-    assert.ok(style?.includes("backgroundColor: 'transparent'"));
+    assert.ok(style?.includes("'transparent'"));
     assert.equal(prop(button, 'size'), '18');
     assert.equal(prop(button, 'hitSlop'), '0');
     assert.equal(
       prop(button, 'rippleColor'),
-      "Platform.OS === 'web' ? 'transparent' : undefined",
+      "'transparent'",
     );
     assert.ok(prop(button, 'onFocus')?.includes('setFocusedAction'));
     assert.ok(prop(button, 'onBlur')?.includes('setFocusedAction(null)'));

@@ -144,7 +144,8 @@ test('统一按钮原生48网页40dp触控且视觉30dp，不依赖扩展命中�
   );
   assert.match(source, /button:\s*\{[^}]*minHeight:\s*48/s);
   assert.match(source, /minHeight:\s*30/);
-  assert.ok(source.includes('minWidth: 40, minHeight: 40'));
+  assert.ok(source.includes('minWidth: 40'));
+  assert.ok(source.includes('minHeight: 40'));
   assert.ok(source.includes('marginVertical: isWeb ? 5 : 9'));
   assert.match(source, /backgroundColor:\s*['"]transparent['"]/);
   assert.match(source, /fontSize:\s*12/);
@@ -231,7 +232,8 @@ test('图标与关闭控件视觉缩小但保留真实触控和固定文字选�
   assert.ok(
     text.includes("neutral: { fill: 'transparent', text: colors.muted }"),
   );
-  assert.ok(text.includes('selected ? colors.selectedIcon : colors.field'));
+  assert.ok(text.includes('? colors.selectedIcon'));
+  assert.ok(text.includes(': colors.field'));
   assert.ok(text.includes('selected ? colors.surface : colors.primary'));
   assert.equal(text.includes('source="check"'), false);
   const close = text.slice(
@@ -283,10 +285,7 @@ test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留�
     );
     return value.expression;
   }
-  assert.equal(
-    attribute('rippleColor').getText(source),
-    "isWeb ? 'transparent' : rippleColor",
-  );
+  assert.equal(attribute('rippleColor').getText(source), "'transparent'");
   assert.equal(attribute('ref').getText(source), 'ref');
   const content = attribute('contentStyle');
   assert.ok(ts.isArrayLiteralExpression(content));
@@ -295,11 +294,9 @@ test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留�
   );
   assert.ok(callerIndex >= 0);
   const feedback = content.elements[callerIndex + 1];
-  assert.ok(ts.isBinaryExpression(feedback));
-  assert.equal(feedback.left.getText(source), 'isWeb');
-  assert.ok(ts.isObjectLiteralExpression(feedback.right));
+  assert.ok(ts.isObjectLiteralExpression(feedback));
   const feedbackStyles = new Map(
-    feedback.right.properties
+    feedback.properties
       .filter(ts.isPropertyAssignment)
       .map((property) => [
         property.name.getText(source),
@@ -311,11 +308,6 @@ test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留�
     'active ? feedbackFill : fill',
   );
   assert.equal(
-    feedbackStyles.get('outlineWidth'),
-    '!disabled && keyboardFocus.focusVisible ? 2 : 0',
-  );
-  assert.equal(feedbackStyles.get('outlineOffset'), '-2');
-  assert.equal(
     feedbackStyles.has('borderRadius'),
     false,
     '状态层不可覆盖调用方的18dp胶囊圆角',
@@ -325,6 +317,23 @@ test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留�
     false,
     '状态层不可用固定高度阻断系统文字缩放',
   );
+  const outline = content.elements[callerIndex + 2];
+  assert.ok(ts.isBinaryExpression(outline));
+  assert.equal(outline.left.getText(source), 'isWeb');
+  assert.ok(ts.isObjectLiteralExpression(outline.right));
+  const outlineStyles = new Map(
+    outline.right.properties
+      .filter(ts.isPropertyAssignment)
+      .map((property) => [
+        property.name.getText(source),
+        property.initializer.getText(source),
+      ]),
+  );
+  assert.equal(
+    outlineStyles.get('outlineWidth'),
+    '!disabled && keyboardFocus.focusVisible ? 2 : 0',
+  );
+  assert.equal(outlineStyles.get('outlineOffset'), '-2');
   for (const event of [
     'onPointerEnter',
     'onPointerLeave',
@@ -340,7 +349,11 @@ test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留�
       event + ' 必须保留调用方回调',
     );
   }
-  assert.ok(text.includes('isWeb && !disabled && (hovered || pressed)'));
+  assert.ok(
+    text.includes('!disabled') &&
+      text.includes('!selected') &&
+      text.includes('(isWeb && hovered) || pressed'),
+  );
   assert.ok(text.includes('minWidth: 48'));
   assert.ok(text.includes('minHeight: 48'));
 });
