@@ -15,13 +15,28 @@ import {
   recordMilestoneValue,
   redeemTicket,
   setMilestoneEnabled,
+  updateLocalProfile,
+  updateSettings,
   useTicket as consumeTicket,
   weekKey,
   type ActionResult,
   type AppState,
+  type GroupPeer,
+  type PersistedAppState,
 } from './engine';
+import { createGroup, joinGroup, leaveGroup } from './groupSync';
+import { commitSync, exportAccountJournal, initializeSync } from './syncModel';
 
 const DEMO_MARKER = 'demo-history-v1-reading';
+const DEMO_GROUP_ID = 'demo-group-0001';
+const DEMO_GROUP_SECRET = 'demo-group-secret';
+const DEMO_INVITE = JSON.stringify({
+  version: 1,
+  kind: 'sprout-group',
+  groupId: DEMO_GROUP_ID,
+  name: '演示小组',
+  secret: DEMO_GROUP_SECRET,
+});
 
 export function hasDemoHistory(state: AppState): boolean {
   return state.tasks.some((task) => task.id === DEMO_MARKER);
@@ -46,9 +61,41 @@ export function seedDemoHistory(
 ): ActionResult {
   if (!Number.isFinite(now.getTime()))
     return { ok: false, message: '当前日期无效，未添加演示数据' };
-  if (hasDemoHistory(state))
+  const hadHistory = hasDemoHistory(state);
+  if (hadHistory && (state.groupLink || state.groupOwned))
     return { ok: false, message: '已添加过演示历史，不会重复添加' };
+  const canCreateGroup = !state.groupLink && !state.groupOwned;
 
+  try {
+    if (!hadHistory) seedPersonalHistory(state, now);
+    if (canCreateGroup) {
+      requireSuccess(
+        createGroup(state, '演示小组', {
+          groupId: DEMO_GROUP_ID,
+          secret: DEMO_GROUP_SECRET,
+        }),
+      );
+      state.groupPeers = [activeMember(now), departedMember(now)];
+    }
+    const message = [
+      hadHistory ? '' : `已添加最近四周的演示历史（截至${dateKey(now)}）`,
+      canCreateGroup
+        ? '已创建演示小组，到今日或奖券打开「看全组」即可查看其他成员'
+        : '',
+      '原有数据已保留',
+    ]
+      .filter(Boolean)
+      .join('，');
+    return { ok: true, message };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `未添加演示数据：${error instanceof Error ? error.message : '构造失败'}`,
+    };
+  }
+}
+
+function seedPersonalHistory(state: AppState, now: Date) {
   try {
     const draft = migrateState(state);
     const originalSettings = { ...draft.settings };
@@ -267,14 +314,116 @@ export function seedDemoHistory(
     state.weight = validated.weight;
     state.milestoneGoals = validated.milestoneGoals;
     state.giftState = validated.giftState;
-    return {
-      ok: true,
-      message: `已添加最近四周的演示历史（截至${dateKey(now)}），原有数据已保留`,
-    };
   } catch (error) {
-    return {
-      ok: false,
-      message: `未添加演示数据：${error instanceof Error ? error.message : '构造失败'}`,
-    };
+    throw new Error(
+      error instanceof Error ? error.message : '演示历史构造失败',
+    );
   }
+}
+
+function peerClock(now: Date, accountId: string, deviceId: string) {
+  const ids = [accountId, deviceId];
+  let index = 0;
+  return {
+    now: () => now,
+    id: () => {
+      const id = ids[index];
+      index += 1;
+      if (!id) throw new Error('演示成员编号不足');
+      return id;
+    },
+  };
+}
+
+function applyPeer(
+  peer: PersistedAppState,
+  clock: { now: () => Date; id: () => string },
+  mutate: (draft: AppState) => void,
+) {
+  const draft = migrateState(peer);
+  mutate(draft);
+  return commitSync(peer, migrateState(draft), clock);
+}
+
+function asPeer(peer: PersistedAppState, now: Date): GroupPeer {
+  const journal = exportAccountJournal(peer);
+  return {
+    accountId: journal.accountId,
+    deviceId: journal.deviceId,
+    operations: journal.operations,
+    attachments: journal.attachments,
+    syncedAt: now.toISOString(),
+  };
+}
+
+function saveProfile(draft: AppState, name: string, avatarId: 'sun' | 'moon') {
+  const id = draft.sync?.accountId;
+  if (!id) throw new Error('演示成员账户未就绪');
+  requireSuccess(ensureGiftProfile(draft, { id, name }));
+  requireSuccess(
+    updateLocalProfile(draft, {
+      id,
+      name,
+      avatar: { kind: 'preset', id: avatarId },
+    }),
+  );
+}
+
+function activeMember(now: Date): GroupPeer {
+  const clock = peerClock(now, 'demo-peer-account', 'demo-peer-device1');
+  const peer = applyPeer(
+    initializeSync(createInitialState(now), clock),
+    clock,
+    (draft) => {
+      saveProfile(draft, '演示成员', 'sun');
+      requireSuccess(joinGroup(draft, DEMO_INVITE));
+      requireSuccess(
+        updateSettings(draft, { threshold: 1, rewardName: '演示·散步奖励' }),
+      );
+      requireSuccess(
+        addTask(draft, { name: '演示·练琴', target: 3, icon: '🎹' }),
+      );
+      const piano = draft.tasks[draft.tasks.length - 1];
+      requireSuccess(checkIn(draft, 'task-1', dayAt(now, -21)));
+      requireSuccess(checkIn(draft, 'task-2', dayAt(now, -14)));
+      requireSuccess(checkIn(draft, 'task-1', now));
+      requireSuccess(checkIn(draft, piano.id, now));
+      requireSuccess(redeemTicket(draft, dayAt(now, -21)));
+      const used = requireSuccess(redeemTicket(draft, dayAt(now, -14))).ticket!;
+      requireSuccess(
+        consumeTicket(draft, used.id, dayAt(now, -14), '演示：周末看电影'),
+      );
+      requireSuccess(redeemTicket(draft, now));
+      const goal = requireSuccess(
+        addMilestoneGoal(draft, {
+          name: '演示·阅读页',
+          unit: '页',
+          startWeight: 0,
+          step: 20,
+          direction: 'increase',
+          icon: '📖',
+        }),
+      ).goal!;
+      requireSuccess(recordMilestoneValue(draft, goal.id, 20, dayAt(now, -6)));
+      requireSuccess(recordMilestoneValue(draft, goal.id, 40, dayAt(now, -2)));
+    },
+  );
+  return asPeer(peer, now);
+}
+
+function departedMember(now: Date): GroupPeer {
+  const clock = peerClock(now, 'demo-gone-account', 'demo-gone-device1');
+  let peer = applyPeer(
+    initializeSync(createInitialState(now), clock),
+    clock,
+    (draft) => {
+      saveProfile(draft, '演示已离开', 'moon');
+      requireSuccess(joinGroup(draft, DEMO_INVITE));
+      requireSuccess(checkIn(draft, 'task-2', dayAt(now, -1)));
+    },
+  );
+  peer = applyPeer(peer, clock, (draft) => {
+    requireSuccess(leaveGroup(draft));
+  });
+  return asPeer(peer, now);
 }

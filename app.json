@@ -2,17 +2,21 @@
   "expo": {
     "name": "小步日常",
     "slug": "sprout-checkin-native",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "icon": "./assets/icon.png",
     "scheme": "sprout",
     "orientation": "default",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.smallsteps.checkin"
+      "bundleIdentifier": "com.smallsteps.checkin",
+      "infoPlist": {
+        "NSBonjourServices": ["_sprout-checkin._tcp"],
+        "NSLocalNetworkUsageDescription": "在同一 WiFi 下与小组成员交换打卡和奖券记录"
+      }
     },
     "android": {
-      "versionCode": 8,
+      "versionCode": 9,
       "package": "com.smallsteps.checkin",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -44,6 +48,9 @@
           "barcodeScannerEnabled": true
         }
       ]
-    ]
+    ],
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
   }
 }

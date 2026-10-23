@@ -29,7 +29,7 @@ export function DemoHistoryPanel() {
     <Panel style={styles.card}>
       <Text style={styles.heading}>功能效果预览</Text>
       <Text style={styles.muted}>
-        追加最近四周的演示记录，涵盖打卡、成长、奖券、里程碑、归档和赠券往来。保留已有数据与账户；演示数据会保存在本机并参与统计。
+        追加最近四周的演示记录，涵盖打卡、成长、奖券、里程碑、归档和赠券往来。没有小组时会创建演示小组和两位成员，到今日或奖券打开「看全组」即可查看。保留已有数据与账户。
       </Text>
       <ActionButton
         disabled={busy || loading}
@@ -43,7 +43,7 @@ export function DemoHistoryPanel() {
       <Confirm
         visible={open}
         title="添加演示历史？"
-        description="演示内容带有‘演示’标识。只追加一份，不会清空原记录；可在各功能中查看和操作。"
+        description="演示内容带有‘演示’标识。只追加一份，不会清空原记录。没有小组时会加入演示小组和两位成员。"
         busy={busy || loading}
         error={error}
         onDismiss={() => {

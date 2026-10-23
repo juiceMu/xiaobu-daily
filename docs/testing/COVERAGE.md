@@ -1,0 +1,97 @@
+# 自动化覆盖与回归选择
+
+维护日期：2026-10-22。下表对应当前 `tests/` 的全部 35 个测试文件，按实际执行机制分类；表示已有断言，不表示本次执行通过。执行结果见[验收记录](./runs/2026-10-22-baseline.md)，操作与预期见[功能测试用例](./TEST_CASES.md)。
+
+## 覆盖类型与边界
+
+- **业务/模型**：执行真实业务函数或纯模型，验证输入输出与状态变化。
+- **替身集成**：真实状态层/仓库代码配合内存存储、事务或平台 API 替身，不验证真实 SQLite、浏览器存储、相册或网络。
+- **源码约束**：读取源码字符串或 TypeScript AST，检查属性、分支与布局声明；不能证明元素渲染、点击、尺寸、焦点或读屏实际正确。
+- **抽取执行**：从真实源码抽取表达式/回调，注入替身依赖执行；比字符串约束更能验证逻辑，但没有挂载 React 或完整应用。
+- **库/资源验证**：使用实际编解码库、导航路由状态机、安装后的图标目录或资源文件；只证明相应库与资源契约。
+
+当前没有真实浏览器或原生 UI E2E 自动化。所有现有文件由 Node 测试运行器执行；测试标题中出现“实际”“真实”“界面”不改变覆盖层级。源码约束与抽取执行不应记为 UI 用例已通过。
+
+## 逐文件覆盖映射
+
+“用例族”按功能模块关联用例库；单个文件通常覆盖一个用例族的部分断言，不能据此将整族全部标记通过。
+
+用例 ID 前缀索引：`NAV` 导航、`TASK` 任务、`CHECK` 打卡、`DATE` 日期、`STAT` 统计、`REWARD` 兑换规则、`TICKET` 奖券、`GOAL` 里程碑、`PROFILE` 账户头像、`GIFT` 赠送领取、`SCAN` 扫码、`GROUP` 小组协议、`LAN` 局域网、`VIEW` 全组查看、`THEME` 主题、`INPUT` 输入、`A11Y` 无障碍、`STORE` 本机存储、`SYNC` 同步事务、`DEMO` 演示数据。详细步骤见 [TEST_CASES.md](./TEST_CASES.md)。
+
+| 测试文件                                                             | 实际类型                               | 用例族及已有覆盖                                                                                                                | 仍需补充的验收                                               |
+| -------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [accountProfile.test.ts](../../tests/accountProfile.test.ts)         | 业务、替身集成、抽取执行、源码约束     | 账户资料：稳定身份、昵称/头像校验、历史快照、保存失败/重试/锁、附件去重；选图回调的取消/失败/成功与资源释放                     | 真机相册权限、裁剪结果、资料页取消/返回保护、重启头像显示    |
+| [appIcon.test.ts](../../tests/appIcon.test.ts)                       | 资源验证                               | 应用资源：配置所指 PNG 存在、头信息与 1024 尺寸、自适应图标背景色                                                               | 安装图标裁切、设备桌面与启动效果                             |
+| [borderlessScreens.test.ts](../../tests/borderlessScreens.test.ts)   | 源码约束                               | 通用界面：共享输入无描边、标签/转发属性、底栏和任务菜单、日期选中语义                                                           | 实际布局、点击聚焦、读屏与输入行为                           |
+| [compactCalendar.test.ts](../../tests/compactCalendar.test.ts)       | 源码约束                               | 历史打卡/界面：周月日期选中圆、颜色选择、日期导航与可访问名称                                                                   | 周/月/年切换、触控、焦点、日期选择与禁用实际交互             |
+| [compactInputs.test.ts](../../tests/compactInputs.test.ts)           | 抽取执行、源码约束                     | 通用输入：高度表达式随字体缩放、紧凑字号；原生/Web 时间框声明                                                                   | 大字、软键盘、输入遮挡、时间弹窗交互                         |
+| [confirmationDialog.test.ts](../../tests/confirmationDialog.test.ts) | 源码约束                               | 通用确认：居中弹窗、滚动/忙碌保护；兑换/撤销/删除/归档/用券复用                                                                 | 确认与取消真实状态、返回键、焦点恢复、长内容滚动             |
+| [demoData.test.ts](../../tests/demoData.test.ts)                     | 业务、替身集成                         | 演示历史：四周样例、三来源/三状态券、目标生命周期、保留原数据、幂等、边界、存储失败原子性                                       | 开发入口、参数触发、刷新显示；正式构建无自动填充             |
+| [engine.test.mjs](../../tests/engine.test.mjs)                       | 业务                                   | 任务/兑换/奖券/里程碑/迁移：增改归档恢复删除、次数与撤销保护、跨周/过期、备注、首达精度/上限/去重、多目标隔离、旧存档及损坏拒绝 | 页面完整闭环、实际重启与真实存储；群组展示不在此文件覆盖     |
+| [facade.test.ts](../../tests/facade.test.ts)                         | 业务、导出契约                         | 领域门面：核心导出一致性、赠券等 API 暴露、首达奖励行为                                                                         | 应用装配与跨平台入口                                         |
+| [gift.test.ts](../../tests/gift.test.ts)                             | 业务、替身集成                         | 赠送领取：独立制作、有效期、预览只读、自领/指定接收人/时钟限制、格式校验、回执关联、本机去重、领取事务失败重试                  | 两台独立设备扫码/粘贴、回执展示/扫描、真实持久化             |
+| [giftQr.test.ts](../../tests/giftQr.test.ts)                         | 真实库往返                             | 赠券二维码：实际 qrcode 编码与 ZXing 黑白矩阵解码，中文内容往返                                                                 | 相机权限、取景清晰度、扫码回调、后台释放；不是摄像头测试     |
+| [groupSync.test.ts](../../tests/groupSync.test.ts)                   | 业务、标准库对照                       | 小组同步：HMAC 对照、邀请v1/v2 owner身份、创建/加入不交换记录、本人日志隔离、离组待发送凭据、创建者改名/旧链回滚保护、分叉保留、已验证第三方日志中继与离组设备缓存 | 真实 LAN、全组展示和操作隔离、签名墓碑真机验收              |
+| [identity.test.ts](../../tests/identity.test.ts)、[androidIdentity.test.ts](../../tests/androidIdentity.test.ts) | WebCrypto 契约、原生桥接契约 | 公钥指纹绑定、不可导出签名接口、签名验签、私钥丢失生成新身份；Android provider 参数转发和私钥不出 JS | Android Keystore 真机创建/重启/卸载恢复、签名互验；iOS Keychain 原生模块 |
+| [historicalCheckin.test.ts](../../tests/historicalCheckin.test.ts)   | 业务/日期模型、源码约束                | 历史打卡：发生日与创建时间、本周/历史周兑换及撤销保护、未来/非法日拒绝、归档补卡、年份边界、日期导航声明                        | 日历点选、周月年切换、回今天、选日确认/取消、页面重载        |
+| [homeStats.test.ts](../../tests/homeStats.test.ts)                   | 抽取执行、源码约束                     | 首页统计：实际可用券表达式计入多来源/排除已用到期、真实 now 与历史选日隔离；统计布局与图标目录                                  | 可见统计与操作同步刷新、窄屏/全组视图、真实到期刷新          |
+| [iconCatalog.test.ts](../../tests/iconCatalog.test.ts)               | 业务、资源验证                         | 图标：48 项目录与已安装字形对应、旧键兼容、任务/里程碑持久化形状与图标发券同步                                                  | 实际渲染、图标选择触控/读屏                                  |
+| [keyboardFocus.test.ts](../../tests/keyboardFocus.test.ts)           | EventTarget 模型、源码约束             | 无障碍：键盘/指针模式、订阅清理；图标与按钮焦点声明                                                                             | 浏览器 Tab 顺序、焦点轮廓、屏幕阅读器                        |
+| [milestoneArchive.test.ts](../../tests/milestoneArchive.test.ts)     | 业务、替身集成                         | 里程碑归档：主/额外目标 × 进行/暂停参数化保留、冻结修改、恢复不重发、删除墓碑、旧档校验、存储失败                               | 页面筛选/归档/恢复/删除确认、重启与导航                      |
+| [milestoneCompact.test.ts](../../tests/milestoneCompact.test.ts)     | 源码约束                               | 里程碑界面：目标胶囊反馈、奖励行与标题/表单紧凑声明                                                                             | 点击反馈、长名称/大字体、布局滚动与可用触控面积              |
+| [milestoneSelection.test.ts](../../tests/milestoneSelection.test.ts) | 业务/选择模型、源码约束                | 里程碑选择：进行/归档分组、选中回退、搜索大小写/空格、恢复保留暂停；入口声明                                                    | 真实搜索与切换、无结果、归档入口可达性                       |
+| [milestoneUnit.test.ts](../../tests/milestoneUnit.test.ts)           | 业务、源码约束                         | 里程碑单位：拒绝数字单位、旧档不猜测改写、无记录目标纠正；数值与单位布局声明                                                    | 表单提示、错误可见、实际数值/单位排版                        |
+| [lanProtocol.test.ts](../../tests/lanProtocol.test.ts)               | 协议单元、真实密码库                   | LAN：随机挑战、HMAC口令证明、XChaCha20-Poly1305密文认证、重放拒绝、只接收发送者本人日志                                         | TCP socket、真实设备随机源/密钥保管、成员身份独立签名        |
+| [lanTransport.test.ts](../../tests/lanTransport.test.ts)             | TCP通道替身集成                        | LAN帧拆包/合包、异步发送、断连唤醒、帧大小限制、畸形消息拒绝                                                                    | 原生TCP、mDNS发现、网络切换、设备权限和大头像真机传输        |
+| [numericInputModel.test.ts](../../tests/numericInputModel.test.ts)   | 纯模型、抽取执行                       | 数字输入：前导零、小数点草稿、非法字符不误转换、失焦收尾；真实输入回调顺序                                                      | 真正输入法、粘贴、光标位置、软键盘与错误提示                 |
+| [numericValidation.test.ts](../../tests/numericValidation.test.ts)   | 业务、源码约束                         | 数字校验：任务/设置整数与里程碑小数入口，非法词法/精度/范围原子拒绝；五处字段校验接入声明                                       | 输入到提交的完整交互与实际错误位置                           |
+| [repository.test.ts](../../tests/repository.test.ts)                 | SQLite 事务替身集成                    | 本地存储：无记录/完整状态、参数化写入、事务失败回滚、损坏 JSON 保留                                                             | 真实 expo-sqlite、杀进程重启、系统存储错误；不能称数据库实测 |
+| [rewardHistory.test.ts](../../tests/rewardHistory.test.ts)           | 纯模型/业务、源码约束                  | 奖励历史：按本地使用周/时间倒序、跨月年/午夜、仅已解锁奖励；历史导航与布局声明                                                  | 页面分组/滚动/备注、成员筛选、导航返回                       |
+| [settingsControls.test.ts](../../tests/settingsControls.test.ts)     | 时间纯模型、源码约束                   | 奖励设置：HH:mm 校验/格式、开关触控、Web 时间弹窗、Android/iOS 选择器提交/取消声明                                              | 原生系统选择器、Web 弹窗实际确认/取消、保存和重启            |
+| [store.test.ts](../../tests/store.test.ts)                           | 真实状态层 + 内存仓库替身              | 数据事务：仅首次初始化、保存后发布、失败/重试、防连点、损坏读取不清空、业务失败不写入、离组凭据仅在对端确认保存后清除           | 真实介质、应用生命周期与 UI 忙碌/错误提示                    |
+| [syncModel.test.ts](../../tests/syncModel.test.ts)                   | 业务、状态层替身集成                   | 同步数据：owner/device、实体版本/事务/墓碑、outbox/ACK 连续整组/幂等、防篡改、保存失败、时钟回拨与附件                          | 不代表联网、服务器、LAN 传输或云端 ACK 已集成                |
+| [taskNavigation.test.ts](../../tests/taskNavigation.test.ts)         | 源码约束、真实 StackRouter 状态机      | 任务/导航：按钮语义/布局，更多 tab 退栈、取消 tabPress、初始路由与深链配置                                                      | 实际 tab/深链/返回手势、表单离开保护；状态机不是页面 E2E     |
+| [themePreference.test.ts](../../tests/themePreference.test.ts)       | 主题目录/纯模型、存储替身集成          | 五主题：完整色键、默认/非法回退、独立 key、往返、读写失败/重试、非法主题不写入                                                  | 真实平台偏好存储、重启后颜色与业务存档隔离                   |
+| [themeProvider.test.ts](../../tests/themeProvider.test.ts)           | 抽取回调执行 + 状态/仓库替身、源码约束 | 主题状态：加载前禁选、保存后发布、防连点、失败保留、卸载不发布；导航不随颜色重建与消费者订阅声明                                | 实际 React 生命周期、全部页面刷新、表单草稿和导航保留        |
+| [ticketLayout.test.ts](../../tests/ticketLayout.test.ts)             | 标签纯函数、源码约束                   | 奖券：具体里程碑来源名、安全回退、卡片/状态角标/备注/用券入口、他人券按钮隐藏分支声明                                           | 真实筛选/分组、同 ID 跨成员隔离、长备注、大字和操作权限      |
+| [todayLayout.test.ts](../../tests/todayLayout.test.ts)               | 源码约束                               | 首页：进度容器 6dp、兑换行位置、按钮禁用/确认声明、页面按钮高度约束                                                             | 进度条实际布局、滚动与兑换确认/取消                          |
+| [uiTheme.test.ts](../../tests/uiTheme.test.ts)                       | 颜色数学、源码约束                     | 界面主题：五套颜色混合后对比度、字号间距、安全区/底栏/触控声明、焦点及悬停实现                                                  | 实际绘制颜色、系统缩放/安全区、横屏、读屏与交互              |
+| [webRepository.test.ts](../../tests/webRepository.test.ts)           | Map 存储替身集成                       | Web 存档：懒访问、独立 key、旧 key 保留、完整重载、损坏/异常不覆盖、无 window 可导入                                            | 浏览器真实 localStorage 权限/配额、刷新/关闭重启与标签页竞争 |
+| [weekStrip.test.ts](../../tests/weekStrip.test.ts)                   | 日期模型、源码约束                     | 周日期条：跨月年、本地今天与 UTC 错位防护、选中声明、保留进度约束                                                               | 实际点选/跳周、今天与历史选中视觉区分                        |
+
+## 按功能变化选择回归
+
+以下是起点，不是豁免清单；同时影响多个模块时取并集。具体命令、执行状态和独立复核要求见[规范](./README.md)。
+
+| 变更范围                               | 首选测试文件（均在 `tests/`）                                                                                                                                                                       | 必须一起评估的用例族                                                                           |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 任务新增/编辑/次数/图标/颜色/归档/删除 | `engine`、`historicalCheckin`、`iconCatalog`、`numericValidation`、`taskNavigation`                                                                                                                 | 首页统计、兑换成本保护、成长统计、历史补卡、归档恢复、群组只读副本                             |
+| 日期/补卡/跨周/统计                    | `historicalCheckin`、`weekStrip`、`engine`、`homeStats`、`rewardHistory`、`compactCalendar`                                                                                                         | 历史发生日与真实时钟、归档任务、旧周不能兑换、到期与撤销边界                                   |
+| 兑换门槛/奖励名称/过期时间             | `engine`、`settingsControls`、`numericValidation`、`homeStats`                                                                                                                                      | 已兑历史成本、新旧券有效期、确认取消、旧券规则不追溯、赠券独立有效期                           |
+| 奖券列表/使用/历史                     | `engine`、`ticketLayout`、`rewardHistory`、`homeStats`、`gift`                                                                                                                                      | 三来源/三状态、重复消费保护、200 字备注、成员只读与筛选、真实 now                              |
+| 里程碑规则/记录/生命周期               | `engine`、`milestoneArchive`、`milestoneSelection`、`milestoneUnit`、`numericValidation`、`iconCatalog`、`rewardHistory`                                                                            | 首达与精度、跨多个刻度、多目标隔离、归档/暂停/删除、已有券与备注保留                           |
+| 赠券/扫码/回执                         | `gift`、`giftQr`、`accountProfile`、`syncModel`、`store`                                                                                                                                            | 两身份闭环、本机重复领取、过期/时钟、相机权限/后台释放、保存失败                               |
+| 账户昵称/头像                          | `accountProfile`、`gift`、`syncModel`、`store`                                                                                                                                                      | 身份不变、旧赠券/回执快照、相册处理/取消/失败、成员头像及重启                                  |
+| 小组邀请/成员/日志合并/LAN             | `groupSync`、`syncModel`、`store`、`lanProtocol`、`lanTransport`                                                                                                                                    | 成员独立签名/在线吊销、连接竞争、真实 mDNS/TCP、双手机权限与重试；已有自动化不足以关闭设备验收 |
+| 主题/设备偏好                          | `themePreference`、`themeProvider`、`uiTheme`；共享控件变更追加相关源码约束                                                                                                                         | 五主题、读写失败、保存后发布、重启、保留导航/草稿、小组查看偏好独立                            |
+| 存储/schema/同步提交层                 | `store`、`repository`、`webRepository`、`syncModel`、`engine`、`accountProfile`、`groupSync`、`gift`、`demoData`                                                                                    | 初始化/旧空间隔离/损坏不覆盖、失败原子性、完整重载、所有写操作与设备生命周期                   |
+| 通用布局/输入/弹窗/导航                | `borderlessScreens`、`compactInputs`、`numericInputModel`、`keyboardFocus`、`confirmationDialog`、`taskNavigation`、`uiTheme`、`todayLayout`、`milestoneCompact`、`ticketLayout`、`compactCalendar` | 375/390 窄屏、横屏、大字、软键盘、焦点、读屏、取消/返回；源码断言不能替代                      |
+| 演示预览/应用装配/资源                 | `demoData`、`appIcon`、`facade`；涉及启动/依赖执行适用平台导出                                                                                                                                      | 开发与正式构建差异、参数入口、图标安装效果、无自动填充或覆盖用户数据                           |
+
+表中简名对应上方完整文件名，例如 `engine` 为 `engine.test.mjs`，其他为相应 `.test.ts`。无法由现有文件验证的用例仍要保留在验收记录，不能因没有自动化而遗漏。
+
+## 优先补齐的覆盖缺口
+
+| 优先级 | 缺口与验收目标                                                                                        | 当前限制                                                                           |
+| ------ | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| P0     | 全组/自己模式下，首页、奖券和成员详情的归属/统计正确；他人券不可消费，同 ID 券不会跨成员串行          | 有少量界面源码分支断言，无完整 UI 自动化或独立成员列表模型测试                     |
+| P0     | 同步不改变自己业务余额或 outbox；同步期间离开小组不写入返回结果；失败不覆盖副本                       | 领域层有部分隔离断言，AppProvider 网络编排与界面尚无执行覆盖                       |
+| P1     | 小组查看方式读取/保存/异常/重载；模式切换不破坏页面状态，未入组或只看自己不能打开成员详情             | `groupView` 仓库、`GroupViewProvider` 和成员详情无现有专测                         |
+| P1     | 邀请协议/字段/名称边界、重复创建/加入、创建者改名/成员拒绝、扩展/相同/较短/分叉日志链、离开成员与转发 | 群组测试仅覆盖部分主路径；需要按函数边界补参数化拒绝与不变异断言                   |
+| P1     | LAN 同组播域双设备同步，口令错误/端口占用/超时断连/畸形消息/分包，服务释放后可重试；Web 明确不支持    | `lanProtocol.test.ts`、`lanTransport.test.ts`；真实 TCP、mDNS 与设备权限需原生环境 |
+| P1     | 历史日历周/月/年导航、回今天、选中与今天分离、归档任务过去补卡、确认取消                              | 业务日期测试已有；真实界面仍待 runtime/设备                                        |
+| P1     | 五主题实际应用、导航与表单草稿保留；奖券筛选、成员分组、历史周头、备注长内容                          | 现有主要为模型、抽取回调与源码约束，不能当作界面验收                               |
+| P1     | SQLite 真机提交/重启、localStorage 实际刷新、相册/相机权限与后台恢复                                  | 现有介质与平台 API 使用替身；二维码矩阵往返不覆盖摄像头                            |
+| P2     | 窄屏/横屏/大字号/读屏/安全区/软键盘以及长列表性能                                                     | 无实际渲染和性能基线；记录平台、尺寸与证据后验收                                   |
+
+缺少项目提供的 Web UI runtime 或原生设备时，相应用例记录 `BLOCKED` 或 `NOT_RUN` 并说明条件，不能将静态测试、资源导出或替身执行升级为 E2E/真机通过。自动化文件新增或覆盖层级变化后，同步更新本表与对应功能用例。

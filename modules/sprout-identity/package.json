@@ -1,0 +1,8 @@
+{
+  "name": "@sprout/sprout-identity",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android Keystore identity provider for Sprout",
+  "main": "build/index.js",
+  "types": "build/index.d.ts"
+}

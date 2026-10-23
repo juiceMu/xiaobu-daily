@@ -190,7 +190,12 @@ function RewardRow({ value, goal }: { value: number; goal: MilestoneGoal }) {
 export function MilestonesScreen() {
   const { colors } = useAppTheme();
   const styles = useScreenStyles();
-  const navigation = useNavigation<NavigationProp<{ tickets: undefined }>>();
+  const navigation =
+    useNavigation<
+      NavigationProp<{
+        tickets: { intent: 'own-available'; at: number } | undefined;
+      }>
+    >();
   const { state, run, busy } = useApp();
   const groups = milestoneGroups([state.weight, ...state.milestoneGoals]);
   const [archiveFilter, setArchiveFilter] = useState(false);
@@ -611,7 +616,12 @@ export function MilestonesScreen() {
                   mode="text"
                   contentStyle={rewardButtonContent}
                   labelStyle={rewardButtonLabel}
-                  onPress={() => navigation.navigate('tickets')}
+                  onPress={() =>
+                    navigation.navigate('tickets', {
+                      intent: 'own-available',
+                      at: Date.now(),
+                    })
+                  }
                 >
                   查看奖券
                 </ActionButton>

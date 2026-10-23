@@ -4,7 +4,13 @@ import {
   checkIn,
   createInitialState as createBusinessState,
 } from '../src/domain/engine';
-import { initializeSync } from '../src/domain/syncModel';
+import { commitSync, initializeSync } from '../src/domain/syncModel';
+import {
+  createGroup,
+  joinGroup,
+  leaveGroup,
+  journalsForSend,
+} from '../src/domain/groupSync';
 import { createAppStore } from '../src/state/store';
 import type { AppState } from '../src/domain/engine';
 import type { StateRepository } from '../src/state/store';
@@ -163,4 +169,104 @@ test('失败业务操作与抛出异常都不会写入或更改可见数据', as
   );
   assert.equal(JSON.stringify(store.getSnapshot().state), before);
   assert.equal(saves, 0);
+});
+
+test('已认证的小组会话锁住本地写入，但允许事务内持久化收到的副本', async () => {
+  const change = (
+    source: ReturnType<typeof createInitialState>,
+    mutation: (draft: AppState) => { ok: boolean; message: string },
+  ) => {
+    const draft = clone(source);
+    const result = mutation(draft);
+    assert.equal(result.ok, true, result.message);
+    return commitSync(source, draft);
+  };
+  let owner = change(createInitialState(), (draft) =>
+    createGroup(draft, '互斥测试', {
+      groupId: 'store-sync-group',
+      secret: 'store-sync-secret',
+    }),
+  );
+  const member = change(createInitialState(), (draft) =>
+    joinGroup(
+      draft,
+      JSON.stringify({
+        version: 1,
+        kind: 'sprout-group',
+        groupId: owner.groupLink!.groupId,
+        name: owner.groupLink!.name,
+        secret: owner.groupLink!.secret,
+      }),
+    ),
+  );
+  let saved = clone(member);
+  const store = createAppStore({
+    load: async () => clone(saved),
+    save: async (state) => {
+      saved = clone(state);
+    },
+  });
+  await store.initialize();
+
+  const release = store.beginGroupSync();
+  assert.ok(release);
+  assert.equal(store.getSnapshot().busy, true);
+  assert.equal(
+    (await store.run((draft) => checkIn(draft, 'task-1', NOW))).ok,
+    false,
+  );
+
+  const received = await store.applyGroupJournals(
+    journalsForSend(owner),
+    NOW.toISOString(),
+  );
+  assert.equal(received.ok, true, received.message);
+  assert.equal(received.persisted, true);
+  assert.equal(store.getSnapshot().busy, true);
+  assert.equal(store.getSnapshot().state?.groupPeers?.length, 1);
+
+  const forked = clone(journalsForSend(owner)[0]);
+  forked.operations[0].entity.payload =
+    forked.operations[0].entity.payload.replace('早睡', '晚睡');
+  const rejectedFork = await store.applyGroupJournals(
+    [forked],
+    NOW.toISOString(),
+  );
+  assert.equal(rejectedFork.ok, true);
+  assert.equal(rejectedFork.persisted, false);
+
+  release();
+  assert.equal(store.getSnapshot().busy, false);
+});
+
+test('离组凭据仅在对端确认保存本机日志后清除', async () => {
+  let saved = createInitialState();
+  const store = createAppStore({
+    load: async () => clone(saved),
+    save: async (state) => {
+      saved = clone(state);
+    },
+  });
+  await store.initialize();
+  assert.equal(
+    (
+      await store.run((state) =>
+        createGroup(state, '离组确认测试', {
+          groupId: 'departure-ack-group',
+          secret: 'departure-ack-secret',
+        }),
+      )
+    ).ok,
+    true,
+  );
+  assert.equal((await store.run(leaveGroup)).ok, true);
+  const sent = journalsForSend(store.getSnapshot().state!)[0];
+
+  const unconfirmed = await store.completeGroupDeparture(sent, false);
+  assert.equal(unconfirmed.ok, false);
+  assert.ok(store.getSnapshot().state?.pendingGroupDeparture);
+
+  const confirmed = await store.completeGroupDeparture(sent, true);
+  assert.equal(confirmed.ok, true, confirmed.message);
+  assert.equal(store.getSnapshot().state?.pendingGroupDeparture, undefined);
 });

@@ -1,5 +1,9 @@
 import type {
   AppState,
+  GiftEnvelope,
+  GiftReceipt,
+  GroupPeer,
+  LocalProfile,
   SyncEntity,
   SyncEntityType,
   SyncOperation,
@@ -47,6 +51,8 @@ const types: SyncEntityType[] = [
   'profile',
   'gifts',
   'receipts',
+  'groups',
+  'memberships',
 ];
 const keyOf = (type: SyncEntityType, id: string) => `${type}:${id}`;
 function canonical(value: unknown): string {
@@ -96,8 +102,7 @@ function project(state: AppState, sync: SyncState, clock?: SyncClock) {
     if (result.has(key)) fail();
     result.set(key, { type, id, payload: canonical(data), deleted });
   }
-  for (const item of state.tasks)
-    add('tasks', item.id, item, !!item.deleted);
+  for (const item of state.tasks) add('tasks', item.id, item, !!item.deleted);
   for (const type of ['checkins', 'tickets', 'redemptions'] as const)
     for (const item of state[type]) add(type, item.id, item);
   for (const goal of [state.weight, ...state.milestoneGoals]) {
@@ -119,6 +124,17 @@ function project(state: AppState, sync: SyncState, clock?: SyncClock) {
     add('receipts', `received/${receipt.giftId}`, receipt);
   for (const receipt of state.giftState?.receipts ?? [])
     add('receipts', `recorded/${receipt.giftId}`, receipt);
+  if (state.groupOwned)
+    add('groups', state.groupOwned.id, {
+      id: state.groupOwned.id,
+      name: state.groupOwned.name,
+    });
+  if (state.groupLink)
+    add('memberships', `${state.groupLink.groupId}/${sync.accountId}`, {
+      groupId: state.groupLink.groupId,
+      accountId: sync.accountId,
+      role: 'member',
+    });
   return result;
 }
 export function initializeSync(
@@ -241,6 +257,10 @@ export function validateSync(
     'giftState',
     'storageVersion',
     'sync',
+    'groupOwned',
+    'groupLink',
+    'pendingGroupDeparture',
+    'groupPeers',
   ];
   if (Object.keys(state).some((key) => !stateFields.includes(key))) fail();
   migrateState(state);
@@ -343,7 +363,8 @@ export function validateSync(
           !Number.isInteger(payload.target) ||
           Number(payload.target) < 1 ||
           typeof payload.archived !== 'boolean' ||
-          (payload.deleted !== undefined && typeof payload.deleted !== 'boolean')
+          (payload.deleted !== undefined &&
+            typeof payload.deleted !== 'boolean')
         )
           fail();
         break;
@@ -434,6 +455,28 @@ export function validateSync(
         )
           fail();
         break;
+      case 'groups':
+        if (
+          payload.id !== entity.entityId ||
+          !exactFields(payload, ['id', 'name']) ||
+          !hasText('name') ||
+          String(payload.name).length > 20 ||
+          String(payload.name) !== String(payload.name).trim() ||
+          /[\u0000-\u001f\u007f]/.test(String(payload.name))
+        )
+          fail();
+        break;
+      case 'memberships':
+        if (
+          !exactFields(payload, ['groupId', 'accountId', 'role']) ||
+          payload.role !== 'member' ||
+          payload.accountId !== entity.ownerId ||
+          entity.entityId !==
+            `${String(payload.groupId)}/${String(payload.accountId)}` ||
+          !idValid(String(payload.groupId))
+        )
+          fail();
+        break;
     }
     function rejectEmbeddedImages(value: unknown): void {
       if (Array.isArray(value)) {
@@ -472,6 +515,74 @@ export function validateSync(
     )
       fail();
   };
+  const groupNameOk = (name: unknown) =>
+    typeof name === 'string' &&
+    name.length >= 1 &&
+    name.length <= 20 &&
+    name === name.trim() &&
+    !/[\u0000-\u001f\u007f]/.test(name);
+  if (state.groupOwned !== undefined) {
+    if (
+      !object(state.groupOwned) ||
+      !exactFields(state.groupOwned, ['id', 'name']) ||
+      !idValid(state.groupOwned.id) ||
+      !groupNameOk(state.groupOwned.name)
+    )
+      fail();
+  }
+  if (state.groupLink !== undefined) {
+    if (
+      !object(state.groupLink) ||
+      !exactFields(state.groupLink, [
+        'groupId',
+        'name',
+        'secret',
+        ...(state.groupLink.ownerAccountId === undefined
+          ? []
+          : ['ownerAccountId']),
+      ]) ||
+      !idValid(state.groupLink.groupId) ||
+      !idValid(state.groupLink.secret) ||
+      state.groupLink.secret === state.groupLink.groupId ||
+      (state.groupLink.ownerAccountId !== undefined &&
+        !idValid(state.groupLink.ownerAccountId)) ||
+      !groupNameOk(state.groupLink.name)
+    )
+      fail();
+  }
+  if (state.pendingGroupDeparture !== undefined) {
+    const pending = state.pendingGroupDeparture;
+    if (
+      state.groupLink ||
+      state.groupPeers?.length ||
+      !object(pending) ||
+      !exactFields(pending, [
+        'groupId',
+        'name',
+        'secret',
+        ...(pending.ownerAccountId === undefined ? [] : ['ownerAccountId']),
+      ]) ||
+      !idValid(pending.groupId) ||
+      !idValid(pending.secret) ||
+      pending.secret === pending.groupId ||
+      (pending.ownerAccountId !== undefined &&
+        !idValid(pending.ownerAccountId)) ||
+      !groupNameOk(pending.name) ||
+      (state.groupOwned && state.groupOwned.id !== pending.groupId)
+    )
+      fail();
+    const membership =
+      sync.entities[`memberships:${pending.groupId}/${sync.accountId}`];
+    if (!membership?.deletedAt) fail();
+  }
+  if (
+    state.groupOwned &&
+    state.groupLink &&
+    (state.groupOwned.id !== state.groupLink.groupId ||
+      (state.groupLink.ownerAccountId !== undefined &&
+        state.groupLink.ownerAccountId !== sync.accountId))
+  )
+    fail();
   const current = project(state, sync);
   for (const [key, entity] of Object.entries(sync.entities)) {
     validateEntity(entity);
@@ -627,6 +738,263 @@ export function validateSync(
   }
   for (const [key, entity] of Object.entries(sync.entities))
     if (operationCounts.get(key) !== entity.revision) fail();
+  if (state.groupPeers !== undefined) {
+    if (!Array.isArray(state.groupPeers)) fail();
+    const seen = new Set<string>();
+    for (const peer of state.groupPeers) {
+      if (
+        !object(peer) ||
+        !exactFields(peer, [
+          'accountId',
+          'deviceId',
+          'operations',
+          'attachments',
+          'syncedAt',
+        ]) ||
+        !idValid(peer.accountId) ||
+        !idValid(peer.deviceId) ||
+        peer.accountId === sync.accountId ||
+        peer.accountId === peer.deviceId ||
+        seen.has(peer.accountId) ||
+        !timeValid(peer.syncedAt) ||
+        !Array.isArray(peer.operations) ||
+        !peer.operations.length ||
+        !object(peer.attachments)
+      )
+        fail();
+      seen.add(peer.accountId);
+      journalState({
+        accountId: peer.accountId,
+        deviceId: peer.deviceId,
+        operations: peer.operations,
+        attachments: peer.attachments,
+      });
+    }
+  }
+}
+export interface AccountJournal {
+  accountId: string;
+  deviceId: string;
+  operations: SyncOperation[];
+  attachments: Record<string, string>;
+}
+function deviceSequence(deviceId: string, id: string) {
+  const prefix = `${deviceId.slice(0, 50)}-`;
+  if (!id.startsWith(prefix)) fail();
+  const raw = id.slice(prefix.length),
+    number = Number(raw);
+  if (!/^[1-9][0-9]*$/.test(raw) || !Number.isSafeInteger(number)) fail();
+  return number;
+}
+export function exportAccountJournal(state: PersistedAppState): AccountJournal {
+  validateSync(state);
+  const sync = state.sync;
+  const operations: SyncOperation[] = [];
+  for (const signature of Object.values(sync.acknowledged))
+    operations.push(...(JSON.parse(signature) as SyncOperation[]));
+  operations.push(...sync.outbox);
+  operations.sort(
+    (left, right) =>
+      deviceSequence(sync.deviceId, left.operationId) -
+      deviceSequence(sync.deviceId, right.operationId),
+  );
+  return {
+    accountId: sync.accountId,
+    deviceId: sync.deviceId,
+    operations: copy(operations),
+    attachments: copy(sync.attachments),
+  };
+}
+const LEGACY_GOAL_ID = 'legacy-weight';
+const LOCAL_JOURNAL_SECRET = 'stored-locally-secret';
+function recordOf(entity: SyncEntity) {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(entity.payload);
+  } catch {
+    fail();
+  }
+  if (!object(payload)) fail();
+  return payload;
+}
+export function journalState(journal: AccountJournal): PersistedAppState {
+  if (
+    !object(journal) ||
+    !idValid(journal.accountId) ||
+    !idValid(journal.deviceId) ||
+    journal.accountId === journal.deviceId ||
+    !Array.isArray(journal.operations) ||
+    !journal.operations.length ||
+    !object(journal.attachments)
+  )
+    fail();
+  const operations = [...journal.operations].sort(
+    (left, right) =>
+      deviceSequence(journal.deviceId, left.operationId) -
+      deviceSequence(journal.deviceId, right.operationId),
+  );
+  const entities: Record<string, SyncEntity> = {};
+  for (const operation of operations) {
+    if (
+      operation.accountId !== journal.accountId ||
+      operation.deviceId !== journal.deviceId ||
+      operation.entity.ownerId !== journal.accountId
+    )
+      fail();
+    entities[keyOf(operation.entity.entityType, operation.entity.entityId)] =
+      copy(operation.entity);
+  }
+  const ofType = (type: SyncEntityType, deleted = false) =>
+    Object.values(entities).filter(
+      (entity) => entity.entityType === type && (deleted || !entity.deletedAt),
+    );
+  const goals = new Map<string, Record<string, unknown>>();
+  for (const entity of ofType('goals', true)) {
+    const goal = recordOf(entity);
+    goal.entries = [];
+    if (entity.deletedAt) goal.deleted = true;
+    goals.set(entity.entityId, goal);
+  }
+  for (const entity of ofType('goalEntries', true)) {
+    const entry = recordOf(entity);
+    const goalId = entry.goalId;
+    if (typeof goalId !== 'string') fail();
+    const goal = goals.get(goalId);
+    if (!goal) fail();
+    if (entity.deletedAt && !goal.deleted) continue;
+    const { goalId: omitted, ...rest } = entry;
+    void omitted;
+    (goal.entries as unknown[]).push(rest);
+  }
+  const weight = goals.get(LEGACY_GOAL_ID);
+  if (!weight) fail();
+  goals.delete(LEGACY_GOAL_ID);
+  const profileEntity = entities[`profile:${journal.accountId}`];
+  const settingsEntity = entities[`settings:${journal.accountId}`];
+  if (!profileEntity || !settingsEntity) fail();
+  const profilePayload = recordOf(profileEntity);
+  const attachments = copy(journal.attachments);
+  let giftState: AppState['giftState'];
+  if (typeof profilePayload.name === 'string') {
+    let avatar = profilePayload.avatar;
+    if (object(avatar) && avatar.kind === 'attachment') {
+      const attachmentId = avatar.attachmentId;
+      if (typeof attachmentId !== 'string' || !attachments[attachmentId])
+        fail();
+      avatar = { kind: 'image', dataUri: attachments[attachmentId] };
+    }
+    const profile: LocalProfile = {
+      id: journal.accountId,
+      name: profilePayload.name,
+    };
+    if (avatar !== null && avatar !== undefined)
+      profile.avatar = avatar as LocalProfile['avatar'];
+    giftState = {
+      profile,
+      outgoing: ofType('gifts').map(
+        (entity) => recordOf(entity) as unknown as GiftEnvelope,
+      ),
+      received: ofType('receipts')
+        .filter((entity) => entity.entityId.startsWith('received/'))
+        .map((entity) => recordOf(entity) as unknown as GiftReceipt),
+      receipts: ofType('receipts')
+        .filter((entity) => entity.entityId.startsWith('recorded/'))
+        .map((entity) => recordOf(entity) as unknown as GiftReceipt),
+    };
+  } else if (
+    profilePayload.name !== null ||
+    ofType('gifts').length ||
+    ofType('receipts').length
+  )
+    fail();
+  const groupEntity = ofType('groups')[0];
+  const groupPayload = groupEntity ? recordOf(groupEntity) : undefined;
+  const membership = ofType('memberships')[0];
+  const state: AppState = {
+    version: 4,
+    tasks: ofType('tasks', true).map((entity) => {
+      const task = recordOf(entity);
+      if (entity.deletedAt) task.deleted = true;
+      return task as unknown as AppState['tasks'][number];
+    }),
+    checkins: ofType('checkins').map(
+      (entity) => recordOf(entity) as unknown as AppState['checkins'][number],
+    ),
+    tickets: ofType('tickets').map(
+      (entity) => recordOf(entity) as unknown as AppState['tickets'][number],
+    ),
+    redemptions: ofType('redemptions').map(
+      (entity) =>
+        recordOf(entity) as unknown as AppState['redemptions'][number],
+    ),
+    weight: weight as unknown as AppState['weight'],
+    milestoneGoals: [
+      ...goals.values(),
+    ] as unknown as AppState['milestoneGoals'],
+    settings: recordOf(settingsEntity) as unknown as AppState['settings'],
+    storageVersion: 1,
+    sync: {
+      schemaVersion: 1,
+      dataVersion: 4,
+      accountId: journal.accountId,
+      deviceId: journal.deviceId,
+      entities,
+      outbox: [],
+      attachments,
+      sequence: 0,
+      acknowledged: {},
+    },
+  };
+  if (giftState) state.giftState = giftState;
+  if (
+    groupPayload &&
+    typeof groupPayload.id === 'string' &&
+    typeof groupPayload.name === 'string'
+  )
+    state.groupOwned = { id: groupPayload.id, name: groupPayload.name };
+  if (membership) {
+    const payload = recordOf(membership);
+    if (typeof payload.groupId !== 'string') fail();
+    state.groupLink = {
+      groupId: payload.groupId,
+      name:
+        state.groupOwned?.id === payload.groupId
+          ? state.groupOwned.name
+          : '小组',
+      secret: LOCAL_JOURNAL_SECRET,
+    };
+  }
+  const acknowledged: Record<string, string> = {};
+  const sequences = new Set<number>();
+  let max = 0;
+  for (const operation of operations) {
+    const operationSequence = deviceSequence(
+        journal.deviceId,
+        operation.operationId,
+      ),
+      transactionSequence = deviceSequence(
+        journal.deviceId,
+        operation.transactionId,
+      );
+    sequences.add(operationSequence);
+    sequences.add(transactionSequence);
+    max = Math.max(max, operationSequence, transactionSequence);
+    const current = acknowledged[operation.transactionId];
+    const list = current ? (JSON.parse(current) as SyncOperation[]) : [];
+    list.push(operation);
+    acknowledged[operation.transactionId] = canonical(list);
+  }
+  if (sequences.size !== max) fail();
+  state.sync!.sequence = max;
+  state.sync!.acknowledged = acknowledged;
+  validateSync(state);
+  return state as PersistedAppState;
+}
+export function peerLeft(peer: GroupPeer, groupId: string) {
+  const state = journalState(peer);
+  const entity =
+    state.sync.entities[`memberships:${groupId}/${peer.accountId}`];
+  return !entity || !!entity.deletedAt;
 }
 export interface SyncBatch {
   accountId: string;

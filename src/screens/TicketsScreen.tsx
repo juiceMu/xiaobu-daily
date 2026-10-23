@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { FlatList, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, View } from 'react-native';
+import { useRoute, type RouteProp } from '@react-navigation/native';
 import { Icon, Text } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { getTicketStatus, useTicket as consumeTicket } from '../domain/engine';
@@ -13,29 +14,126 @@ import { formatMilestoneSource } from '../ui/ticketLabels';
 import { TicketStatusBadge } from '../ui/TicketStatusBadge';
 import { usedTicketRows, type TicketListRow } from '../ui/rewardHistory';
 import { discardDraft, ErrorText, formatDate, useScreenStyles } from './shared';
+import { GroupViewSwitch } from '../ui/GroupViewSwitch';
+import { useGroupView } from '../ui/GroupViewProvider';
+import { peerBoards } from '../domain/groupSync';
+import { ProfileAvatar } from '../ui/ProfileAvatar';
 
 export function TicketsScreen() {
   const { colors } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, run, busy } = useApp();
+  const { mode, setMode } = useGroupView();
+  const route =
+    useRoute<
+      RouteProp<
+        { tickets: { intent?: 'own-available'; at?: number } },
+        'tickets'
+      >
+    >();
+  const landingAt =
+    route.params?.intent === 'own-available' ? route.params.at : undefined;
+  const showGroup = mode === 'group' && !!state.groupLink;
   const [filter, setFilter] = useState<TicketStatus | 'all'>('available');
+  const [memberId, setMemberId] = useState('all');
+  useEffect(() => {
+    if (landingAt == null) return;
+    setFilter('available');
+    setMemberId('all');
+    void setMode('self');
+  }, [landingAt]);
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
-  const tickets = useMemo(
-    () =>
-      [...state.tickets]
-        .reverse()
-        .filter(
-          (ticket) =>
-            filter === 'all' || getTicketStatus(ticket, state, now) === filter,
-        ),
-    [state, filter, now],
+  const people = useMemo(() => {
+    const self = {
+      id: state.sync?.accountId ?? 'self',
+      name: state.giftState?.profile.name ?? '我',
+      avatar: state.giftState?.profile.avatar,
+      app: state,
+      own: true,
+    };
+    if (!showGroup) return [self];
+    return [
+      self,
+      ...peerBoards(state).map((peer) => ({
+        id: peer.accountId,
+        name: peer.name,
+        avatar: peer.avatar,
+        app: peer.app,
+        own: false,
+      })),
+    ];
+  }, [showGroup, state]);
+  const visiblePeople =
+    showGroup && memberId !== 'all'
+      ? people.filter((person) => person.id === memberId)
+      : people;
+  const ownedTickets = visiblePeople.flatMap((person) =>
+    [...person.app.tickets].reverse().map((ticket) => ({
+      ticket,
+      person,
+      status: getTicketStatus(ticket, person.app, now),
+    })),
   );
-  const rows: TicketListRow[] =
-    filter === 'used'
-      ? usedTicketRows(tickets)
-      : tickets.map((ticket) => ({ type: 'ticket', key: ticket.id, ticket }));
+  const availableCount = ownedTickets.filter(
+    (item) => item.status === 'available',
+  ).length;
+  const usedCount = ownedTickets.filter(
+    (item) => item.status === 'used',
+  ).length;
+  const tickets = ownedTickets.filter(
+    (item) => filter === 'all' || item.status === filter,
+  );
+  const groupByMember = showGroup && memberId === 'all';
+  const rows: TicketListRow[] = (() => {
+    const ticketRowsFor = (
+      personId: string,
+      items: typeof tickets,
+    ): TicketListRow[] => {
+      if (filter === 'used')
+        return usedTicketRows(items.map((item) => item.ticket)).map((row) =>
+          row.type === 'ticket'
+            ? { ...row, key: `${personId}:${row.ticket.id}` }
+            : { ...row, key: `${personId}:${row.key}` },
+        );
+      return items.map((item) => ({
+        type: 'ticket' as const,
+        key: `${personId}:${item.ticket.id}`,
+        ticket: item.ticket,
+      }));
+    };
+    if (!groupByMember) {
+      if (filter === 'used')
+        return usedTicketRows(tickets.map((item) => item.ticket)).map((row) => {
+          if (row.type !== 'ticket') return row;
+          const owned = tickets.find((entry) => entry.ticket === row.ticket);
+          return {
+            ...row,
+            key: `${owned?.person.id ?? 'self'}:${row.ticket.id}`,
+          };
+        });
+      return tickets.map((item) => ({
+        type: 'ticket' as const,
+        key: `${item.person.id}:${item.ticket.id}`,
+        ticket: item.ticket,
+      }));
+    }
+    return visiblePeople.flatMap((person) => {
+      const items = tickets.filter((item) => item.person.id === person.id);
+      if (!items.length) return [];
+      return [
+        {
+          type: 'member' as const,
+          key: `member:${person.id}`,
+          personId: person.id,
+          name: person.name,
+          count: items.length,
+        },
+        ...ticketRowsFor(person.id, items),
+      ];
+    });
+  })();
   async function confirmUse() {
     if (!selected || busy) return;
     const result = await run((draft) =>
@@ -59,20 +157,96 @@ export function TicketsScreen() {
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
-          <View style={[styles.actions, styles.listHeader]}>
-            {(['available', 'used', 'expired', 'all'] as const).map(
-              (value, index) => (
-                <ActionButton
-                  key={value}
-                  mode={filter === value ? 'contained-tonal' : 'text'}
-                  contentStyle={{ borderRadius: 18 }}
-                  accessibilityState={{ selected: filter === value }}
-                  onPress={() => setFilter(value)}
-                >
-                  {['可使用', '已使用', '已过期', '全部'][index]}
-                </ActionButton>
-              ),
-            )}
+          <View style={[styles.column, styles.listHeader]}>
+            <View style={styles.actions}>
+              {(['available', 'used', 'expired', 'all'] as const).map(
+                (value, index) => (
+                  <ActionButton
+                    key={value}
+                    mode={filter === value ? 'contained-tonal' : 'text'}
+                    contentStyle={{ borderRadius: 18 }}
+                    accessibilityState={{ selected: filter === value }}
+                    onPress={() => setFilter(value)}
+                  >
+                    {['可使用', '已使用', '已过期', '全部'][index]}
+                  </ActionButton>
+                ),
+              )}
+            </View>
+            {state.groupLink ? (
+              <>
+                <Text style={styles.muted}>
+                  选择看全组后，可按成员查看奖券
+                </Text>
+                <GroupViewSwitch />
+              </>
+            ) : null}
+            {showGroup ? (
+              <Text style={styles.muted}>
+                可用 {availableCount} · 已使用 {usedCount}
+              </Text>
+            ) : null}
+            {showGroup ? (
+              <View
+                accessibilityRole="radiogroup"
+                style={[styles.actions, { flexWrap: 'wrap' }]}
+              >
+                {[
+                  { id: 'all' as const, name: '全部', showAvatar: false },
+                  ...people.map((person) => ({
+                    id: person.id,
+                    name: person.name,
+                    avatar: person.avatar,
+                    showAvatar: true,
+                  })),
+                ].map((option) => {
+                  const selected = memberId === option.id;
+                  return (
+                    <Pressable
+                      key={option.id}
+                      accessibilityRole="radio"
+                      accessibilityLabel={option.name}
+                      accessibilityState={{ selected }}
+                      onPress={() => setMemberId(option.id)}
+                      style={{ borderRadius: 18 }}
+                    >
+                      <View
+                        style={{
+                          minHeight: 30,
+                          paddingHorizontal: 8,
+                          borderRadius: 18,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          backgroundColor: selected
+                            ? colors.primaryContainer
+                            : 'transparent',
+                        }}
+                      >
+                        {option.showAvatar ? (
+                          <ProfileAvatar
+                            avatar={
+                              'avatar' in option ? option.avatar : undefined
+                            }
+                            size={20}
+                          />
+                        ) : null}
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            lineHeight: 18,
+                            fontWeight: selected ? '600' : '400',
+                            color: colors.ink,
+                          }}
+                        >
+                          {option.name}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -82,6 +256,43 @@ export function TicketsScreen() {
           />
         }
         renderItem={({ item: row }) => {
+          if (row.type === 'member') {
+            const person = people.find((entry) => entry.id === row.personId);
+            return (
+              <View
+                testID="ticket-member-header"
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                  paddingTop: 4,
+                  paddingBottom: 2,
+                }}
+              >
+                <View style={styles.row}>
+                  <ProfileAvatar avatar={person?.avatar} size={20} />
+                  <Text
+                    accessibilityRole="header"
+                    style={{
+                      fontSize: 13,
+                      lineHeight: 18,
+                      fontWeight: '600',
+                      color: colors.ink,
+                    }}
+                  >
+                    {row.name}
+                  </Text>
+                </View>
+                <Text
+                  style={{ fontSize: 12, lineHeight: 18, color: colors.muted }}
+                >
+                  {row.count} 张
+                </Text>
+              </View>
+            );
+          }
           if (row.type === 'week')
             return (
               <View
@@ -113,8 +324,10 @@ export function TicketsScreen() {
               </View>
             );
           const item = row.ticket;
-          const status = getTicketStatus(item, state, now);
-          const goal = [state.weight, ...state.milestoneGoals].find(
+          const owned = tickets.find((entry) => entry.ticket === item);
+          const status = owned?.status ?? getTicketStatus(item, state, now);
+          const sourceState = owned?.person.app ?? state;
+          const goal = [sourceState.weight, ...sourceState.milestoneGoals].find(
             (entry) => entry.id === item.goalId,
           );
           const sourceName =
@@ -132,8 +345,12 @@ export function TicketsScreen() {
                   ? `${formatDate(item.expiresAt)} 前可用`
                   : '永久有效';
           return (
-            <Panel style={[styles.card, { padding: 12, gap: 6 }]}>
-              <TicketStatusBadge status={status} />
+            <Panel
+              style={[
+                styles.card,
+                { padding: 12, gap: 6, overflow: 'hidden' },
+              ]}
+            >
               <View
                 testID="ticket-main-row"
                 style={{
@@ -167,7 +384,23 @@ export function TicketsScreen() {
                     color={colors.primary}
                   />
                 </View>
-                <View style={styles.grow}>
+                <View
+                  style={[
+                    styles.grow,
+                    status !== 'available' ? { paddingRight: 64 } : null,
+                  ]}
+                >
+                  {showGroup && owned && !groupByMember ? (
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        lineHeight: 18,
+                        color: colors.muted,
+                      }}
+                    >
+                      {owned.person.name}
+                    </Text>
+                  ) : null}
                   <Text
                     testID="ticket-title"
                     style={{
@@ -203,26 +436,28 @@ export function TicketsScreen() {
                     获得于 {formatDate(item.createdAt)}
                   </Text>
                 </View>
-                {status === 'available' && (
-                  <ActionButton
-                    testID="ticket-use-button"
-                    tone="reward"
-                    mode="contained-tonal"
-                    compact
-                    accessibilityLabel={'使用奖券，' + item.name}
-                    labelStyle={{ fontSize: 12, lineHeight: 18 }}
-                    style={{ alignSelf: 'center', flexShrink: 0 }}
-                    disabled={busy}
-                    onPress={() => {
-                      setSelected(item);
-                      setNote('');
-                      setError('');
-                    }}
-                  >
-                    使用
-                  </ActionButton>
-                )}
+                {status === 'available' &&
+                  (owned?.person.own === false ? null : (
+                    <ActionButton
+                      testID="ticket-use-button"
+                      tone="reward"
+                      mode="contained-tonal"
+                      compact
+                      accessibilityLabel={'使用奖券，' + item.name}
+                      labelStyle={{ fontSize: 12, lineHeight: 18 }}
+                      style={{ alignSelf: 'center', flexShrink: 0 }}
+                      disabled={busy}
+                      onPress={() => {
+                        setSelected(item);
+                        setNote('');
+                        setError('');
+                      }}
+                    >
+                      使用
+                    </ActionButton>
+                  ))}
               </View>
+              <TicketStatusBadge status={status} />
               {item.usageNote ? (
                 <Text
                   testID="ticket-usage-note"

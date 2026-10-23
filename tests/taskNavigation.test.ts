@@ -69,10 +69,7 @@ test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与
     assert.ok(style?.includes("'transparent'"));
     assert.equal(prop(button, 'size'), '18');
     assert.equal(prop(button, 'hitSlop'), '0');
-    assert.equal(
-      prop(button, 'rippleColor'),
-      "'transparent'",
-    );
+    assert.equal(prop(button, 'rippleColor'), "'transparent'");
     assert.ok(prop(button, 'onFocus')?.includes('setFocusedAction'));
     assert.ok(prop(button, 'onBlur')?.includes('setFocusedAction(null)'));
     assert.ok(style?.includes('focusedAction'));
@@ -324,6 +321,8 @@ test('更多导航和深链显式设置总览initialRoute，并保留账户与�
       'settings',
       'gifts',
       'account',
+      'group',
+      'member',
     ],
   );
   const params = find(app, ts.isTypeAliasDeclaration).find(

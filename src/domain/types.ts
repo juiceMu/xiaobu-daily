@@ -83,6 +83,10 @@ export interface AppState {
   giftState?: GiftState;
   sync?: SyncState;
   storageVersion?: 1;
+  groupOwned?: GroupOwned;
+  groupLink?: GroupLink;
+  pendingGroupDeparture?: GroupLink;
+  groupPeers?: GroupPeer[];
 }
 
 export type SyncEntityType =
@@ -95,7 +99,26 @@ export type SyncEntityType =
   | 'settings'
   | 'profile'
   | 'gifts'
-  | 'receipts';
+  | 'receipts'
+  | 'groups'
+  | 'memberships';
+export interface GroupOwned {
+  id: string;
+  name: string;
+}
+export interface GroupLink {
+  groupId: string;
+  name: string;
+  secret: string;
+  ownerAccountId?: string;
+}
+export interface GroupPeer {
+  accountId: string;
+  deviceId: string;
+  operations: SyncOperation[];
+  attachments: Record<string, string>;
+  syncedAt: string;
+}
 export interface SyncEntity {
   entityType: SyncEntityType;
   entityId: string;

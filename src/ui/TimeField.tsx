@@ -1,10 +1,20 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Platform, StyleSheet, View } from 'react-native';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from '@react-native-community/datetimepicker';
 import { Icon, Text, TouchableRipple } from 'react-native-paper';
 import { ActionButton } from './components';
 import { useAppTheme } from './ThemeProvider';
 import type { AppColors } from './themeCatalog';
 import { formatTime, isValidTime, type TimeFieldProps } from './timeFieldModel';
+
+function parseTimeValue(value: string): Date {
+  const parts = (isValidTime(value) ? value : '00:00').split(':').map(Number);
+  const date = new Date();
+  date.setHours(parts[0], parts[1], 0, 0);
+  return date;
+}
 
 export function TimeField({
   label,
@@ -15,15 +25,26 @@ export function TimeField({
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [visible, setVisible] = useState(false);
-  const [hour, setHour] = useState(0);
-  const [minute, setMinute] = useState(0);
+  const [draft, setDraft] = useState(() => parseTimeValue(value));
+
   function open() {
     if (disabled) return;
-    const parts = (isValidTime(value) ? value : '00:00').split(':').map(Number);
-    setHour(parts[0]);
-    setMinute(parts[1]);
+    const next = parseTimeValue(value);
+    setDraft(next);
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: next,
+        mode: 'time',
+        is24Hour: true,
+        onValueChange: (_event, selected) => {
+          onChange(formatTime(selected.getHours(), selected.getMinutes()));
+        },
+      });
+      return;
+    }
     setVisible(true);
   }
+
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -40,83 +61,59 @@ export function TimeField({
           <Icon source="clock-outline" size={18} color={colors.primary} />
         </View>
       </TouchableRipple>
-      {visible ? (
-      <Modal
-        visible={visible}
-        transparent
-        animationType="none"
-        onRequestClose={() => setVisible(false)}
-      >
-        <View style={styles.scrim}>
-          <View style={styles.dialog} accessibilityViewIsModal>
-            <Text accessibilityRole="header" style={styles.title}>
-              选择{label}
-            </Text>
-            <Text style={styles.preview}>{formatTime(hour, minute)}</Text>
-            <View style={styles.columns}>
-              {(['小时', '分钟'] as const).map((unit, column) => (
-                <View key={unit} style={styles.column}>
-                  <Text style={styles.label}>{unit}</Text>
-                  <ScrollView
-                    style={styles.options}
-                    contentContainerStyle={{ gap: 4 }}
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {Array.from(
-                      { length: column === 0 ? 24 : 60 },
-                      (_, index) => (
-                        <ActionButton
-                          key={index}
-                          mode={
-                            (column === 0 ? hour : minute) === index
-                              ? 'contained-tonal'
-                              : 'text'
-                          }
-                          accessibilityLabel={
-                            index + (column === 0 ? '时' : '分')
-                          }
-                          accessibilityState={{
-                            selected: (column === 0 ? hour : minute) === index,
-                          }}
-                          onPress={() =>
-                            column === 0 ? setHour(index) : setMinute(index)
-                          }
-                        >
-                          {String(index).padStart(2, '0')}
-                        </ActionButton>
-                      ),
-                    )}
-                  </ScrollView>
-                </View>
-              ))}
-            </View>
-            <View style={styles.actions}>
-              <ActionButton
-                tone="neutral"
-                mode="text"
-                onPress={() => setVisible(false)}
-              >
-                取消
-              </ActionButton>
-              <ActionButton
-                tone="save"
-                mode="contained"
-                disabled={disabled}
-                onPress={() => {
-                  onChange(formatTime(hour, minute));
-                  setVisible(false);
-                }}
-              >
-                确认时间
-              </ActionButton>
+      {Platform.OS === 'ios' && visible ? (
+        <Modal
+          visible={visible}
+          transparent
+          animationType="none"
+          onRequestClose={() => setVisible(false)}
+        >
+          <View style={styles.scrim}>
+            <View style={styles.dialog} accessibilityViewIsModal>
+              <Text accessibilityRole="header" style={styles.title}>
+                选择{label}
+              </Text>
+              <Text style={styles.preview}>
+                {formatTime(draft.getHours(), draft.getMinutes())}
+              </Text>
+              <DateTimePicker
+                value={draft}
+                mode="time"
+                display="spinner"
+                is24Hour
+                locale="zh-CN"
+                onValueChange={(_event, selected) => setDraft(selected)}
+              />
+              <View style={styles.actions}>
+                <ActionButton
+                  tone="neutral"
+                  mode="text"
+                  onPress={() => setVisible(false)}
+                >
+                  取消
+                </ActionButton>
+                <ActionButton
+                  tone="save"
+                  mode="contained"
+                  disabled={disabled}
+                  onPress={() => {
+                    onChange(
+                      formatTime(draft.getHours(), draft.getMinutes()),
+                    );
+                    setVisible(false);
+                  }}
+                >
+                  确认时间
+                </ActionButton>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
       ) : null}
     </View>
   );
 }
+
 const createStyles = (colors: AppColors) =>
   StyleSheet.create({
     field: { gap: 6 },
@@ -166,9 +163,6 @@ const createStyles = (colors: AppColors) =>
       color: colors.primary,
       textAlign: 'center',
     },
-    columns: { flexDirection: 'row', gap: 16, flexShrink: 1, minHeight: 0 },
-    column: { flex: 1, gap: 8 },
-    options: { maxHeight: 240 },
     actions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',

@@ -34,6 +34,13 @@ export function groupUsedTickets(tickets: Ticket[]): UsedTicketWeek[] {
 }
 export type TicketListRow =
   | { type: 'week'; key: string; title: string; count: number }
+  | {
+      type: 'member';
+      key: string;
+      personId: string;
+      name: string;
+      count: number;
+    }
   | { type: 'ticket'; key: string; ticket: Ticket };
 export function usedTicketRows(tickets: Ticket[]): TicketListRow[] {
   return groupUsedTickets(tickets).flatMap((week): TicketListRow[] => [

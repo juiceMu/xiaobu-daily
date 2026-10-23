@@ -112,7 +112,8 @@ export const themeOptions: readonly ThemeOption[] = [
     colors: {
       ...defaultColors,
       background: '#FFFFFF',
-      surface: '#FFFEFF',
+      // 卡片用淡紫灰，避免和纯白页底糊成一片。
+      surface: '#F6F3FB',
       field: '#F8F1DC',
       ink: '#3A3350',
       muted: '#655C7A',

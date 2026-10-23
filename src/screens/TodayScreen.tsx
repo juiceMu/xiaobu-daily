@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FlatList, Platform, Pressable, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Icon, IconButton, Menu, ProgressBar, Text } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
@@ -35,13 +36,93 @@ import {
   shiftLocalDate,
   weekStripDay,
 } from '../ui/weekStripModel';
-import { Confirm, discardDraft, ErrorText, useScreenStyles } from './shared';
+import {
+  Confirm,
+  discardDraft,
+  ErrorText,
+  formatDate,
+  useScreenStyles,
+} from './shared';
+import { GroupViewSwitch } from '../ui/GroupViewSwitch';
+import { useGroupView } from '../ui/GroupViewProvider';
+import { peerBoards } from '../domain/groupSync';
+import { ProfileAvatar } from '../ui/ProfileAvatar';
 export function TodayScreen() {
   const { colors } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, busy, run } = useApp();
+  const navigation = useNavigation();
+  const { mode } = useGroupView();
+  const showGroup = mode === 'group' && !!state.groupLink;
+  const peers = showGroup ? peerBoards(state) : [];
   const [pickedDate, setPickedDate] = useState<string | null>(null);
+  const listRef = useRef<FlatList<Task>>(null);
+  const scrollOffsetRef = useRef(0);
+  const restoreScrollRef = useRef<number | null>(null);
   const selectedDate = pickedDate ?? dateKey(now);
+  function webListScroller(): HTMLElement | null {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return null;
+    const root = document.querySelector(
+      '[data-testid="today-task-list"]',
+    ) as HTMLElement | null;
+    if (!root) return null;
+    const queue: HTMLElement[] = [root];
+    while (queue.length) {
+      const node = queue.shift()!;
+      if (node.scrollHeight > node.clientHeight + 20) return node;
+      queue.push(...(Array.from(node.children) as HTMLElement[]));
+    }
+    return null;
+  }
+  function applyListScroll(offset: number) {
+    listRef.current?.scrollToOffset({ offset, animated: false });
+    const scroller = webListScroller();
+    if (scroller) scroller.scrollTop = offset;
+  }
+  // 切换日期时列表内容高度会变，避免 FlatList / 焦点滚入视口把位置打回顶部。
+  function changePickedDate(next: string | null) {
+    const scroller = webListScroller();
+    restoreScrollRef.current = scroller?.scrollTop ?? scrollOffsetRef.current;
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    }
+    setPickedDate(next);
+  }
+  useEffect(() => {
+    const offset = restoreScrollRef.current;
+    if (offset == null) return;
+    let cancelled = false;
+    const restore = () => {
+      if (!cancelled) applyListScroll(offset);
+    };
+    restore();
+    const timers = [0, 32, 80, 160, 320, 480].map((delay) =>
+      setTimeout(() => {
+        restore();
+        if (delay === 480) restoreScrollRef.current = null;
+      }, delay),
+    );
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, [selectedDate]);
+  useEffect(() => {
+    // 进页/刷新从列表顶部开始，并清掉浏览器恢复的焦点，避免自动滚到旧控件。
+    restoreScrollRef.current = null;
+    scrollOffsetRef.current = 0;
+    const reset = () => {
+      applyListScroll(0);
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement) active.blur();
+      }
+    };
+    reset();
+    const timers = [50, 150, 400].map((delay) => setTimeout(reset, delay));
+    return () => timers.forEach(clearTimeout);
+  }, []);
   const selectedNow = localDateFromKey(selectedDate) ?? now;
   const isToday = selectedDate === dateKey(now);
   const historicalWeek = weekKey(selectedNow) !== weekKey(now);
@@ -75,13 +156,23 @@ export function TodayScreen() {
   calendarEnd.setMonth(calendarEnd.getMonth() + 1);
   calendarEnd.setDate(0);
   const calendarLength = calendarEnd.getDate();
-  const dateNavigationSize = Platform.OS === 'web' ? 32 : 44;
+  const dateNavigationSize = 28;
+  const dateNavigationIconSize = 22;
   const dateNavigationStyle = {
     margin: 0,
     width: dateNavigationSize,
     height: dateNavigationSize,
     borderRadius: dateNavigationSize / 2,
   };
+  const weekRangeLabel = (() => {
+    const start = stats.days[0].date;
+    const end = stats.days[6].date;
+    const short = (key: string) =>
+      `${Number(key.slice(5, 7))}/${Number(key.slice(8, 10))}`;
+    return start.slice(0, 4) === end.slice(0, 4)
+      ? `${short(start)} — ${short(end)}`
+      : `${start.slice(0, 4)}/${short(start)} — ${end.slice(0, 4)}/${short(end)}`;
+  })();
   const [form, setForm] = useState<{
     id?: string;
     name: string;
@@ -96,7 +187,6 @@ export function TodayScreen() {
   const keyboardFocus = useKeyboardFocus();
   function dateNavigationProps(id: string) {
     return {
-      rippleColor: 'transparent' as const,
       onPressIn: () => setPressedAction(id),
       onPressOut: () =>
         setPressedAction((current) => (current === id ? null : current)),
@@ -109,9 +199,20 @@ export function TodayScreen() {
         setFocusedAction(null);
         setPressedAction((current) => (current === id ? null : current));
       },
+      // Web 上按钮获焦会 scrollIntoView，把列表拽回周切换区域。
+      ...(Platform.OS === 'web'
+        ? {
+            onMouseDown: (event: { preventDefault: () => void }) => {
+              event.preventDefault();
+            },
+          }
+        : {}),
       style: [
         dateNavigationStyle,
         {
+          alignItems: 'center' as const,
+          justifyContent: 'center' as const,
+          opacity: 1,
           backgroundColor:
             pressedAction === id ? colors.primaryContainer : 'transparent',
           borderWidth:
@@ -177,12 +278,29 @@ export function TodayScreen() {
       scroll={false}
     >
       <FlatList
+        ref={listRef}
+        testID="today-task-list"
         style={styles.listViewport}
         data={tasks}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
+        onScroll={(event) => {
+          const y = event.nativeEvent.contentOffset.y;
+          const pending = restoreScrollRef.current;
+          if (pending != null && Math.abs(y - pending) > 1) {
+            applyListScroll(pending);
+            return;
+          }
+          scrollOffsetRef.current = y;
+        }}
+        scrollEventThrottle={16}
+        onContentSizeChange={() => {
+          const offset = restoreScrollRef.current;
+          if (offset == null) return;
+          applyListScroll(offset);
+        }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           <View style={[styles.column, styles.listHeader]}>
@@ -191,67 +309,94 @@ export function TodayScreen() {
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: 4,
+                  justifyContent: 'space-between',
+                  gap: 8,
                 }}
               >
-                <IconButton
-                  icon="chevron-left"
-                  size={18}
-                  {...dateNavigationProps('previous-week')}
-                  accessibilityLabel="查看上一周"
-                  disabled={busy || selectedDate === '0001-01-01'}
-                  onPress={() =>
-                    setPickedDate(shiftLocalDate(selectedDate, -7))
-                  }
-                />
-                <Text
+                <View
                   style={{
-                    flex: 1,
-                    minWidth: 100,
-                    fontSize: 12,
-                    color: colors.muted,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    flexShrink: 1,
+                    minWidth: 0,
                   }}
                 >
-                  {stats.days[0].date} — {stats.days[6].date}
-                </Text>
-                <IconButton
-                  icon="chevron-right"
-                  size={18}
-                  {...dateNavigationProps('next-week')}
-                  accessibilityLabel="查看下一周"
-                  disabled={busy || !historicalWeek}
-                  onPress={() => {
-                    const next = shiftLocalDate(selectedDate, 7);
-                    setPickedDate(next > dateKey(now) ? dateKey(now) : next);
-                  }}
-                />
-              </View>
-              <View style={styles.row}>
-                <ActionButton
-                  compact
-                  mode="text"
-                  disabled={busy}
-                  icon="calendar-month-outline"
-                  onPress={() => {
-                    setDateInput(selectedDate);
-                    setCalendarMonth(selectedDate.slice(0, 7) + '-01');
-                    setCalendarView('day');
-                    setDateError('');
-                    setDatePickerVisible(true);
-                  }}
-                >
-                  选日期
-                </ActionButton>
-                {!isToday && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="查看上一周"
+                    disabled={busy || selectedDate === '0001-01-01'}
+                    onPress={() =>
+                      changePickedDate(shiftLocalDate(selectedDate, -7))
+                    }
+                    {...dateNavigationProps('previous-week')}
+                  >
+                    <Icon
+                      source="chevron-left"
+                      size={dateNavigationIconSize}
+                      color={
+                        busy || selectedDate === '0001-01-01'
+                          ? colors.muted
+                          : colors.primary
+                      }
+                    />
+                  </Pressable>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      flexShrink: 1,
+                      fontSize: 13,
+                      lineHeight: 18,
+                      fontWeight: '500',
+                      color: colors.ink,
+                    }}
+                  >
+                    {weekRangeLabel}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="查看下一周"
+                    disabled={busy || !historicalWeek}
+                    onPress={() => {
+                      const next = shiftLocalDate(selectedDate, 7);
+                      changePickedDate(
+                        next > dateKey(now) ? dateKey(now) : next,
+                      );
+                    }}
+                    {...dateNavigationProps('next-week')}
+                  >
+                    <Icon
+                      source="chevron-right"
+                      size={dateNavigationIconSize}
+                      color={
+                        busy || !historicalWeek ? colors.muted : colors.primary
+                      }
+                    />
+                  </Pressable>
+                </View>
+                <View style={[styles.row, { flexShrink: 0 }]}>
                   <ActionButton
                     compact
+                    mode="text"
                     disabled={busy}
-                    onPress={() => setPickedDate(null)}
+                    icon="calendar-month-outline"
+                    onPress={() => {
+                      setDateInput(selectedDate);
+                      setCalendarMonth(selectedDate.slice(0, 7) + '-01');
+                      setCalendarView('day');
+                      setDateError('');
+                      setDatePickerVisible(true);
+                    }}
+                  >
+                    选日期
+                  </ActionButton>
+                  <ActionButton
+                    compact
+                    disabled={busy || isToday}
+                    onPress={() => changePickedDate(null)}
                   >
                     回今天
                   </ActionButton>
-                )}
+                </View>
               </View>
               <View style={[styles.row, { alignItems: 'stretch' }]}>
                 <View style={[styles.stat, summaryCardStyle]}>
@@ -322,7 +467,16 @@ export function TodayScreen() {
                         disabled: busy || calendar.isFuture,
                       }}
                       disabled={busy || calendar.isFuture}
-                      onPress={() => setPickedDate(day.date)}
+                      onPress={() => changePickedDate(day.date)}
+                      {...(Platform.OS === 'web'
+                        ? {
+                            onMouseDown: (event: {
+                              preventDefault: () => void;
+                            }) => {
+                              event.preventDefault();
+                            },
+                          }
+                        : {})}
                       style={{
                         flex: 1,
                         alignItems: 'center',
@@ -467,6 +621,99 @@ export function TodayScreen() {
               }
             />
           </View>
+        }
+        ListFooterComponent={
+          state.groupLink ? (
+            <View style={[styles.column, { marginTop: 12 }]}>
+              <Text style={styles.muted}>
+                上方统计与任务仍属自己；选择看全组可浏览其他成员
+              </Text>
+              <GroupViewSwitch />
+              {showGroup ? (
+                peers.length ? (
+                  peers.map((peer) => {
+                    const peerTasks = peer.app.tasks.filter(
+                      (task) => !task.deleted && (!task.archived || !isToday),
+                    );
+                    const done = peerTasks.filter(
+                      (task) =>
+                        getTaskCount(
+                          peer.app,
+                          task.id,
+                          new Date(`${selectedDate}T12:00:00`),
+                        ) >= task.target,
+                    ).length;
+                    const available = peer.app.tickets.filter(
+                      (ticket) =>
+                        getTicketStatus(ticket, peer.app, now) === 'available',
+                    ).length;
+                    const used = peer.app.tickets.filter(
+                      (ticket) => ticket.usedAt,
+                    ).length;
+                    const redeemed = peer.app.redemptions.filter(
+                      (entry) => entry.week === weekKey(selectedNow),
+                    ).length;
+                    return (
+                      <Pressable
+                        key={peer.accountId}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${peer.name}的记录`}
+                        onPress={() => {
+                          (
+                            navigation.navigate as (
+                              name: string,
+                              params: object,
+                            ) => void
+                          )('more', {
+                            screen: 'member',
+                            params: {
+                              accountId: peer.accountId,
+                              date: selectedDate,
+                            },
+                          });
+                        }}
+                      >
+                        <Panel style={styles.card}>
+                          <View style={styles.row}>
+                            <ProfileAvatar avatar={peer.avatar} size={36} />
+                            <View style={styles.grow}>
+                              <Text style={styles.heading}>
+                                {peer.name}
+                                {peer.left ? ' · 已离开' : ''}
+                              </Text>
+                              <Text style={styles.muted}>
+                                已同步 {formatDate(peer.syncedAt)} · 完成{' '}
+                                {done}/{peerTasks.length}
+                              </Text>
+                              <Text style={styles.muted}>
+                                可用 {available} · 本周已兑 {redeemed} · 已使用{' '}
+                                {used}
+                              </Text>
+                            </View>
+                          </View>
+                          {peerTasks.map((task) => (
+                            <Text key={task.id} style={styles.muted}>
+                              {task.name}{' '}
+                              {getTaskCount(
+                                peer.app,
+                                task.id,
+                                new Date(`${selectedDate}T12:00:00`),
+                              )}
+                              /{task.target}
+                            </Text>
+                          ))}
+                        </Panel>
+                      </Pressable>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.muted}>
+                    同步后可以看到其他成员。打开应用不会自动同步。
+                  </Text>
+                )
+              ) : null}
+            </View>
+          ) : null
         }
         ListEmptyComponent={
           <Empty
@@ -796,7 +1043,7 @@ export function TodayScreen() {
           <View style={styles.row}>
             <IconButton
               icon="chevron-left"
-              size={18}
+              size={dateNavigationIconSize}
               {...dateNavigationProps(
                 calendarView === 'day'
                   ? 'previous-month'
@@ -870,7 +1117,7 @@ export function TodayScreen() {
             </Pressable>
             <IconButton
               icon="chevron-right"
-              size={18}
+              size={dateNavigationIconSize}
               {...dateNavigationProps(
                 calendarView === 'day'
                   ? 'next-month'
@@ -991,7 +1238,10 @@ export function TodayScreen() {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
               {(calendarView === 'month'
                 ? Array.from({ length: 12 }, (_, index) => index + 1)
-                : Array.from({ length: 12 }, (_, index) => yearPageStart + index)
+                : Array.from(
+                    { length: 12 },
+                    (_, index) => yearPageStart + index,
+                  )
               ).map((value) => {
                 const isMonth = calendarView === 'month';
                 const disabled = isMonth
@@ -1005,7 +1255,9 @@ export function TodayScreen() {
                 return (
                   <Pressable
                     key={label}
-                    testID={isMonth ? 'month-picker-option' : 'year-picker-option'}
+                    testID={
+                      isMonth ? 'month-picker-option' : 'year-picker-option'
+                    }
                     accessibilityRole="button"
                     accessibilityLabel={label}
                     accessibilityState={{ selected, disabled }}
@@ -1064,7 +1316,8 @@ export function TodayScreen() {
             </View>
           )}
           <Text style={styles.muted}>
-            已选 {dateInput}。点击上方年月可切换；可选今天或过去日期，历史周只补记录，不结转本周。
+            已选 {dateInput}
+            。点击上方年月可切换；可选今天或过去日期，历史周只补记录，不结转本周。
           </Text>
           <ErrorText message={dateError} />
           <View style={styles.actions}>
@@ -1086,7 +1339,7 @@ export function TodayScreen() {
                   setDateError('请选择有效的今天或过去日期');
                   return;
                 }
-                setPickedDate(dateInput);
+                changePickedDate(dateInput);
                 setDatePickerVisible(false);
               }}
             >

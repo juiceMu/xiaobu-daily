@@ -33,8 +33,11 @@ import {
   SettingsScreen,
   TicketsScreen,
   TodayScreen,
+  GroupScreen,
+  MemberScreen,
   type MoreRoute,
 } from './src/screens';
+import { GroupViewProvider } from './src/ui/GroupViewProvider';
 import { ThemeProvider, useAppTheme } from './src/ui/ThemeProvider';
 
 type MoreStackParams = {
@@ -45,10 +48,12 @@ type MoreStackParams = {
   settings: undefined;
   gifts: undefined;
   account: undefined;
+  group: undefined;
+  member: { accountId: string; date?: string };
 };
 type TabsParams = {
   today: undefined;
-  tickets: undefined;
+  tickets: { intent?: 'own-available'; at?: number } | undefined;
   more: NavigatorScreenParams<MoreStackParams> | undefined;
 };
 const Tabs = createBottomTabNavigator<TabsParams>();
@@ -80,6 +85,8 @@ const linking: LinkingOptions<TabsParams> = {
           settings: 'settings',
           gifts: 'gifts',
           account: 'account',
+          group: 'group',
+          member: 'member/:accountId',
         },
       },
     },
@@ -189,6 +196,16 @@ function MoreNavigator() {
         component={SettingsScreen}
         options={{ title: '设置' }}
       />
+      <Stack.Screen
+        name="group"
+        component={GroupScreen}
+        options={{ title: '小组' }}
+      />
+      <Stack.Screen
+        name="member"
+        component={MemberScreen}
+        options={{ title: '成员记录' }}
+      />
     </Stack.Navigator>
   );
 }
@@ -291,7 +308,9 @@ function ThemedApp() {
       >
         <StatusBar style="dark" />
         <AppProvider>
-          <Navigation />
+          <GroupViewProvider>
+            <Navigation />
+          </GroupViewProvider>
         </AppProvider>
       </PaperProvider>
     </SafeAreaProvider>

@@ -9,4 +9,5 @@ export {
   ArchivedScreen,
   SettingsScreen,
 } from './MoreScreens';
+export { GroupScreen, MemberScreen } from './GroupScreens';
 export type { MoreRoute } from './MoreScreens';

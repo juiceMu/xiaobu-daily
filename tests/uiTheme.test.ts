@@ -89,9 +89,18 @@ test('浅暖灰米品牌填充与独立前景保持真实消费对比度', () =>
   }
   const white = themeOptions.find(({ id }) => id === 'white')!.colors;
   assert.equal(white.background, '#FFFFFF');
-  assert.notEqual(white.surface, '#FFFFFF');
+  assert.equal(white.surface, '#F6F3FB');
   assert.notEqual(white.field, white.surface);
   assert.notEqual(white.primaryContainer, white.surface);
+  for (const { id, colors: theme } of themeOptions) {
+    const delta = Math.abs(
+      luminance(theme.background) - luminance(theme.surface),
+    );
+    assert.ok(
+      delta >= 0.02,
+      `${id}: 页面底与卡片面对比过弱（ΔL=${delta.toFixed(4)}）`,
+    );
+  }
   assert.equal(colors.green, '#EAF7EE');
   assert.equal(colors.background, '#FFFCF8');
   assert.equal(colors.field, '#FCF7EE');

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.8] - 2026-10-23
+
+### Added
+
+- 小组：创建、改名、邀请码/二维码加入与离开（「更多 → 小组」）
+- 原生局域网手动同步：同一 WiFi 下 mDNS 发现 + TCP 口令挑战与加密交换打卡/奖券日志
+- 组内查看：本机可切换「只看自己 / 看全组」；他人数据为上次同步的只读副本
+- Android 身份模块 `modules/sprout-identity`（Keystore 存 P-256；尚未替换旧存档 `accountId`，真机身份验收未完成）
+
+### Changed
+
+- Android `versionCode` 9，安装包：`dist/小步日常-1.0.8-20261023.apk`
+- 依赖：`react-native-zeroconf`、`@noble/ciphers`；`expo-network` 对齐 Expo 57
+
 ## [1.0.7] - 2026-10-21
 
 ### Fixed

@@ -4,7 +4,7 @@ import { Icon, Text } from 'react-native-paper';
 import type { TicketStatus } from '../domain/types';
 import { useAppTheme } from './ThemeProvider';
 
-// 文字和图标共同说明状态，不依赖颜色，也不覆盖奖券内容。
+// 贴在卡片右上角。文字和图标共同说明状态，不依赖颜色。
 export function TicketStatusBadge({ status }: { status: TicketStatus }) {
   const { colors } = useAppTheme();
   if (status === 'available') return null;
@@ -12,46 +12,42 @@ export function TicketStatusBadge({ status }: { status: TicketStatus }) {
   const label = used ? '已使用' : '已过期';
   const foreground = used ? colors.onUsedBadge : colors.onExpiredBadge;
   return (
-    <View style={{ alignItems: 'flex-end' }}>
-      <View
-        testID="ticket-status-badge"
-        accessible
-        accessibilityLabel={label}
+    <View
+      testID="ticket-status-badge"
+      accessible
+      accessibilityLabel={label}
+      style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        zIndex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 2,
+        paddingLeft: 8,
+        paddingRight: 10,
+        paddingVertical: 3,
+        borderBottomLeftRadius: 10,
+        backgroundColor: used ? colors.usedBadge : colors.expiredBadge,
+      }}
+    >
+      <View accessible={false} importantForAccessibility="no-hide-descendants">
+        <Icon
+          source={used ? 'check-circle-outline' : 'clock-alert-outline'}
+          size={14}
+          color={foreground}
+        />
+      </View>
+      <Text
         style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          alignSelf: 'flex-end',
-          maxWidth: '100%',
-          gap: 4,
-          paddingHorizontal: 8,
-          paddingVertical: 3,
-          borderRadius: 10,
-          backgroundColor: used ? colors.usedBadge : colors.expiredBadge,
+          fontSize: 12,
+          lineHeight: 16,
+          fontWeight: '500',
+          color: foreground,
         }}
       >
-        <View
-          accessible={false}
-          importantForAccessibility="no-hide-descendants"
-        >
-          <Icon
-            source={used ? 'check-circle-outline' : 'clock-alert-outline'}
-            size={14}
-            color={foreground}
-          />
-        </View>
-        <Text
-          style={{
-            fontSize: 12,
-            lineHeight: 18,
-            fontWeight: '500',
-            flexShrink: 1,
-            color: foreground,
-          }}
-        >
-          {label}
-        </Text>
-      </View>
+        {label}
+      </Text>
     </View>
   );
 }

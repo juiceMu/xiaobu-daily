@@ -60,16 +60,17 @@ test('共享输入文字与占位符同为14，单行44起随字体扩大，多�
   assert.ok(milestones.includes('accessibilityRole="search"'));
   assert.ok(milestones.includes('returnKeyType="search"'));
 });
-test('时间框保持原生和web时间语义，文字14和最小44高度且无边框', () => {
+test('时间框保持原生和web弹窗选择，文字14和最小44高度且无边框', () => {
   const web = read('../src/ui/TimeField.web.tsx');
   const native = read('../src/ui/TimeField.tsx');
   for (const source of [web, native]) {
     assert.ok(source.includes('fontSize: 14'));
     assert.ok(source.includes('minHeight: 44'));
     assert.equal(source.includes('allowFontScaling={false}'), false);
+    assert.equal(source.includes('type="time"'), false);
   }
-  assert.ok(web.includes('type="time"'));
-  assert.ok(web.includes('step={60}'));
+  assert.ok(web.includes('formatTime(hour, minute)'));
+  assert.ok(native.includes('@react-native-community/datetimepicker'));
+  assert.ok(native.includes('formatTime(draft.getHours(), draft.getMinutes())'));
   assert.ok(web.includes('keyboardFocus.focusVisible'));
-  assert.ok(native.includes('formatTime(hour, minute)'));
 });

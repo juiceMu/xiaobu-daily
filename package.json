@@ -1,6 +1,6 @@
 {
   "name": "sprout-checkin-native",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -19,18 +19,21 @@
   "dependencies": {
     "@expo/metro-runtime": "~57.0.17",
     "@expo/vector-icons": "^15.0.2",
+    "@noble/ciphers": "2.4.0",
+    "@react-native-community/datetimepicker": "^9.1.0",
     "@react-navigation/bottom-tabs": "^7.21.0",
     "@react-navigation/native": "^7.5.1",
     "@react-navigation/native-stack": "^7.21.0",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
-    "expo": "~57.0.30",
+    "expo": "~57.0.31",
     "expo-camera": "~57.0.6",
     "expo-crypto": "~57.0.4",
     "expo-font": "~57.0.4",
     "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.20",
     "expo-linking": "~57.0.13",
+    "expo-network": "57.0.3",
     "expo-sqlite": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "qrcode": "^1.5.4",
@@ -42,7 +45,9 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
-    "react-native-web": "^0.21.2"
+    "react-native-tcp-socket": "^6.4.3",
+    "react-native-web": "^0.21.2",
+    "react-native-zeroconf": "1.0.0-rc.2"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

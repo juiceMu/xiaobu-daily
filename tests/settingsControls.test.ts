@@ -85,35 +85,30 @@ test('开关本体不被48dp样式拉伸，触控留白由父容器提供', () =
   );
 });
 
-test('Web使用真实分钟时间框，非法更改提前返回并保留上一个有效值', () => {
+test('Web使用小时分钟选择弹窗，不用系统time输入，仅确认提交时间', () => {
   const source = parse('../src/ui/TimeField.web.tsx');
-  const input = find(source, 'input')[0];
-  assert.ok(input);
-  assert.equal(
-    attr(input, 'type', source)?.initializer?.getText(source),
-    '"time"',
-  );
-  assert.equal(expr(input, 'step', source), '60');
-  assert.equal(expr(input, 'value', source), 'value');
-  assert.equal(expr(input, 'disabled', source), 'disabled');
-  const change = expr(input, 'onChange', source);
+  assert.equal(find(source, 'input').length, 0);
+  assert.equal(source.text.includes('type="time"'), false);
+  const modal = find(source, 'Modal')[0];
+  assert.ok(modal);
+  assert.ok(expr(modal, 'onRequestClose', source).includes('setVisible(false)'));
   assert.ok(
-    change.indexOf('!isValidTime(next)') < change.indexOf('onChange(next)'),
+    source.text.includes('onChange(formatTime(hour, minute))'),
   );
-  assert.ok(change.includes('setError('));
-  assert.match(change, /return;/);
-  assert.ok(attr(input, 'aria-describedby', source));
-  assert.equal(find(source, 'label').length, 1);
-  assert.ok(source.text.includes('border: 0'));
-  assert.ok(source.text.includes('background: colors.field'));
+  assert.ok(source.text.includes('column === 0 ? 24 : 60'));
   assert.ok(source.text.includes('keyboardFocus.focusVisible'));
-  assert.equal(source.text.includes('setFocused(true)'), false);
+  assert.ok(source.text.includes('backgroundColor: colors.field'));
+  assert.ok(source.text.includes('borderWidth: 0'));
 });
 
-test('原生使用小时分钟选择弹窗，仅确认提交时间，取消与系统返回不改变值', () => {
+test('原生使用社区时间选择器，Android 系统弹窗，iOS 确认才提交', () => {
   const source = parse('../src/ui/TimeField.tsx');
   assert.equal(find(source, 'input').length, 0);
   assert.equal(find(source, 'TextInput').length, 0);
+  assert.ok(source.text.includes('@react-native-community/datetimepicker'));
+  assert.ok(source.text.includes('DateTimePickerAndroid.open'));
+  assert.ok(source.text.includes("mode: 'time'"));
+  assert.ok(source.text.includes('is24Hour: true'));
   const modal = find(source, 'Modal')[0];
   assert.ok(modal);
   const back = expr(modal, 'onRequestClose', source);
@@ -126,7 +121,7 @@ test('原生使用小时分钟选择弹窗，仅确认提交时间，取消与�
   assert.equal(confirm.length, 1);
   assert.ok(
     expr(confirm[0], 'onPress', source).includes(
-      'onChange(formatTime(hour, minute))',
+      'formatTime(draft.getHours(), draft.getMinutes())',
     ),
   );
   const cancel = buttons.find((button) =>
@@ -134,5 +129,5 @@ test('原生使用小时分钟选择弹窗，仅确认提交时间，取消与�
   );
   assert.ok(cancel);
   assert.equal(expr(cancel, 'onPress', source).includes('onChange'), false);
-  assert.ok(source.text.includes('column === 0 ? 24 : 60'));
+  assert.ok(source.text.includes('Platform.OS === \'ios\''));
 });

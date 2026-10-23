@@ -80,9 +80,18 @@ test('颜色选择使用实际tint圆点、12字和已选文本，触控48且保
   assert.equal(color.includes('borderWidth'), false);
 });
 
-test('日期前后按钮图标18，Web32原生44并保留键盘焦点和读屏名称', () => {
+test('日期前后按钮图标22、触控28并与选日期同行，保留键盘焦点和读屏名称', () => {
+  assert.ok(text.includes('const dateNavigationSize = 28'));
+  assert.ok(text.includes('const dateNavigationIconSize = 22'));
+  assert.ok(text.includes('size={dateNavigationIconSize}'));
+  assert.ok(text.includes('weekRangeLabel'));
+  assert.ok(text.includes("accessibilityLabel=\"查看上一周\""));
+  assert.ok(text.includes('event.preventDefault()'));
+  assert.ok(text.includes('changePickedDate'));
   assert.ok(
-    text.includes("const dateNavigationSize = Platform.OS === 'web' ? 32 : 44"),
+    text.includes(
+      "pressedAction === id ? colors.primaryContainer : 'transparent'",
+    ),
   );
   assert.ok(
     text.includes('keyboardFocus.focusVisible && focusedAction === id'),

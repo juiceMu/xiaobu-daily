@@ -5,3 +5,6 @@ dist-web/
 coverage/
 *.log
 
+
+# local expo module build outputs
+modules/**/android/build/

@@ -40,7 +40,13 @@ import { useAndroidMountReady } from '../ui/useAndroidMountReady';
 import { Confirm, confirmDiscard, ErrorText, useScreenStyles } from './shared';
 
 export type MoreRoute =
-  'milestones' | 'growth' | 'archived' | 'settings' | 'gifts' | 'account';
+  | 'milestones'
+  | 'growth'
+  | 'archived'
+  | 'settings'
+  | 'gifts'
+  | 'account'
+  | 'group';
 export function MoreScreen({
   onNavigate,
 }: {
@@ -56,6 +62,13 @@ export function MoreScreen({
     icon: string;
     color: string;
   }[] = [
+    {
+      route: 'group',
+      title: '小组',
+      description: '邀请成员，点同步后查看大家的打卡和奖券',
+      icon: 'account-group-outline',
+      color: colors.primaryContainer,
+    },
     {
       route: 'gifts',
       title: '赠送与领取',
@@ -127,7 +140,10 @@ export function MoreScreen({
         {entries.map((entry) => (
           <TouchableRipple
             key={entry.route}
-            onPress={() => onNavigate(entry.route)}
+            onPress={() => {
+              if (entry.route === 'group') Keyboard.dismiss();
+              onNavigate(entry.route);
+            }}
             accessibilityRole="button"
             accessibilityLabel={entry.title}
             style={{ borderRadius: 18, overflow: 'hidden' }}
@@ -468,137 +484,141 @@ export function SettingsScreen() {
           </Panel>
         ) : (
           <>
-        <Panel style={styles.card}>
-          <View style={styles.form}>
-            <Text accessibilityRole="header" style={styles.heading}>
-              外观主题
-            </Text>
-            <Text style={styles.muted}>
-              当前主题：{getThemeOption(themeId).name}
-              。选择后即时应用并保存，不影响下方未保存的奖励规则。
-            </Text>
-            <View
-              accessibilityRole="radiogroup"
-              accessibilityLabel="外观主题"
-              style={styles.column}
-            >
-              {themeOptions.map((option) => (
-                <ThemeChoice
-                  key={option.id}
-                  option={option}
-                  selected={themeId === option.id}
-                  disabled={themeBusy || !themeReady}
-                  onPress={() => {
-                    void selectTheme(option.id);
-                  }}
-                />
-              ))}
-            </View>
-            {themeBusy && (
-              <Text style={styles.muted} accessibilityLiveRegion="polite">
-                正在保存主题…
-              </Text>
-            )}
-            <ErrorText message={themeError} />
-          </View>
-        </Panel>
-        <Panel style={styles.card}>
-          <View style={styles.form}>
-            <TextInput
-              dense
-              mode="outlined"
-              label="每多少次打卡兑换一张（1–999）"
-              numericRule={{ kind: 'integer', min: 1, max: 999 }}
-              validationVisible={!!error}
-              value={threshold}
-              onChangeText={setThreshold}
-              keyboardType="number-pad"
-              disabled={busy}
-            />
-            <TextInput
-              dense
-              mode="outlined"
-              label="奖券名称（必填）"
-              value={rewardName}
-              onChangeText={setRewardName}
-              maxLength={30}
-              disabled={busy}
-            />
-            <View style={styles.row}>
-              <View style={styles.grow}>
-                <Text style={styles.heading}>每周奖券到期</Text>
-                <Text style={styles.muted}>只影响以后兑换的打卡奖券</Text>
-              </View>
-              <View
-                style={{
-                  minHeight: 48,
-                  minWidth: 48,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Switch
-                  value={expiryEnabled}
-                  disabled={busy}
-                  onValueChange={setExpiryEnabled}
-                  accessibilityLabel="启用每周奖券过期"
-                />
-              </View>
-            </View>
-            {expiryEnabled && (
-              <>
-                <Text style={styles.body}>下周哪一天过期？</Text>
-                <View style={[styles.actions, { marginTop: 0 }]}>
-                  {Array.from({ length: 7 }, (_, index) => index + 1).map(
-                    (day) => (
-                      <ActionButton
-                        key={day}
-                        accessibilityLabel={'周' + '一二三四五六日'[day - 1]}
-                        mode={expiryDay === day ? 'contained' : 'outlined'}
-                        accessibilityState={{ selected: expiryDay === day }}
-                        disabled={busy}
-                        onPress={() => setExpiryDay(day)}
-                      >
-                        周{'一二三四五六日'[day - 1]}
-                      </ActionButton>
-                    ),
-                  )}
-                </View>
-                <TimeField
-                  label="到期时间"
-                  value={expiryTime}
-                  onChange={setExpiryTime}
-                  disabled={busy}
-                />
-                <Text style={styles.muted}>
-                  新兑换的奖券将在下一周周{'一二三四五六日'[expiryDay - 1]}{' '}
-                  {expiryTime} 到期，按手机本地时间计算。
+            <Panel style={styles.card}>
+              <View style={styles.form}>
+                <Text accessibilityRole="header" style={styles.heading}>
+                  外观主题
                 </Text>
-              </>
-            )}
-            {!expiryEnabled && (
-              <Text style={styles.muted}>以后兑换的打卡奖券将永久有效。</Text>
-            )}
-            <Text style={styles.muted}>
-              本周未兑换的打卡次数不会结转。里程碑奖券始终永久有效；已发奖券维持原有效期。
-            </Text>
-            <ErrorText message={error} />
-            <ActionButton
-              mode="contained"
-              icon="check"
-              tone="save"
-              loading={busy}
-              disabled={busy}
-              onPress={() => {
-                void save();
-              }}
-            >
-              保存奖励规则
-            </ActionButton>
-          </View>
-        </Panel>
-        {__DEV__ && <DemoHistoryPanel />}
+                <Text style={styles.muted}>
+                  当前主题：{getThemeOption(themeId).name}
+                  。选择后即时应用并保存，不影响下方未保存的奖励规则。
+                </Text>
+                <View
+                  accessibilityRole="radiogroup"
+                  accessibilityLabel="外观主题"
+                  style={styles.column}
+                >
+                  {themeOptions.map((option) => (
+                    <ThemeChoice
+                      key={option.id}
+                      option={option}
+                      selected={themeId === option.id}
+                      disabled={themeBusy || !themeReady}
+                      onPress={() => {
+                        void selectTheme(option.id);
+                      }}
+                    />
+                  ))}
+                </View>
+                {themeBusy && (
+                  <Text style={styles.muted} accessibilityLiveRegion="polite">
+                    正在保存主题…
+                  </Text>
+                )}
+                <ErrorText message={themeError} />
+              </View>
+            </Panel>
+            <Panel style={styles.card}>
+              <View style={styles.form}>
+                <TextInput
+                  dense
+                  mode="outlined"
+                  label="每多少次打卡兑换一张（1–999）"
+                  numericRule={{ kind: 'integer', min: 1, max: 999 }}
+                  validationVisible={!!error}
+                  value={threshold}
+                  onChangeText={setThreshold}
+                  keyboardType="number-pad"
+                  disabled={busy}
+                />
+                <TextInput
+                  dense
+                  mode="outlined"
+                  label="奖券名称（必填）"
+                  value={rewardName}
+                  onChangeText={setRewardName}
+                  maxLength={30}
+                  disabled={busy}
+                />
+                <View style={styles.row}>
+                  <View style={styles.grow}>
+                    <Text style={styles.heading}>每周奖券到期</Text>
+                    <Text style={styles.muted}>只影响以后兑换的打卡奖券</Text>
+                  </View>
+                  <View
+                    style={{
+                      minHeight: 48,
+                      minWidth: 48,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Switch
+                      value={expiryEnabled}
+                      disabled={busy}
+                      onValueChange={setExpiryEnabled}
+                      accessibilityLabel="启用每周奖券过期"
+                    />
+                  </View>
+                </View>
+                {expiryEnabled && (
+                  <>
+                    <Text style={styles.body}>下周哪一天过期？</Text>
+                    <View style={[styles.actions, { marginTop: 0 }]}>
+                      {Array.from({ length: 7 }, (_, index) => index + 1).map(
+                        (day) => (
+                          <ActionButton
+                            key={day}
+                            accessibilityLabel={
+                              '周' + '一二三四五六日'[day - 1]
+                            }
+                            mode={expiryDay === day ? 'contained' : 'outlined'}
+                            accessibilityState={{ selected: expiryDay === day }}
+                            disabled={busy}
+                            onPress={() => setExpiryDay(day)}
+                          >
+                            周{'一二三四五六日'[day - 1]}
+                          </ActionButton>
+                        ),
+                      )}
+                    </View>
+                    <TimeField
+                      label="到期时间"
+                      value={expiryTime}
+                      onChange={setExpiryTime}
+                      disabled={busy}
+                    />
+                    <Text style={styles.muted}>
+                      新兑换的奖券将在下一周周{'一二三四五六日'[expiryDay - 1]}{' '}
+                      {expiryTime} 到期，按手机本地时间计算。
+                    </Text>
+                  </>
+                )}
+                {!expiryEnabled && (
+                  <Text style={styles.muted}>
+                    以后兑换的打卡奖券将永久有效。
+                  </Text>
+                )}
+                <Text style={styles.muted}>
+                  本周未兑换的打卡次数不会结转。里程碑奖券始终永久有效；已发奖券维持原有效期。
+                </Text>
+                <ErrorText message={error} />
+                <ActionButton
+                  mode="contained"
+                  icon="check"
+                  tone="save"
+                  loading={busy}
+                  disabled={busy}
+                  onPress={() => {
+                    void save();
+                  }}
+                >
+                  保存奖励规则
+                </ActionButton>
+              </View>
+            </Panel>
+            {__DEV__ && <DemoHistoryPanel />}
           </>
         )}
       </Page>

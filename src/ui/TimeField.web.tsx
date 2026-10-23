@@ -1,8 +1,13 @@
-import React, { useId, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Icon, Text } from 'react-native-paper';
+import { ActionButton } from './components';
 import { useAppTheme } from './ThemeProvider';
-import { isValidTime, type TimeFieldProps } from './timeFieldModel';
+import type { AppColors } from './themeCatalog';
+import { formatTime, isValidTime, type TimeFieldProps } from './timeFieldModel';
 import { useKeyboardFocus } from './useKeyboardFocus';
 
+// Web 不用浏览器系统时间控件，避免原生大号蓝底列表。
 export function TimeField({
   label,
   value,
@@ -10,66 +15,183 @@ export function TimeField({
   disabled,
 }: TimeFieldProps) {
   const { colors } = useAppTheme();
-  const id = useId();
-  const [error, setError] = useState('');
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const keyboardFocus = useKeyboardFocus();
+  const [visible, setVisible] = useState(false);
+  const [hour, setHour] = useState(0);
+  const [minute, setMinute] = useState(0);
+  function open() {
+    if (disabled) return;
+    const parts = (isValidTime(value) ? value : '00:00').split(':').map(Number);
+    setHour(parts[0]);
+    setMinute(parts[1]);
+    setVisible(true);
+  }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label
-        htmlFor={id}
-        style={{ fontSize: 12, lineHeight: '18px', color: colors.muted }}
-      >
-        {label}
-      </label>
-      <input
-        id={id}
-        type="time"
-        step={60}
-        value={value}
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
         disabled={disabled}
-        required
-        aria-invalid={!!error}
-        aria-describedby={error ? id + '-error' : undefined}
+        onPress={open}
         onFocus={keyboardFocus.onFocus}
         onBlur={keyboardFocus.onBlur}
-        onChange={(event) => {
-          const next = event.currentTarget.value;
-          if (!isValidTime(next)) {
-            setError('请选择有效的小时和分钟，已保留原时间。');
-            return;
-          }
-          setError('');
-          onChange(next);
-        }}
-        style={{
-          boxSizing: 'border-box',
-          minHeight: 44,
-          minWidth: 0,
-          width: '100%',
-          fontFamily: 'inherit',
-          fontSize: 14,
-          lineHeight: '20px',
-          padding: '12px',
-          color: colors.ink,
-          background: colors.field,
-          border: 0,
-          borderRadius: 12,
-          outline: keyboardFocus.focusVisible
-            ? '2px solid ' + colors.primary
-            : 'none',
-          outlineOffset: 2,
-          opacity: disabled ? 0.6 : 1,
-        }}
-      />
-      {error && (
-        <span
-          id={id + '-error'}
-          role="alert"
-          style={{ fontSize: 13, lineHeight: '20px', color: colors.danger }}
+        accessibilityRole="button"
+        accessibilityLabel={label + '，' + value + '，点击选择时间'}
+        style={[
+          styles.trigger,
+          {
+            outlineWidth: keyboardFocus.focusVisible ? 2 : 0,
+            outlineStyle: 'solid',
+            outlineColor: colors.primary,
+            outlineOffset: 2,
+            opacity: disabled ? 0.6 : 1,
+          },
+        ]}
+      >
+        <View style={styles.triggerContent}>
+          <Text style={styles.value}>{value}</Text>
+          <Icon source="clock-outline" size={18} color={colors.primary} />
+        </View>
+      </Pressable>
+      {visible ? (
+        <Modal
+          visible={visible}
+          transparent
+          animationType="none"
+          onRequestClose={() => setVisible(false)}
         >
-          {error}
-        </span>
-      )}
-    </div>
+          <Pressable style={styles.scrim} onPress={() => setVisible(false)}>
+            <Pressable
+              style={styles.dialog}
+              accessibilityViewIsModal
+              onPress={(event) => event.stopPropagation?.()}
+            >
+              <Text accessibilityRole="header" style={styles.title}>
+                选择{label}
+              </Text>
+              <Text style={styles.preview}>{formatTime(hour, minute)}</Text>
+              <View style={styles.columns}>
+                {(['小时', '分钟'] as const).map((unit, column) => (
+                  <View key={unit} style={styles.column}>
+                    <Text style={styles.label}>{unit}</Text>
+                    <ScrollView
+                      style={styles.options}
+                      contentContainerStyle={{ gap: 4 }}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {Array.from(
+                        { length: column === 0 ? 24 : 60 },
+                        (_, index) => (
+                          <ActionButton
+                            key={index}
+                            compact
+                            mode={
+                              (column === 0 ? hour : minute) === index
+                                ? 'contained-tonal'
+                                : 'text'
+                            }
+                            accessibilityLabel={
+                              index + (column === 0 ? '时' : '分')
+                            }
+                            accessibilityState={{
+                              selected:
+                                (column === 0 ? hour : minute) === index,
+                            }}
+                            onPress={() =>
+                              column === 0 ? setHour(index) : setMinute(index)
+                            }
+                          >
+                            {String(index).padStart(2, '0')}
+                          </ActionButton>
+                        ),
+                      )}
+                    </ScrollView>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.actions}>
+                <ActionButton
+                  tone="neutral"
+                  mode="text"
+                  onPress={() => setVisible(false)}
+                >
+                  取消
+                </ActionButton>
+                <ActionButton
+                  tone="save"
+                  mode="contained"
+                  disabled={disabled}
+                  onPress={() => {
+                    onChange(formatTime(hour, minute));
+                    setVisible(false);
+                  }}
+                >
+                  确认时间
+                </ActionButton>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+    </View>
   );
 }
+const createStyles = (colors: AppColors) =>
+  StyleSheet.create({
+    field: { gap: 6 },
+    label: { fontSize: 12, lineHeight: 18, color: colors.muted },
+    trigger: {
+      minHeight: 44,
+      borderWidth: 0,
+      borderRadius: 12,
+      overflow: 'hidden',
+      backgroundColor: colors.field,
+    },
+    triggerContent: {
+      minHeight: 44,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    value: { fontSize: 14, lineHeight: 20, color: colors.ink },
+    scrim: {
+      flex: 1,
+      backgroundColor: 'rgba(20, 36, 48, 0.4)',
+      justifyContent: 'center',
+      padding: 16,
+    },
+    dialog: {
+      alignSelf: 'center',
+      width: '100%',
+      maxWidth: 320,
+      maxHeight: '80%',
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: 16,
+      gap: 8,
+    },
+    title: {
+      fontSize: 16,
+      lineHeight: 22,
+      fontWeight: '600',
+      color: colors.ink,
+    },
+    preview: {
+      fontSize: 22,
+      lineHeight: 28,
+      color: colors.primary,
+      textAlign: 'center',
+    },
+    columns: { flexDirection: 'row', gap: 12, flexShrink: 1, minHeight: 0 },
+    column: { flex: 1, gap: 8 },
+    options: { maxHeight: 200 },
+    actions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+  });

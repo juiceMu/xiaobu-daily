@@ -30,7 +30,7 @@ description: >-
 
 2. **进页含输入的栈页延迟正文**
    - 使用 `useAndroidMountReady`（默认 450ms，`InteractionManager` 之后再 `requestAnimationFrame`）。
-   - 控件多的账户页用 `useAndroidMountReady(600)`。已用于：`GiftsScreen`、`AccountScreen`、`SettingsScreen`。
+   - 控件多的账户页用 `useAndroidMountReady(600)`。已用于：`GiftsScreen`、`AccountScreen`、`SettingsScreen`、`GroupScreens`。
    - 新栈页若首屏有输入或一排可点原生控件，同样门控。延迟不能代替少挂 Paper 控件。
 
 3. **跳进账户页前先收起键盘**
@@ -82,9 +82,11 @@ description: >-
 ## 打包与版本
 
 - 升 `app.json` `version`、`android.versionCode`、`android/app/build.gradle` 的 `versionName`/`versionCode`、`package.json` `version`。
-- 产物拷到 `dist/小步日常-{version}-{YYYYMMDD}.apk`。
-- 同步 `CHANGELOG.md`。
-- 真机闪退必须以**新 APK 覆盖安装**验证；本机无设备时不得声称已验证。
+- 本地构建：`JAVA_HOME`=OpenJDK 17，`ANDROID_HOME`=commandlinetools；国内网络用  
+  `./android/gradlew -p android assembleRelease --no-daemon -I "$PWD/android/init.aliyun.gradle"`，再拷到 `dist/小步日常-{version}-{YYYYMMDD}.apk`。
+- 同步 `CHANGELOG.md`。`dist/` 在 `.gitignore`，安装包不入库，只推源码与说明。
+- 新增原生依赖（如 `react-native-tcp-socket` / `react-native-zeroconf` / `modules/sprout-identity`）必须打**新 APK**；仅热更 JS 不会带上原生模块。
+- 真机闪退必须以**新 APK 覆盖安装**验证；本机无设备时不得声称已验证。局域网同步同理，不得在未装新包时声称 mDNS/TCP 可用。
 
 ## 改动自检清单
 
@@ -108,6 +110,7 @@ description: >-
 - `src/ui/ConfirmationDialog.tsx`
 - `src/screens/AccountScreen.tsx` — 600ms 门控、`Pressable` 头像预设
 - `src/screens/GiftsScreen.tsx` / `MoreScreens.tsx` — 进账户前 `Keyboard.dismiss()`
+- `src/screens/GroupScreens.tsx` — 600ms 门控 + `AppTextInput`；`selectable` 在 Android 关闭
 
 ## 残余风险（勿当已消灭）
 

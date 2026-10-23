@@ -76,10 +76,14 @@ test('奖券图标文字使用按钮同一横行，紧凑卡片不设固定高�
   assert.ok(row.getText(source).includes('width: 32'));
   assert.ok(row.getText(source).includes('size={18}'));
   const buttonText = button.getText(source);
-  assert.ok(
-    buttonText.includes("status === 'available'") ||
-      button.parent.parent.getText(source).includes("status === 'available'"),
-  );
+  let ownerCheck: ts.Node | undefined = button;
+  let showsOwnTicket = false;
+  for (let depth = 0; depth < 6 && ownerCheck; depth += 1) {
+    if (ownerCheck.getText(source).includes("status === 'available'"))
+      showsOwnTicket = true;
+    ownerCheck = ownerCheck.parent;
+  }
+  assert.ok(showsOwnTicket);
   assert.ok(buttonText.includes("'使用奖券，' + item.name"));
   assert.ok(buttonText.includes('disabled={busy}'));
   assert.ok(buttonText.includes('setSelected(item)'));
@@ -148,14 +152,21 @@ test('奖券标题两行省略保留全文读屏，状态来源获得时间紧�
   );
 });
 
-test('每张非可用奖券在卡片顶部显示带图标文字状态，不影响可用券操作', () => {
+test('每张非可用奖券的状态是右上角角标，不单独占一行', () => {
   const text = readFileSync(
     new URL('../src/ui/TicketStatusBadge.tsx', import.meta.url),
     'utf8',
   );
-  const screen = readFileSync(
-    new URL('../src/screens/TicketsScreen.tsx', import.meta.url),
-    'utf8',
+  const row = byId('ticket-main-row');
+  assert.ok(ts.isJsxElement(row));
+  assert.equal(
+    row.getText(source).includes('<TicketStatusBadge status={status} />'),
+    false,
+  );
+  const panel = row.parent;
+  assert.ok(ts.isJsxElement(panel));
+  assert.ok(
+    panel.getText(source).includes('<TicketStatusBadge status={status} />'),
   );
   assert.ok(text.includes("if (status === 'available') return null"));
   assert.ok(text.includes("used ? '已使用' : '已过期'"));
@@ -163,7 +174,10 @@ test('每张非可用奖券在卡片顶部显示带图标文字状态，不影�
     text.includes("used ? 'check-circle-outline' : 'clock-alert-outline'"),
   );
   assert.ok(text.includes('accessibilityLabel={label}'));
-  assert.ok(text.includes("alignSelf: 'flex-end'"));
-  assert.ok(screen.includes('<TicketStatusBadge status={status} />'));
-  assert.ok(screen.includes("status === 'available' && ("));
+  assert.ok(text.includes("position: 'absolute'"));
+  assert.ok(text.includes('top: 0'));
+  assert.ok(text.includes('right: 0'));
+  assert.ok(text.includes('borderBottomLeftRadius: 10'));
+  assert.ok(source.text.includes("status === 'available'"));
+  assert.ok(source.text.includes('owned?.person.own === false'));
 });

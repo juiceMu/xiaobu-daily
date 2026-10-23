@@ -66,7 +66,7 @@ test('极简白保持纯白背景、淡紫淡黄层级及独立偏好往返', as
   const option = getThemeOption('white');
   assert.equal(option.name, '极简白');
   assert.equal(option.colors.background, '#FFFFFF');
-  assert.equal(option.colors.surface, '#FFFEFF');
+  assert.equal(option.colors.surface, '#F6F3FB');
   assert.equal(option.colors.field, '#F8F1DC');
   assert.equal(option.colors.brandFill, '#E8E2F2');
   assert.equal(option.colors.primaryContainer, '#F3EBD4');

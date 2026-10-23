@@ -1,0 +1,59 @@
+// 只替换会卡死的远程仓；保留 file:// 与 Expo local-maven-repo
+def aliyunRepos = [
+  'https://maven.aliyun.com/repository/google',
+  'https://maven.aliyun.com/repository/public',
+  'https://maven.aliyun.com/repository/gradle-plugin',
+  'https://maven.aliyun.com/repository/central',
+]
+
+def isBlockedRemote = { uri ->
+  def s = uri.toString()
+  s.contains('dl.google.com') ||
+    s.contains('maven.google.com') ||
+    s.contains('repo.maven.apache.org') ||
+    s.contains('repo1.maven.org') ||
+    s.contains('plugins.gradle.org')
+}
+
+def stripBlocked = { RepositoryHandler handler ->
+  def doomed = handler.findAll { repo ->
+    repo instanceof MavenArtifactRepository && isBlockedRemote(repo.url)
+  }
+  doomed.each { handler.remove(it) }
+}
+
+def ensureAliyun = { RepositoryHandler handler ->
+  aliyunRepos.reverseEach { u ->
+    if (!handler.any { it instanceof MavenArtifactRepository && it.url.toString() == u }) {
+      handler.maven { url u }
+    }
+  }
+}
+
+settingsEvaluated { settings ->
+  ensureAliyun(settings.pluginManagement.repositories)
+  stripBlocked(settings.pluginManagement.repositories)
+}
+
+gradle.beforeProject { project ->
+  ensureAliyun(project.buildscript.repositories)
+  ensureAliyun(project.repositories)
+
+  project.buildscript.repositories.whenObjectAdded { repo ->
+    if (repo instanceof MavenArtifactRepository && isBlockedRemote(repo.url)) {
+      project.buildscript.repositories.remove(repo)
+    }
+  }
+  project.repositories.whenObjectAdded { repo ->
+    if (repo instanceof MavenArtifactRepository && isBlockedRemote(repo.url)) {
+      project.repositories.remove(repo)
+    }
+  }
+
+  project.afterEvaluate {
+    stripBlocked(project.buildscript.repositories)
+    stripBlocked(project.repositories)
+    ensureAliyun(project.buildscript.repositories)
+    ensureAliyun(project.repositories)
+  }
+}

@@ -13,7 +13,13 @@ import {
   defaultSyncClock,
   type SyncClock,
   type SyncBatch,
+  type AccountJournal,
+  exportAccountJournal,
 } from '../domain/syncModel';
+import {
+  applyGroupJournals as mergeGroupJournals,
+  journalIsPersistedPrefix,
+} from '../domain/groupSync';
 
 export interface StateRepository {
   load(): Promise<unknown | null>;
@@ -32,6 +38,7 @@ export function createAppStore(
   clock: SyncClock = defaultSyncClock,
 ) {
   let snapshot: StoreSnapshot = { state: null, busy: false, error: null };
+  let groupSyncLease = false;
   const subscribers = new Set<() => void>();
   const publish = (next: StoreSnapshot) => {
     snapshot = next;
@@ -109,6 +116,92 @@ export function createAppStore(
       return { ok: false, message: detail };
     }
   };
+  const applyGroupJournals = async (
+    journals: AccountJournal[],
+    syncedAt: string,
+  ): Promise<ActionResult & { persisted: boolean }> => {
+    if ((snapshot.busy && !groupSyncLease) || !snapshot.state)
+      return {
+        ok: false,
+        message: '本地数据正在保存或尚未就绪',
+        persisted: false,
+      };
+    const current = snapshot.state;
+    publish({ ...snapshot, busy: true, error: null });
+    try {
+      const merged = mergeGroupJournals(current, journals, syncedAt);
+      validateSync(merged.state);
+      const persisted =
+        journals.length > 0 &&
+        journals.every((journal) => {
+          const saved = merged.state.groupPeers?.find(
+            (peer) => peer.accountId === journal.accountId,
+          );
+          return !!saved && journalIsPersistedPrefix(journal, saved);
+        });
+      await repository.save(merged.state);
+      publish({ state: merged.state, busy: groupSyncLease, error: null });
+      return { ok: true, message: merged.message, persisted };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '同步没有完成';
+      publish({ state: current, busy: groupSyncLease, error: null });
+      return { ok: false, message: `${detail}，原记录保留`, persisted: false };
+    }
+  };
+  const beginGroupSync = () => {
+    if (snapshot.busy || groupSyncLease || !snapshot.state) return null;
+    groupSyncLease = true;
+    publish({ ...snapshot, busy: true, error: null });
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      groupSyncLease = false;
+      publish({ ...snapshot, busy: false, error: null });
+    };
+  };
+  const completeGroupDeparture = async (
+    sent: AccountJournal,
+    peerStored: boolean,
+  ): Promise<ActionResult> => {
+    if ((snapshot.busy && !groupSyncLease) || !snapshot.state)
+      return { ok: false, message: '本地数据正在保存或尚未就绪' };
+    if (!peerStored)
+      return { ok: false, message: '对方尚未保存本机记录，离开通知仍待同步' };
+    const current = snapshot.state;
+    const pending = current.pendingGroupDeparture;
+    if (
+      !pending ||
+      !current.sync?.entities[
+        `memberships:${pending.groupId}/${current.sync.accountId}`
+      ]?.deletedAt
+    )
+      return { ok: false, message: '没有匹配的待完成离组通知' };
+    try {
+      const latest = exportAccountJournal(current);
+      if (
+        !latest ||
+        sent.accountId !== latest.accountId ||
+        sent.deviceId !== latest.deviceId
+      )
+        return { ok: false, message: '离组期间本机数据已变化，请重新同步' };
+      const sentTail = sent.operations.at(-1)?.operationId;
+      const localTail = latest.operations.at(-1)?.operationId;
+      if (!sentTail || sentTail !== localTail)
+        return { ok: false, message: '离组期间本机数据已变化，请重新同步' };
+      const next = structuredClone(current);
+      delete next.pendingGroupDeparture;
+      validateSync(next);
+      publish({ ...snapshot, busy: true, error: null });
+      await repository.save(next);
+      publish({ state: next, busy: groupSyncLease, error: null });
+      return { ok: true, message: '对方已保存离开通知' };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '保存失败';
+      publish({ state: current, busy: groupSyncLease, error: detail });
+      return { ok: false, message: `离开通知仍待同步：${detail}` };
+    }
+  };
 
   return {
     getSnapshot: () => snapshot,
@@ -122,6 +215,9 @@ export function createAppStore(
     run,
     pendingSync,
     acknowledge,
+    applyGroupJournals,
+    completeGroupDeparture,
+    beginGroupSync,
   };
 }
 
