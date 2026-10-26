@@ -12,6 +12,11 @@ import type {
 } from './types';
 import { validProfileAvatar } from './profileAvatar.mjs';
 import { migrateState } from './engineCore.mjs';
+import {
+  sameCompanionUse,
+  validateCompanionTicket,
+  validateCompanionTransition,
+} from './companionValidation.mjs';
 
 export type SyncClock = { now: () => Date; id: () => string };
 export const defaultSyncClock: SyncClock = {
@@ -179,6 +184,58 @@ export function commitSync(
       canonical(previous.sync) !== canonical(draft.sync)
     )
       fail();
+    // 只接受已保存的对端日志作为跨设备提交/解锁的依据，不允许直接改阶段扣券。
+    for (const ticket of draft.tickets) {
+      const oldTicket = previous.tickets.find(
+        (entry) => entry.id === ticket.id,
+      );
+      for (const session of ticket.companionUses ?? []) {
+        const oldSession = oldTicket?.companionUses?.find(
+          (entry) => entry.id === session.id,
+        );
+        if (oldSession?.stage === session.stage) continue;
+        const main = ticket.source !== 'companion';
+        const needsProof =
+          session.stage === 'accepted' ||
+          session.stage === 'committed' ||
+          session.stage === 'completed' ||
+          (!main &&
+            oldSession?.stage === 'accepted' &&
+            session.stage === 'cancelled');
+        if (!needsProof) continue;
+        const accountId = main
+          ? session.companionAccountId
+          : session.mainAccountId;
+        const remote = draft.groupPeers?.find(
+          (entry) => entry.accountId === accountId,
+        );
+        if (!remote) fail();
+        const remoteTicket = journalState(remote).tickets.find(
+          (entry) =>
+            entry.id ===
+            (main ? session.companionTicketId : session.mainTicketId),
+        );
+        const proof = remoteTicket?.companionUses?.find((entry) =>
+          sameCompanionUse(entry, session),
+        );
+        if (!proof || (remoteTicket!.source === 'companion') !== main) fail();
+        if (session.stage === 'accepted' && proof.stage !== 'invited') fail();
+        if (
+          session.stage === 'committed' &&
+          (proof.stage !== 'accepted' || proof.cancelRequestedAt)
+        )
+          fail();
+        if (session.stage === 'cancelled' && proof.stage !== 'cancelled')
+          fail();
+        if (
+          session.stage === 'completed' &&
+          (!['committed', 'completed'].includes(proof.stage) ||
+            proof.committedAt !== session.committedAt ||
+            (main && proof.stage !== 'completed'))
+        )
+          fail();
+      }
+    }
   }
   const next = copy(draft),
     sync = next.sync!;
@@ -379,6 +436,10 @@ export function validateSync(
         break;
       case 'tickets':
         if (
+          !validateCompanionTicket(
+            payload as unknown as AppState['tickets'][number],
+            sync.accountId,
+          ) ||
           !hasText('name') ||
           !hasText('week') ||
           !timeValid(payload.createdAt) ||
@@ -732,6 +793,14 @@ export function validateSync(
         (operation.entity.updatedAt < previous.updatedAt ||
           (!!previous.deletedAt &&
             operation.entity.deletedAt !== previous.deletedAt)))
+    )
+      fail();
+    if (
+      operation.entity.entityType === 'tickets' &&
+      !validateCompanionTransition(
+        previous ? JSON.parse(previous.payload) : undefined,
+        JSON.parse(operation.entity.payload),
+      )
     )
       fail();
     heads.set(key, operation.entity);

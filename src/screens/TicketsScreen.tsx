@@ -18,6 +18,11 @@ import { GroupViewSwitch } from '../ui/GroupViewSwitch';
 import { useGroupView } from '../ui/GroupViewProvider';
 import { peerBoards } from '../domain/groupSync';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
+import { isTicketReserved } from '../domain/companion';
+import { CompanionInvitations } from '../ui/CompanionInvitations';
+import { CompanionUseDialog } from '../ui/CompanionUseDialog';
+import { CompanionHistory } from '../ui/CompanionHistory';
+import { companionStageLabel } from '../ui/companionUi';
 
 export function TicketsScreen() {
   const { colors } = useAppTheme();
@@ -43,6 +48,7 @@ export function TicketsScreen() {
     void setMode('self');
   }, [landingAt]);
   const [selected, setSelected] = useState<Ticket | null>(null);
+  const [companionTicket, setCompanionTicket] = useState<Ticket | null>(null);
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const people = useMemo(() => {
@@ -175,9 +181,7 @@ export function TicketsScreen() {
             </View>
             {state.groupLink ? (
               <>
-                <Text style={styles.muted}>
-                  选择看全组后，可按成员查看奖券
-                </Text>
+                <Text style={styles.muted}>选择看全组后，可按成员查看奖券</Text>
                 <GroupViewSwitch />
               </>
             ) : null}
@@ -247,6 +251,7 @@ export function TicketsScreen() {
                 })}
               </View>
             ) : null}
+            <CompanionInvitations />
           </View>
         }
         ListEmptyComponent={
@@ -331,11 +336,15 @@ export function TicketsScreen() {
             (entry) => entry.id === item.goalId,
           );
           const sourceName =
-            item.source === 'gift'
-              ? `来自 ${item.senderName || '一位朋友'}`
-              : item.source === 'weight'
-                ? formatMilestoneSource(item.goalName || goal?.name)
-                : '每周打卡奖励';
+            item.source === 'companion'
+              ? status === 'available'
+                ? '须与伙伴奖券一起使用'
+                : '同行券'
+              : item.source === 'gift'
+                ? `来自 ${item.senderName || '一位朋友'}`
+                : item.source === 'weight'
+                  ? formatMilestoneSource(item.goalName || goal?.name)
+                  : '每周打卡奖励';
           const statusLabel =
             status === 'used'
               ? `已使用 · ${formatDate(item.usedAt!)}`
@@ -344,12 +353,15 @@ export function TicketsScreen() {
                 : item.expiresAt
                   ? `${formatDate(item.expiresAt)} 前可用`
                   : '永久有效';
+          const activeCompanion = item.companionUses?.find(
+            (session) => !['completed', 'cancelled'].includes(session.stage),
+          );
+          const jointUse = item.companionUses?.find((session) =>
+            ['committed', 'completed'].includes(session.stage),
+          );
           return (
             <Panel
-              style={[
-                styles.card,
-                { padding: 12, gap: 6, overflow: 'hidden' },
-              ]}
+              style={[styles.card, { padding: 12, gap: 6, overflow: 'hidden' }]}
             >
               <View
                 testID="ticket-main-row"
@@ -376,9 +388,11 @@ export function TicketsScreen() {
                     source={
                       item.source === 'gift'
                         ? 'gift-outline'
-                        : item.source === 'weight'
-                          ? iconName(item.goalIcon || goal?.icon)
-                          : 'ticket-outline'
+                        : item.source === 'companion'
+                          ? 'account-multiple-outline'
+                          : item.source === 'weight'
+                            ? iconName(item.goalIcon || goal?.icon)
+                            : 'ticket-outline'
                     }
                     size={18}
                     color={colors.primary}
@@ -437,6 +451,29 @@ export function TicketsScreen() {
                   </Text>
                 </View>
                 {status === 'available' &&
+                item.source === 'companion' &&
+                owned?.person.own !== false ? (
+                  <ActionButton
+                    testID="companion-find-partner-button"
+                    tone="reward"
+                    mode="contained-tonal"
+                    compact
+                    accessibilityLabel={'找伙伴一起使用同行券，' + item.name}
+                    labelStyle={{ fontSize: 12, lineHeight: 18 }}
+                    style={{
+                      alignSelf: 'center',
+                      flexShrink: 1,
+                      maxWidth: 100,
+                    }}
+                    disabled={busy || isTicketReserved(item)}
+                    onPress={() => setCompanionTicket(item)}
+                  >
+                    找伙伴一起用
+                  </ActionButton>
+                ) : null}
+                {status === 'available' &&
+                  item.source !== 'companion' &&
+                  !isTicketReserved(item) &&
                   (owned?.person.own === false ? null : (
                     <ActionButton
                       testID="ticket-use-button"
@@ -458,6 +495,18 @@ export function TicketsScreen() {
                   ))}
               </View>
               <TicketStatusBadge status={status} />
+              {activeCompanion ? (
+                <Text style={styles.muted} accessibilityLiveRegion="polite">
+                  {companionStageLabel(activeCompanion)}
+                </Text>
+              ) : null}
+              {jointUse ? (
+                <CompanionHistory
+                  key={jointUse.id}
+                  source={item.source}
+                  session={jointUse}
+                />
+              ) : null}
               {item.usageNote ? (
                 <Text
                   testID="ticket-usage-note"
@@ -480,6 +529,20 @@ export function TicketsScreen() {
       >
         <View style={styles.form}>
           <Text style={styles.body}>{selected?.name}使用后不可重复使用。</Text>
+          <ActionButton
+            mode="contained-tonal"
+            tone="reward"
+            disabled={busy}
+            icon="account-multiple-outline"
+            onPress={() =>
+              discardDraft(!!note, () => {
+                setCompanionTicket(selected);
+                setSelected(null);
+              })
+            }
+          >
+            邀请同行
+          </ActionButton>
           <TextInput
             dense
             mode="outlined"
@@ -516,6 +579,12 @@ export function TicketsScreen() {
           </View>
         </View>
       </ConfirmationDialog>
+      {companionTicket ? (
+        <CompanionUseDialog
+          ticket={companionTicket}
+          onDismiss={() => setCompanionTicket(null)}
+        />
+      ) : null}
     </Page>
   );
 }

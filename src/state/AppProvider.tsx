@@ -26,12 +26,14 @@ import {
 } from '../domain/groupSync';
 import type { LanExchange } from './lanExchange';
 import { exchangeOnLan, startLanListener } from './lanSync';
+import { hasPendingCompanionUse, syncCompanionRounds } from './companionSync';
 
 export interface AppContextValue {
   state: AppState;
   busy: boolean;
   now: Date;
   run: (mutation: Mutation) => Promise<ActionResult>;
+  previewDemoHistory: () => Promise<ActionResult>;
   syncGroup: () => Promise<void>;
   message: string;
   clearMessage: () => void;
@@ -57,6 +59,7 @@ export function AppProvider({
   );
   const [now, setNow] = useState(() => new Date());
   const [message, setMessage] = useState('');
+  const [syncing, setSyncing] = useState(false);
   const [appActive, setAppActive] = useState(
     NativeAppState.currentState === 'active',
   );
@@ -125,6 +128,12 @@ export function AppProvider({
     [store],
   );
   const clearMessage = useCallback(() => setMessage(''), []);
+  const previewDemoHistory = useCallback(async () => {
+    const result = await loadDemoHistory(store);
+    setMessage(result.message);
+    setNow(new Date());
+    return result;
+  }, [store]);
   const receiveGroupJournals = useCallback(
     async (journals: import('../domain/syncModel').AccountJournal[]) => {
       const state = store.getSnapshot().state;
@@ -223,30 +232,46 @@ export function AppProvider({
       setMessage('正在保存，请稍后再试');
       return;
     }
-    const membership =
-      current.state.groupLink ?? current.state.pendingGroupDeparture!;
-    const input = {
-      groupId: membership.groupId,
-      secret: membership.secret,
-      accountId: current.state.sync.accountId,
-      journals: journalsForSend(current.state),
-    };
     manualSyncActive.current = true;
+    setSyncing(true);
     peerDidNotStoreJournal.current = false;
     setMessage('正在同一 WiFi 下寻找其他手机…');
     try {
-      await exchangeOnLan(input, sessionOptions());
+      await syncCompanionRounds(
+        () => store.getSnapshot().state,
+        async (state) => {
+          const membership = state.groupLink ?? state.pendingGroupDeparture;
+          if (!membership || !state.sync) throw new Error('还没有加入小组');
+          await exchangeOnLan(
+            {
+              groupId: membership.groupId,
+              secret: membership.secret,
+              accountId: state.sync.accountId,
+              journals: journalsForSend(state),
+            },
+            sessionOptions(),
+          );
+        },
+      );
+      const latest = store.getSnapshot().state;
       setMessage(
         peerDidNotStoreJournal.current
           ? '已收到对方离组通知；对方未保存本机记录'
-          : '局域网同步完成',
+          : latest && hasPendingCompanionUse(latest)
+            ? '记录已同步，同行确认尚未完成；请查看同行邀请或继续同步核对'
+            : '局域网同步完成',
       );
     } catch (error) {
+      const latest = store.getSnapshot().state;
+      const detail = error instanceof Error ? error.message : '同步没有完成';
       setMessage(
-        error instanceof Error ? error.message : '同步没有完成，原记录保留',
+        latest && hasPendingCompanionUse(latest)
+          ? `${detail}。已保存的同行记录保留，请重新同步核对`
+          : detail,
       );
     } finally {
       manualSyncActive.current = false;
+      setSyncing(false);
     }
   }, [sessionOptions, store]);
 
@@ -286,9 +311,10 @@ export function AppProvider({
     <AppContext.Provider
       value={{
         state: snapshot.state,
-        busy: snapshot.busy,
+        busy: snapshot.busy || syncing,
         now,
         run,
+        previewDemoHistory,
         syncGroup,
         message,
         clearMessage,

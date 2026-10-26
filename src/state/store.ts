@@ -20,6 +20,7 @@ import {
   applyGroupJournals as mergeGroupJournals,
   journalIsPersistedPrefix,
 } from '../domain/groupSync';
+import { reconcileCompanionUses } from '../domain/companion';
 
 export interface StateRepository {
   load(): Promise<unknown | null>;
@@ -130,17 +131,27 @@ export function createAppStore(
     publish({ ...snapshot, busy: true, error: null });
     try {
       const merged = mergeGroupJournals(current, journals, syncedAt);
-      validateSync(merged.state);
+      // 联合用券只推进本机记录，与收到的副本一起落盘后才能向对方确认。
+      const reconciled = reconcileCompanionUses(merged.state, syncedAt);
+      if (!reconciled.ok) throw new Error(reconciled.message);
+      const next = commitSync(current, migrateState(merged.state), clock);
+      validateSync(next);
       const persisted =
         journals.length > 0 &&
         journals.every((journal) => {
-          const saved = merged.state.groupPeers?.find(
+          // 对方会转回本机旧日志；只确认与本机已落盘链完全一致的前缀。
+          if (journal.accountId === next.sync.accountId)
+            return journalIsPersistedPrefix(journal, {
+              ...exportAccountJournal(next),
+              syncedAt,
+            });
+          const saved = next.groupPeers?.find(
             (peer) => peer.accountId === journal.accountId,
           );
           return !!saved && journalIsPersistedPrefix(journal, saved);
         });
-      await repository.save(merged.state);
-      publish({ state: merged.state, busy: groupSyncLease, error: null });
+      await repository.save(next);
+      publish({ state: next, busy: groupSyncLease, error: null });
       return { ok: true, message: merged.message, persisted };
     } catch (error) {
       const detail = error instanceof Error ? error.message : '同步没有完成';

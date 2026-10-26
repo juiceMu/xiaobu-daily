@@ -14,6 +14,7 @@ import {
   recordGiftReceipt,
   recordMilestoneValue,
   redeemTicket,
+  redeemCompanionTicket,
   setMilestoneEnabled,
   updateLocalProfile,
   updateSettings,
@@ -24,10 +25,23 @@ import {
   type GroupPeer,
   type PersistedAppState,
 } from './engine';
-import { createGroup, joinGroup, leaveGroup } from './groupSync';
-import { commitSync, exportAccountJournal, initializeSync } from './syncModel';
+import { createGroup, exportInvite, joinGroup, leaveGroup } from './groupSync';
+import {
+  acceptCompanionUse,
+  reconcileCompanionUses,
+  startCompanionUse,
+} from './companion';
+import {
+  commitSync,
+  exportAccountJournal,
+  initializeSync,
+  journalState,
+} from './syncModel';
 
 const DEMO_MARKER = 'demo-history-v1-reading';
+const COMPANION_DEMO_MARKER = 'demo-companion-v1-task';
+const COMPANION_DEMO_PEER = 'demo-companion-v1-peer';
+const COMPANION_DEMO_USE = 'demo-companion-v1-use';
 const DEMO_GROUP_ID = 'demo-group-0001';
 const DEMO_GROUP_SECRET = 'demo-group-secret';
 const DEMO_INVITE = JSON.stringify({
@@ -40,6 +54,127 @@ const DEMO_INVITE = JSON.stringify({
 
 export function hasDemoHistory(state: AppState): boolean {
   return state.tasks.some((task) => task.id === DEMO_MARKER);
+}
+
+export function hasCompanionDemoHistory(state: AppState): boolean {
+  return state.tickets.some((ticket) =>
+    ticket.companionUses?.some(
+      (use) => use.id === COMPANION_DEMO_USE && use.stage === 'completed',
+    ),
+  );
+}
+
+/** 分两次真实事务保存确认及完成，演示数据也不能跳过联合使用的校验。 */
+export function seedCompanionDemoHistory(
+  state: AppState,
+  now = new Date(),
+): ActionResult {
+  if (!Number.isFinite(now.getTime()) || !state.sync || !state.groupLink)
+    return { ok: false, message: '请先添加演示历史并建立小组' };
+  if (state.groupLink.groupId !== DEMO_GROUP_ID)
+    return {
+      ok: false,
+      message: '同行券完整演示仅用于演示小组，不向真实小组添加虚构伙伴',
+    };
+  if (hasCompanionDemoHistory(state))
+    return { ok: false, message: '已添加同行券演示，不会重复添加' };
+  try {
+    const before = migrateState(state);
+    const pending = state.tickets
+      .flatMap((ticket) => ticket.companionUses ?? [])
+      .find((use) => use.id === COMPANION_DEMO_USE);
+    const useAt = pending ? new Date(pending.createdAt) : dayAt(now, -7);
+    const clock = peerClock(
+      now,
+      COMPANION_DEMO_PEER,
+      'demo-companion-v1-device',
+    );
+    const existing = state.groupPeers?.find(
+      (peer) => peer.accountId === COMPANION_DEMO_PEER,
+    );
+    if (state.tasks.some((task) => task.id === COMPANION_DEMO_MARKER)) {
+      if (!existing) throw new Error('同行演示伙伴记录缺失，请保留存档重试');
+      const peer = journalState(existing);
+      const completed = applyPeer(peer, clock, (draft) => {
+        draft.groupPeers = [asPeer(state as PersistedAppState, now)];
+        requireSuccess(reconcileCompanionUses(draft, useAt));
+      });
+      state.groupPeers = state.groupPeers!.map((entry) =>
+        entry.accountId === COMPANION_DEMO_PEER
+          ? asPeer(completed, now)
+          : entry,
+      );
+      requireSuccess(reconcileCompanionUses(state, useAt));
+      return {
+        ok: true,
+        message: '已补充可用、已使用、已过期同行券及共同用途记录',
+      };
+    }
+
+    const settings = { ...state.settings };
+    requireSuccess(
+      addTask(state, { name: '演示·同行预览', target: 3, icon: '🌱' }),
+    );
+    const task = state.tasks[state.tasks.length - 1];
+    task.id = COMPANION_DEMO_MARKER;
+    state.settings = {
+      ...settings,
+      expiryEnabled: true,
+      expiryDay: 1,
+      expiryTime: '00:00',
+    };
+    requireSuccess(checkIn(state, task.id, useAt));
+    requireSuccess(checkIn(state, task.id, useAt));
+    const used = requireSuccess(redeemCompanionTicket(state, useAt)).ticket!;
+    requireSuccess(redeemCompanionTicket(state, useAt));
+    state.settings = settings;
+    requireSuccess(checkIn(state, task.id, now));
+    requireSuccess(redeemCompanionTicket(state, now));
+    requireSuccess(archiveTask(state, task.id));
+
+    // 对端是明确标识的虚构身份，其日志仍经过正常领域操作与同步验证。
+    const localProjection = commitSync(before, migrateState(state), clock);
+    const peer = applyPeer(
+      initializeSync(createInitialState(now), clock),
+      clock,
+      (draft) => {
+        saveProfile(draft, '演示同行伙伴', 'sun');
+        requireSuccess(joinGroup(draft, exportInvite(state)));
+        const goal = requireSuccess(
+          addMilestoneGoal(draft, {
+            name: '演示·同行里程碑',
+            unit: '次',
+            startWeight: 0,
+            step: 1,
+            direction: 'increase',
+          }),
+        ).goal!;
+        requireSuccess(recordMilestoneValue(draft, goal.id, 1, useAt));
+        draft.groupPeers = [asPeer(localProjection, now)];
+        requireSuccess(
+          startCompanionUse(
+            draft,
+            {
+              ticketId: draft.tickets[draft.tickets.length - 1].id,
+              peerAccountId: state.sync!.accountId,
+              peerTicketId: used.id,
+              note: '演示：和伙伴一起看电影，同行券随里程碑券使用',
+            },
+            useAt,
+            COMPANION_DEMO_USE,
+          ),
+        );
+      },
+    );
+    state.groupPeers = [...(state.groupPeers ?? []), asPeer(peer, now)];
+    requireSuccess(acceptCompanionUse(state, COMPANION_DEMO_USE, useAt));
+    return { ok: true, message: '同行券演示已确认，继续保存共同使用结果' };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `同行券演示未添加：${error instanceof Error ? error.message : '构造失败'}`,
+    };
+  }
 }
 
 function requireSuccess(result: ActionResult): ActionResult {

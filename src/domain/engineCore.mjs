@@ -1,6 +1,7 @@
 import { validateGiftState } from './giftCore.mjs';
 import { ICON_KEYS } from './iconCatalog.mjs';
 import { milestoneUnitError } from './milestoneUnit.mjs';
+import { validateCompanionTicket, isTicketReserved } from './companionValidation.mjs';
 const DAY_NAMES = ['早睡', '运动'];
 let sequence = 0;
 const makeId = (prefix) => `${prefix}-${Date.now().toString(36)}-${(++sequence).toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -83,7 +84,9 @@ export function migrateState(saved) {
   const taskIds = new Set(state.tasks.map((task) => task.id));
   const ticketIds = new Set(state.tickets.map((ticket) => ticket.id));
   if (state.checkins.some((entry) => !taskIds.has(entry.taskId) || !isDateKey(entry.date) || !isDateKey(entry.week) || weekKey(`${entry.date}T12:00:00`) !== entry.week || !isTimestamp(entry.createdAt))) invalid();
-  if (state.tickets.some((ticket) => !isText(ticket.name) || !isTimestamp(ticket.createdAt) || !isDateKey(ticket.week) || weekKey(`${ticket.week}T12:00:00`) !== ticket.week || !(ticket.expiresAt === null || isTimestamp(ticket.expiresAt)) || !(ticket.usedAt === null || isTimestamp(ticket.usedAt)) || ![undefined, 'checkin', 'weight', 'gift'].includes(ticket.source))) invalid();
+  if (state.tickets.some((ticket) => !isText(ticket.name) || !isTimestamp(ticket.createdAt) || !isDateKey(ticket.week) || weekKey(`${ticket.week}T12:00:00`) !== ticket.week || !(ticket.expiresAt === null || isTimestamp(ticket.expiresAt)) || !(ticket.usedAt === null || isTimestamp(ticket.usedAt)) || ![undefined, 'checkin', 'weight', 'gift', 'companion'].includes(ticket.source) || !validateCompanionTicket(ticket, state.sync?.accountId))) invalid();
+  if (state.tickets.some((ticket) => ticket.source === 'companion' && !state.redemptions.some((entry) => entry.ticketId === ticket.id && entry.cost === 1))) invalid();
+  if (new Set(state.tickets.flatMap((ticket) => (ticket.companionUses || []).map((entry) => entry.id))).size !== state.tickets.reduce((count, ticket) => count + (ticket.companionUses || []).length, 0)) invalid();
   if (!validateGiftState(state)) invalid();
   if (state.tickets.some((ticket) => ticket.usageNote !== undefined && (typeof ticket.usageNote !== 'string' || ticket.usageNote.length > 200 || ticket.usageNote !== ticket.usageNote.trim() || (!ticket.usedAt && ticket.usageNote !== '')))) invalid();
   if (state.redemptions.some((entry) => !ticketIds.has(entry.ticketId) || !isDateKey(entry.week) || !Number.isInteger(entry.cost) || entry.cost < 1)) invalid();
@@ -217,6 +220,16 @@ export function redeemTicket(state, now = new Date(), occurredDate) {
   return success('兑换成功，收好你的奖券！', { ticket });
 }
 
+export function redeemCompanionTicket(state, now = new Date(), occurredDate) {
+  const selected = occurrenceDate(now, occurredDate);
+  if (!selected || weekKey(selected) !== weekKey(now)) return failure('历史周打卡不能兑换同行券');
+  if (getWeekStats(state, now).available < 1) return failure('本周还没有可兑换的打卡次数');
+  const ticket = { id: makeId('ticket'), name: '同行券', createdAt: asDate(now).toISOString(), week: weekKey(now), expiresAt: getExpiry(state.settings, now), usedAt: null, source: 'companion' };
+  state.tickets.push(ticket);
+  state.redemptions.push({ id: makeId('redemption'), week: ticket.week, cost: 1, ticketId: ticket.id });
+  return success('已兑换同行券，需要和另一人的奖券一起使用', { ticket });
+}
+
 export function getTicketStatus(ticket, state, now = new Date()) {
   if (ticket.usedAt) return 'used';
   if (ticket.expiresAt && asDate(now).getTime() >= asDate(ticket.expiresAt).getTime()) return 'expired';
@@ -226,6 +239,8 @@ export function getTicketStatus(ticket, state, now = new Date()) {
 export function useTicket(state, ticketId, now = new Date(), note = '') {
   const ticket = state.tickets.find((entry) => entry.id === ticketId);
   if (!ticket) return failure('奖券不存在');
+  if (ticket.source === 'companion') return failure('同行券不能单独使用，请找伙伴一起用');
+  if (isTicketReserved(ticket)) return failure('这张券有待处理的同行记录，请先完成或取消');
   const status = getTicketStatus(ticket, state, now);
   if (status === 'used') return failure('这张奖券已经使用过了');
   if (status === 'expired') return failure('这张奖券已过期');

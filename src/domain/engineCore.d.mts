@@ -46,6 +46,11 @@ export function redeemTicket(
   now?: DateInput,
   occurredDate?: string,
 ): ActionResult;
+export function redeemCompanionTicket(
+  state: AppState,
+  now?: DateInput,
+  occurredDate?: string,
+): ActionResult;
 export function getTicketStatus(
   ticket: Ticket,
   state: AppState,

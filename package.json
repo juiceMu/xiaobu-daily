@@ -1,6 +1,6 @@
 {
   "name": "sprout-checkin-native",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -9,6 +9,7 @@
     "export:web": "expo export --platform web --output-dir dist-web",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "build:apk": "node scripts/build-apk.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.*",
     "lint": "eslint .",

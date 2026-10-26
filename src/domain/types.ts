@@ -30,7 +30,8 @@ export interface Ticket {
   expiresAt: string | null;
   usedAt: string | null;
   usageNote?: string;
-  source?: 'checkin' | 'weight' | 'gift';
+  source?: 'checkin' | 'weight' | 'gift' | 'companion';
+  companionUses?: CompanionUse[];
   giftId?: string;
   senderId?: string;
   senderName?: string;
@@ -39,6 +40,31 @@ export interface Ticket {
   goalName?: string;
   unit?: string;
   goalIcon?: MilestoneIcon;
+}
+
+export interface CompanionUse {
+  id: string;
+  groupId: string;
+  mainAccountId: string;
+  mainTicketId: string;
+  companionAccountId: string;
+  companionTicketId: string;
+  mainName: string;
+  mainTicketName: string;
+  companionName: string;
+  companionTicketName: string;
+  note: string;
+  createdAt: string;
+  expiresAt: string;
+  stage:
+    | 'requested'
+    | 'invited'
+    | 'accepted'
+    | 'committed'
+    | 'completed'
+    | 'cancelled';
+  committedAt?: string;
+  cancelRequestedAt?: string;
 }
 
 export interface MilestoneEntry {

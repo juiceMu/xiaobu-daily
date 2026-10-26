@@ -59,12 +59,12 @@ description: >-
 
 ## 交互与视觉踩雷
 
-| 问题 | 规则 |
-|------|------|
-| hover/按压面积大于胶囊 | 反馈底色画在内层 `contentStyle`；外层触控区透明；`rippleColor="transparent"`（Web 与需对齐的原生） |
-| 筛选来回点闪烁 | 已选中不再叠悬停底色；悬停仅 Web；`transitionDuration: '0ms'` |
-| Paper `Button` 或进页一排 `TouchableRipple` + `radio` | 账户头像用 RN `Pressable`；主题选择可用 `TouchableRipple` |
-| 列表滚动条 | `showsVerticalScrollIndicator={false}` 且 `showsHorizontalScrollIndicator={false}` |
+| 问题                                                  | 规则                                                                                               |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| hover/按压面积大于胶囊                                | 反馈底色画在内层 `contentStyle`；外层触控区透明；`rippleColor="transparent"`（Web 与需对齐的原生） |
+| 筛选来回点闪烁                                        | 已选中不再叠悬停底色；悬停仅 Web；`transitionDuration: '0ms'`                                      |
+| Paper `Button` 或进页一排 `TouchableRipple` + `radio` | 账户头像用 RN `Pressable`；主题选择可用 `TouchableRipple`                                          |
+| 列表滚动条                                            | `showsVerticalScrollIndicator={false}` 且 `showsHorizontalScrollIndicator={false}`                 |
 
 重型原生能力（相机 `GiftScanner`、二维码 `GiftQrCode`）**用到时再 `import()`**。
 `AccountScreen` 的 `expo-image-picker` / `expo-image-manipulator` 保持静态 import：`pickAvatar` 的源码测试依赖这些绑定，且 1.0.7 未改 import 即已止住进页闪退。不要为“延后加载”改成动态 import。
@@ -81,10 +81,14 @@ description: >-
 
 ## 打包与版本
 
-- 升 `app.json` `version`、`android.versionCode`、`android/app/build.gradle` 的 `versionName`/`versionCode`、`package.json` `version`。
+- **每次打安装包都先检查本技能与 `CHANGELOG.md` 是否需要更新**：对照上次包之后的实际代码、故障证据和用户要求；有新增原生风险、打包步骤、默认动作或用户可见变更就更新对应内容。无需修改时在验收记录注明检查结果，不为凑更新杜撰规则，也不擅自在线升级外部技能。
+- 此技能位于项目 `.cursor/skills/android-native-crash-avoidance/SKILL.md`，不是仅Cursor可用；Codex等执行者按根 `AGENTS.md` 默认读取。维护技能时保持已证实真机规则，不把Node替身或资源导出说成设备证据。
+- 升 `app.json` `version`、`android.versionCode`、`android/app/build.gradle` 的 `versionName`/`versionCode`、`package.json` 及 `package-lock.json` 两个根 `version`，不改依赖版本来凑一致。
+- 默认入口：`npm run build:apk`；只验证元数据时用 `npm run build:apk -- --check`。脚本检查版本一致、当前更新日志及技能文件存在，**不能自动判断技能与更新日志的内容是否完整**，上面的人工/代理审查仍必做。
 - 本地构建：`JAVA_HOME`=OpenJDK 17，`ANDROID_HOME`=commandlinetools；国内网络用  
   `./android/gradlew -p android assembleRelease --no-daemon -I "$PWD/android/init.aliyun.gradle"`，再拷到 `dist/小步日常-{version}-{YYYYMMDD}.apk`。
-- 同步 `CHANGELOG.md`。`dist/` 在 `.gitignore`，安装包不入库，只推源码与说明。
+- 沿用已配置签名，不擅自更换密钥。当前release配置使用debug测试签名；此类包适合内部覆盖测试，不应宣称商店正式签名。打包后实际核对APK版本、包名、签名与SHA-256，不覆盖旧交付物。
+- 同步 `CHANGELOG.md`。`dist/` 在 `.gitignore`，安装包不入库；用户只要求打包不代表授权commit、push或商店发布。
 - 新增原生依赖（如 `react-native-tcp-socket` / `react-native-zeroconf` / `modules/sprout-identity`）必须打**新 APK**；仅热更 JS 不会带上原生模块。
 - 真机闪退必须以**新 APK 覆盖安装**验证；本机无设备时不得声称已验证。局域网同步同理，不得在未装新包时声称 mDNS/TCP 可用。
 

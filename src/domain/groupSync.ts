@@ -11,6 +11,7 @@ import {
   validateSync,
   type AccountJournal,
 } from './syncModel';
+import { isTicketReserved } from './companionValidation.mjs';
 
 const idValid = (value: string) =>
   /^[a-zA-Z0-9][a-zA-Z0-9_-]{7,79}$/.test(value);
@@ -197,6 +198,11 @@ export function renameGroup(state: AppState, name: string): ActionResult {
 }
 export function leaveGroup(state: AppState): ActionResult {
   if (!state.groupLink) return { ok: false, message: '还没有加入小组' };
+  if (state.tickets.some(isTicketReserved))
+    return {
+      ok: false,
+      message: '还有待处理的同行记录，请先完成或取消并同步核对，再离开小组',
+    };
   state.pendingGroupDeparture = { ...state.groupLink };
   delete state.groupLink;
   delete state.groupPeers;

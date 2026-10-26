@@ -119,9 +119,11 @@ npm run export:android
 npm run export:ios
 ```
 
-本次已执行：58项业务/状态/仓库测试通过；TypeScript、ESLint、Prettier通过；Android和iOS JavaScript/Hermes资源导出通过。SQLite仓库测试使用事务替身，并非真机数据库测试。Expo兼容性检查使用本地SDK依赖表通过，在线版本端点不可达，不能视作在线doctor认证。
+旧版初始验证记录不代表当前质量状态。当前工作区的测试、类型、lint、格式及打包实际结果见 [测试执行记录](./docs/testing/runs/)；SQLite仓库替身不等于真机数据库验证，资源导出不等于安装启动。
 
-**未完成**：真实手机的375宽/横屏/大字号/读屏/软键盘及数据库重启验证。资源导出不等于APK/IPA：尚未配置签名、正式启动图/应用图标、构建账号，也未生成安装包或上架。应用标识com.smallsteps.checkin目前是本地开发占位，发布前需替换为本人唯一标识。
+Android内部测试包入口：`npm run build:apk`，只做预检：`npm run build:apk -- --check`。每次先按 [AGENTS.md](./AGENTS.md) 审查项目打包技能与 [CHANGELOG](./CHANGELOG.md)，按实际变更更新，再检查版本一致并构建；脚本不能替代内容审查。当前release沿用debug测试签名，产物位于被忽略的 `dist/`，不覆盖旧包，不自动安装或发布商店。
+
+**未完成**：当前同行功能双手机实测，以及375宽/横屏/大字号/读屏/软键盘及数据库重启验证。APK构建成功不证明安装启动成功；尚未配置商店正式发布签名或上架。应用标识com.smallsteps.checkin沿用既有包，安装覆盖前应确认身份及数据备份，不在本次打包擅自更换。
 
 ### 依赖安全提醒（2026-10-19）
 

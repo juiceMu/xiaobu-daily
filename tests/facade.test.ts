@@ -4,8 +4,8 @@ import * as engine from '../src/domain/engine';
 import * as legacyEngine from '../src/domain/engineCore.mjs';
 import type { AppState, MilestoneGoal } from '../src/domain/engine';
 
-test('TypeScript门面完整导出32项业务API含数字校验，首达跨越和重复不发券保持一致', () => {
-  assert.equal(Object.keys(legacyEngine).length, 32);
+test('TypeScript门面完整导出33项业务API含同行券兑换，首达跨越和重复不发券保持一致', () => {
+  assert.equal(Object.keys(legacyEngine).length, 33);
   for (const [key, value] of Object.entries(legacyEngine))
     assert.equal(
       Object.entries(engine).find(([name]) => name === key)?.[1],

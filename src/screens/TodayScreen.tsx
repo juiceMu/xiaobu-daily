@@ -14,6 +14,7 @@ import {
   getWeekStats,
   getTicketStatus,
   redeemTicket,
+  redeemCompanionTicket,
   undoCheckIn,
   updateTask,
   weekKey,
@@ -225,7 +226,7 @@ export function TodayScreen() {
   const taskActionSize = Platform.OS === 'web' ? 36 : 44;
   const [initialForm, setInitialForm] = useState('');
   const [confirm, setConfirm] = useState<{
-    type: 'archive' | 'delete' | 'undo' | 'redeem';
+    type: 'archive' | 'delete' | 'undo' | 'redeem' | 'companion';
     task?: Task;
     date: string;
   } | null>(null);
@@ -254,16 +255,21 @@ export function TodayScreen() {
     const result = await run((draft) =>
       confirm.type === 'redeem'
         ? redeemTicket(draft, new Date(), confirm.date)
-        : confirm.type === 'archive'
-          ? archiveTask(draft, confirm.task!.id)
-          : confirm.type === 'delete'
-            ? deleteTask(draft, confirm.task!.id)
-            : undoCheckIn(draft, confirm.task!.id, new Date(), confirm.date),
+        : confirm.type === 'companion'
+          ? redeemCompanionTicket(draft, new Date(), confirm.date)
+          : confirm.type === 'archive'
+            ? archiveTask(draft, confirm.task!.id)
+            : confirm.type === 'delete'
+              ? deleteTask(draft, confirm.task!.id)
+              : undoCheckIn(draft, confirm.task!.id, new Date(), confirm.date),
     );
     if (result.ok) setConfirm(null);
     else setError(result.message);
   }
-  function ask(type: 'archive' | 'delete' | 'undo' | 'redeem', task?: Task) {
+  function ask(
+    type: 'archive' | 'delete' | 'undo' | 'redeem' | 'companion',
+    task?: Task,
+  ) {
     setError('');
     setConfirm({ type, task, date: selectedDate });
   }
@@ -606,6 +612,30 @@ export function TodayScreen() {
                   兑换
                 </ActionButton>
               </View>
+              <View
+                testID="companion-redemption-bar"
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <Text style={[styles.muted, { flex: 1, minWidth: 160 }]}>
+                  1 次打卡换 1 张同行券，仅能随另一人的奖券一起使用。
+                </Text>
+                <ActionButton
+                  testID="redeem-companion-button"
+                  tone="reward"
+                  mode="contained-tonal"
+                  accessibilityLabel="消耗一次打卡兑换同行券"
+                  icon="account-multiple-outline"
+                  disabled={busy || historicalWeek || stats.available < 1}
+                  onPress={() => ask('companion')}
+                >
+                  换同行券
+                </ActionButton>
+              </View>
             </Panel>
             <SectionTitle
               title={isToday ? '今日小任务' : selectedDate + ' 的任务'}
@@ -682,8 +712,8 @@ export function TodayScreen() {
                                 {peer.left ? ' · 已离开' : ''}
                               </Text>
                               <Text style={styles.muted}>
-                                已同步 {formatDate(peer.syncedAt)} · 完成{' '}
-                                {done}/{peerTasks.length}
+                                已同步 {formatDate(peer.syncedAt)} · 完成 {done}
+                                /{peerTasks.length}
                               </Text>
                               <Text style={styles.muted}>
                                 可用 {available} · 本周已兑 {redeemed} · 已使用{' '}
@@ -1458,29 +1488,33 @@ export function TodayScreen() {
         tone={
           confirm?.type === 'archive'
             ? 'archive'
-            : confirm?.type === 'redeem'
+            : confirm?.type === 'redeem' || confirm?.type === 'companion'
               ? 'reward'
               : confirm?.type === 'delete'
                 ? 'danger'
                 : 'save'
         }
         title={
-          confirm?.type === 'redeem'
-            ? '兑换一张奖券？'
-            : confirm?.type === 'archive'
-              ? '归档这个任务？'
-              : confirm?.type === 'delete'
-                ? '删除这个任务？'
-                : '撤销最近一次打卡？'
+          confirm?.type === 'companion'
+            ? '兑换一张同行券？'
+            : confirm?.type === 'redeem'
+              ? '兑换一张奖券？'
+              : confirm?.type === 'archive'
+                ? '归档这个任务？'
+                : confirm?.type === 'delete'
+                  ? '删除这个任务？'
+                  : '撤销最近一次打卡？'
         }
         description={
-          confirm?.type === 'redeem'
-            ? `消耗本周 ${state.settings.threshold} 次未兑换打卡。未兑换的打卡次数不会结转下周。`
-            : confirm?.type === 'archive'
-              ? `「${confirm.task?.name}」会移至更多中的归档任务，历史记录保留，可随时恢复。`
-              : confirm?.type === 'delete'
-                ? `「${confirm.task?.name}」删除后不会出现在归档任务，也不能恢复。历史打卡仍计入周统计。`
-                : `仅撤销 ${confirm?.date} 最近一次记录。已用于兑换的次数不能撤销。`
+          confirm?.type === 'companion'
+            ? '消耗本周 1 次未兑换打卡，与普通奖券共用打卡余额和有效期设置。同行券不能单独使用，也不能搭配自己的券；须与另一人的打卡券、里程碑券或赠送券共同确认使用。'
+            : confirm?.type === 'redeem'
+              ? `消耗本周 ${state.settings.threshold} 次未兑换打卡。未兑换的打卡次数不会结转下周。`
+              : confirm?.type === 'archive'
+                ? `「${confirm.task?.name}」会移至更多中的归档任务，历史记录保留，可随时恢复。`
+                : confirm?.type === 'delete'
+                  ? `「${confirm.task?.name}」删除后不会出现在归档任务，也不能恢复。历史打卡仍计入周统计。`
+                  : `仅撤销 ${confirm?.date} 最近一次记录。已用于兑换的次数不能撤销。`
         }
         busy={busy}
         error={error}
