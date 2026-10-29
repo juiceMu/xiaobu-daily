@@ -70,7 +70,26 @@ test('永久奖励行12号文图24字14上下6，奖励区紧凑标题13并保�
   );
   assert.ok(section.includes('contentStyle={rewardButtonContent}'));
   assert.ok(section.includes('labelStyle={rewardButtonLabel}'));
-  assert.ok(section.includes("navigation.navigate('tickets')"));
+  const sectionStart = milestoneText.indexOf('title="已解锁的永久奖励"');
+  const sectionEnd = milestoneText.indexOf('{isArchived &&');
+  const destinations: ts.CallExpression[] = [];
+  function visitNavigation(node: ts.Node) {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.expression.getText(milestone) === 'navigation' &&
+      node.expression.name.text === 'navigate' &&
+      node.getStart(milestone) >= sectionStart &&
+      node.getEnd() <= sectionEnd
+    )
+      destinations.push(node);
+    ts.forEachChild(node, visitNavigation);
+  }
+  visitNavigation(milestone);
+  assert.equal(destinations.length, 1);
+  const [route] = destinations[0].arguments;
+  assert.ok(ts.isStringLiteral(route));
+  assert.equal(route.text, 'tickets');
   assert.ok(milestoneText.includes('{ padding: 10, gap: 4 }'));
   assert.ok(milestoneText.includes('minHeight: 26'));
   assert.ok(

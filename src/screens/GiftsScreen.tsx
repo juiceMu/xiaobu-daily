@@ -30,6 +30,7 @@ import { AppTextInput } from '../ui/AppTextInput';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import type { GiftScannerProps } from '../ui/GiftScanner';
 import { useAndroidMountReady } from '../ui/useAndroidMountReady';
+import { CopyCodeButton } from '../ui/CopyCodeButton';
 import {
   Confirm,
   confirmDiscard,
@@ -376,6 +377,7 @@ export function GiftsScreen() {
             <Text style={styles.muted}>
               请赠送方打开「赠送与领取」扫码记录。回执只表示本机领取记录，没有防伪认证，也不是云端唯一凭证。
             </Text>
+            <CopyCodeButton value={exportGiftReceipt(receiptQr)} label="回执码" />
             <Text
               selectable={Platform.OS !== 'android'}
               style={styles.muted}
@@ -435,6 +437,7 @@ export function GiftsScreen() {
             <Text style={styles.muted}>
               已制作并保存在本机；展示二维码不代表对方已经领取。离线券码可被不同设备重复领取，请勿公开传播。
             </Text>
+            <CopyCodeButton value={exportGift(selected)} label="券码" />
             <Text
               selectable={Platform.OS !== 'android'}
               style={styles.muted}
@@ -442,7 +445,7 @@ export function GiftsScreen() {
               {exportGift(selected)}
             </Text>
             <Text style={styles.muted}>
-              相机不便使用时，可长按复制上面的券码给对方。
+              相机不便使用时，点击「复制券码」后粘贴发送给对方。
             </Text>
           </View>
         )}

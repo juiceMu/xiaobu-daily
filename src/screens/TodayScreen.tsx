@@ -82,6 +82,12 @@ export function TodayScreen() {
   }
   // 切换日期时列表内容高度会变，避免 FlatList / 焦点滚入视口把位置打回顶部。
   function changePickedDate(next: string | null) {
+    if ((next ?? dateKey(now)) === selectedDate) {
+      // 有效日期未变时不会触发恢复effect，不能遗留锁；null仍需保留跟随今天的语义。
+      restoreScrollRef.current = null;
+      setPickedDate(next);
+      return;
+    }
     const scroller = webListScroller();
     restoreScrollRef.current = scroller?.scrollTop ?? scrollOffsetRef.current;
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -95,13 +101,15 @@ export function TodayScreen() {
     if (offset == null) return;
     let cancelled = false;
     const restore = () => {
-      if (!cancelled) applyListScroll(offset);
+      if (!cancelled && restoreScrollRef.current === offset)
+        applyListScroll(offset);
     };
     restore();
     const timers = [0, 32, 80, 160, 320, 480].map((delay) =>
       setTimeout(() => {
         restore();
-        if (delay === 480) restoreScrollRef.current = null;
+        if (delay === 480 && restoreScrollRef.current === offset)
+          restoreScrollRef.current = null;
       }, delay),
     );
     return () => {
@@ -604,7 +612,6 @@ export function TodayScreen() {
                   mode="contained"
                   compact
                   icon="ticket-outline"
-                  loading={busy}
                   disabled={busy || historicalWeek || stats.redeemable === 0}
                   onPress={() => ask('redeem')}
                   style={{ flexShrink: 0 }}

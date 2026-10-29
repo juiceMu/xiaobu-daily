@@ -615,11 +615,16 @@ test('超长及非法备注原子拒绝，不消耗奖券或写入使用时间',
 test('重复及过期奖券不能通过填写新备注消费或覆盖原备注', () => {
   const state = createInitialState();
   updateSettings(state, { threshold: 1 });
-  checkIn(state, water, monday);
-  const used = redeemTicket(state, monday).ticket;
-  useTicket(state, used.id, monday, '第一次用途');
-  checkIn(state, water, monday);
-  const expired = redeemTicket(state, monday).ticket;
+  assert.equal(updateTask(state, water, { target: 2 }).ok, true);
+  assert.equal(checkIn(state, water, monday).ok, true);
+  const firstRedemption = redeemTicket(state, monday);
+  assert.equal(firstRedemption.ok, true);
+  const used = firstRedemption.ticket;
+  assert.equal(useTicket(state, used.id, monday, '第一次用途').ok, true);
+  assert.equal(checkIn(state, water, monday).ok, true);
+  const secondRedemption = redeemTicket(state, monday);
+  assert.equal(secondRedemption.ok, true);
+  const expired = secondRedemption.ticket;
   const before = JSON.stringify(state);
   assert.equal(useTicket(state, used.id, monday, '不能覆盖').ok, false);
   assert.equal(useTicket(state, expired.id, new Date(expired.expiresAt), '已过期').ok, false);

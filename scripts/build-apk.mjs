@@ -4,6 +4,7 @@ import { constants } from 'node:fs';
 import { copyFile, mkdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { patchInstalledTcpSocket } from './patch-tcp-socket.mjs';
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SKILL_PATH = '.cursor/skills/android-native-crash-avoidance/SKILL.md';
@@ -84,9 +85,12 @@ async function main() {
     throw new Error('打包要求 Node 24，请先切换 Node 版本');
   }
   const args = process.argv.slice(2);
-  if (args.some((arg) => arg !== '--check')) {
-    throw new Error('仅支持 --check（只读预检），不传参数则构建 APK');
+  if (args.some((arg) => !['--check', '--qa'].includes(arg))) {
+    throw new Error('仅支持 --check（只读预检）和 --qa（隔离测试包）');
   }
+  const isQa = args.includes('--qa');
+  const buildType = isQa ? 'qa' : 'release';
+  const gradleTask = isQa ? 'assembleQa' : 'assembleRelease';
   console.log(
     '打包前必须审查项目技能和 CHANGELOG.md，需要时及时更新；预检不代替内容审查。',
   );
@@ -96,11 +100,18 @@ async function main() {
   );
   console.log(`技能：${release.skillPath}`);
   console.log(
+    isQa
+      ? '隔离测试包：com.smallsteps.checkin.qa，小步日常测试，独立存档；不替换用户应用。'
+      : '常规安装包：com.smallsteps.checkin。',
+  );
+  console.log(
     release.signingConfig === 'debug'
       ? '签名配置：debug 测试签名，仅适合内部安装测试，不是商店正式签名。'
       : `签名配置：${release.signingConfig}（证书性质须在产物验证阶段确认）`,
   );
   if (args.includes('--check')) return;
+
+  await patchInstalledTcpSocket();
 
   const gradlew = join(PROJECT_ROOT, 'android/gradlew');
   const initScript = join(PROJECT_ROOT, 'android/init.aliyun.gradle');
@@ -118,7 +129,7 @@ async function main() {
   const exitCode = await new Promise((resolveExit, reject) => {
     const build = spawn(
       gradlew,
-      ['-p', 'android', 'assembleRelease', '--no-daemon', '-I', initScript],
+      ['-p', 'android', gradleTask, '--no-daemon', '-I', initScript],
       { cwd: PROJECT_ROOT, env, stdio: 'inherit' },
     );
     build.once('error', reject);
@@ -132,16 +143,16 @@ async function main() {
 
   const source = join(
     PROJECT_ROOT,
-    'android/app/build/outputs/apk/release/app-release.apk',
+    `android/app/build/outputs/apk/${buildType}/app-${buildType}.apk`,
   );
   if (!(await stat(source)).isFile())
-    throw new Error('构建结束但没有生成 release APK');
+    throw new Error(`构建结束但没有生成 ${buildType} APK`);
   const now = new Date();
   const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
   const destination = join(
     PROJECT_ROOT,
     'dist',
-    `小步日常-${release.version}-${date}.apk`,
+    `小步日常${isQa ? '-QA' : ''}-${release.version}-${date}.apk`,
   );
   await mkdir(dirname(destination), { recursive: true });
   // 排他创建，不覆盖已交付的同名 APK，也不清理历史产物。

@@ -69,7 +69,7 @@ const tabLabels: Record<string, string> = {
   more: '更多',
 };
 const linking: LinkingOptions<TabsParams> = {
-  prefixes: [Linking.createURL('/'), 'sprout://'],
+  prefixes: [Linking.createURL('/'), 'sprout://', 'sprout-qa://'],
   config: {
     screens: {
       today: 'today',

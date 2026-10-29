@@ -32,6 +32,7 @@ import { GroupViewSwitch } from '../ui/GroupViewSwitch';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import type { GiftScannerProps } from '../ui/GiftScanner';
 import { useAndroidMountReady } from '../ui/useAndroidMountReady';
+import { CopyCodeButton } from '../ui/CopyCodeButton';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { useGroupView } from '../ui/GroupViewProvider';
 import { formatDate, useScreenStyles } from './shared';
@@ -45,7 +46,7 @@ function memberTasks(app: AppState, date: string, today: string) {
 export function GroupScreen() {
   const mountReady = useAndroidMountReady(600);
   const styles = useScreenStyles();
-  const { state, busy, run, syncGroup } = useApp();
+  const { state, busy, syncing, syncStatus, run, syncGroup } = useApp();
   const { error: viewError } = useGroupView();
   const [name, setName] = useState(state.groupOwned?.name ?? '我们家');
   const [code, setCode] = useState('');
@@ -138,19 +139,26 @@ export function GroupScreen() {
               ))}
               <ActionButton
                 mode="contained"
-                disabled={busy}
+                loading={syncing}
+                disabled={busy || syncing}
                 onPress={() => {
                   void syncGroup();
                 }}
               >
-                同步
+                {syncing ? '同步中' : '同步'}
               </ActionButton>
+              {syncStatus ? (
+                <Text accessibilityLiveRegion="polite" style={styles.muted}>
+                  {syncStatus}
+                </Text>
+              ) : null}
               <ActionButton mode="contained-tonal" onPress={showInvite}>
                 显示邀请二维码
               </ActionButton>
               {QrView && state.groupLink ? (
                 <QrView value={exportInvite(state)} />
               ) : null}
+              <CopyCodeButton value={exportInvite(state)} label="邀请码" />
               <Text selectable={Platform.OS !== 'android'} style={styles.muted}>
                 {exportInvite(state)}
               </Text>
@@ -171,13 +179,17 @@ export function GroupScreen() {
               </Text>
               <ActionButton
                 mode="contained"
-                disabled={busy}
+                loading={syncing}
+                disabled={busy || syncing}
                 onPress={() => {
                   void syncGroup();
                 }}
               >
                 同步离开通知
               </ActionButton>
+              {syncStatus ? (
+                <Text style={styles.muted}>{syncStatus}</Text>
+              ) : null}
             </Panel>
           ) : (
             <Panel>

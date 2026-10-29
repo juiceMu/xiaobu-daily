@@ -31,6 +31,8 @@ import { hasPendingCompanionUse, syncCompanionRounds } from './companionSync';
 export interface AppContextValue {
   state: AppState;
   busy: boolean;
+  syncing: boolean;
+  syncStatus: string;
   now: Date;
   run: (mutation: Mutation) => Promise<ActionResult>;
   previewDemoHistory: () => Promise<ActionResult>;
@@ -60,6 +62,7 @@ export function AppProvider({
   const [now, setNow] = useState(() => new Date());
   const [message, setMessage] = useState('');
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
   const [appActive, setAppActive] = useState(
     NativeAppState.currentState === 'active',
   );
@@ -138,11 +141,17 @@ export function AppProvider({
     async (journals: import('../domain/syncModel').AccountJournal[]) => {
       const state = store.getSnapshot().state;
       if (!state) return { ok: false, message: '本地数据尚未就绪' };
-      if (state.pendingGroupDeparture) {
+      if (state.pendingGroupDeparture)
         validateDepartureJournals(state, journals);
-        return store.applyGroupJournals(journals, new Date().toISOString());
-      }
-      return store.applyGroupJournals(journals, new Date().toISOString());
+      const result = await store.applyGroupJournals(
+        journals,
+        new Date().toISOString(),
+      );
+      if (!result.ok)
+        throw Object.assign(new Error(result.message), {
+          code: 'LOCAL_SAVE_FAILED',
+        });
+      return result;
     },
     [store],
   );
@@ -155,10 +164,17 @@ export function AppProvider({
         const latestTail =
           latest && journalsForSend(latest)[0]?.operations.at(-1)?.operationId;
         if (!latest || sentTail !== latestTail)
-          throw new Error('扫描期间本机记录已变化，请重新同步');
+          throw Object.assign(new Error('扫描期间本机记录已变化，请重新同步'), {
+            code: 'LOCAL_STATE_CHANGED',
+          });
         const release = store.beginGroupSync();
-        if (!release) throw new Error('本机正在保存或同步，请稍后重试');
+        if (!release)
+          throw Object.assign(new Error('本机正在保存或同步，请稍后重试'), {
+            code: 'LOCAL_BUSY',
+          });
         activeGroupSession.current = release;
+        if (manualSyncActive.current)
+          setSyncStatus('已连接伙伴，正在交换并保存记录…');
       },
       onReceive: receiveGroupJournals,
       onSynchronized: async (input: LanExchange, peerStoredInput: boolean) => {
@@ -176,7 +192,10 @@ export function AppProvider({
             input.journals[0],
             peerStoredInput,
           );
-          if (!result.ok) throw new Error(result.message);
+          if (!result.ok)
+            throw Object.assign(new Error(result.message), {
+              code: 'LOCAL_SAVE_FAILED',
+            });
           setMessage(result.message);
         }
       },
@@ -234,6 +253,7 @@ export function AppProvider({
     }
     manualSyncActive.current = true;
     setSyncing(true);
+    setSyncStatus('正在同一 WiFi 下寻找其他手机…');
     peerDidNotStoreJournal.current = false;
     setMessage('正在同一 WiFi 下寻找其他手机…');
     try {
@@ -250,25 +270,27 @@ export function AppProvider({
               journals: journalsForSend(state),
             },
             sessionOptions(),
+            setSyncStatus,
           );
         },
       );
       const latest = store.getSnapshot().state;
-      setMessage(
-        peerDidNotStoreJournal.current
-          ? '已收到对方离组通知；对方未保存本机记录'
-          : latest && hasPendingCompanionUse(latest)
-            ? '记录已同步，同行确认尚未完成；请查看同行邀请或继续同步核对'
-            : '局域网同步完成',
-      );
+      const resultMessage = peerDidNotStoreJournal.current
+        ? '已收到对方离组通知；对方未保存本机记录'
+        : latest && hasPendingCompanionUse(latest)
+          ? '记录已同步，同行确认尚未完成；请查看同行邀请或继续同步核对'
+          : '局域网同步完成';
+      setSyncStatus(resultMessage);
+      setMessage(resultMessage);
     } catch (error) {
       const latest = store.getSnapshot().state;
       const detail = error instanceof Error ? error.message : '同步没有完成';
-      setMessage(
+      const resultMessage =
         latest && hasPendingCompanionUse(latest)
           ? `${detail}。已保存的同行记录保留，请重新同步核对`
-          : detail,
-      );
+          : detail;
+      setSyncStatus(resultMessage);
+      setMessage(resultMessage);
     } finally {
       manualSyncActive.current = false;
       setSyncing(false);
@@ -311,7 +333,9 @@ export function AppProvider({
     <AppContext.Provider
       value={{
         state: snapshot.state,
-        busy: snapshot.busy || syncing,
+        busy: snapshot.busy,
+        syncing,
+        syncStatus,
         now,
         run,
         previewDemoHistory,

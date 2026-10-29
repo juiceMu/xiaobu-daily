@@ -105,7 +105,52 @@ test('奖励展示入口使用正常导航，界面不将普通记录当作奖�
     'utf8',
   );
   assert.ok(source.includes('已解锁的永久奖励'));
-  assert.ok(source.includes("navigation.navigate('tickets')"));
+  const parsed = ts.createSourceFile(
+    'MilestonesScreen.tsx',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const handlers: ts.Expression[] = [];
+  function visit(node: ts.Node) {
+    if (
+      ts.isJsxAttribute(node) &&
+      node.name.getText(parsed) === 'onPress' &&
+      node.initializer &&
+      ts.isJsxExpression(node.initializer) &&
+      node.initializer.expression
+    ) {
+      const expression = node.initializer.expression;
+      if (
+        ts.isArrowFunction(expression) &&
+        ts.isCallExpression(expression.body) &&
+        ts.isPropertyAccessExpression(expression.body.expression) &&
+        expression.body.expression.expression.getText(parsed) ===
+          'navigation' &&
+        expression.body.expression.name.text === 'navigate'
+      )
+        handlers.push(expression);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(parsed);
+  assert.equal(handlers.length, 1);
+  const calls: unknown[][] = [];
+  const timestamp = 123456789;
+  const handler = new Function(
+    'navigation',
+    'Date',
+    `return (${handlers[0].getText(parsed)});`,
+  )(
+    { navigate: (...args: unknown[]) => calls.push(args) },
+    { now: () => timestamp },
+  );
+  assert.deepEqual(calls, []);
+  handler();
+  assert.deepEqual(calls, [
+    ['tickets', { intent: 'own-available', at: timestamp }],
+  ]);
   assert.ok(source.includes('unlockedRewards(goal)'));
   assert.equal(source.includes('goal.entries].reverse()'), false);
   const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');

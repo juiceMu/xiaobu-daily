@@ -8,6 +8,7 @@ import type { LanSessionOptions } from './lanProtocol';
 import type { LanExchange } from './lanExchange';
 import { createLanChannel, LAN_SESSION_TIMEOUT_MS } from './lanTransport';
 import type { LanSocket } from './lanTransport';
+import { createLanFailureTracker, scanLanHosts } from './lanScan';
 import {
   createLanHostDeduper,
   disposeLanDiscovery,
@@ -20,6 +21,7 @@ const SERVICE_TYPE = 'sprout-checkin';
 const SERVICE_NAME = 'Small Steps Sync';
 const NOT_FOUND = '同一 WiFi 下没找到其他手机，请确认两台设备已连接同一 WiFi';
 let sessionLocked = false;
+let listenerCleanup: Promise<void> = Promise.resolve();
 
 function wifiInterface() {
   return Platform.OS === 'ios' ? 'en0' : 'wlan0';
@@ -119,10 +121,17 @@ export interface LanListenerOptions extends LanSessionOptions {
 }
 
 export function startLanListener(options: LanListenerOptions): () => void {
+  // 前后台切换会立即 stop/start；新实例必须等旧实例原生发布与清理全部结束。
+  const previousCleanup = listenerCleanup;
+  let releaseListener!: () => void;
+  listenerCleanup = new Promise<void>((resolve) => {
+    releaseListener = resolve;
+  });
   let stopped = false;
   let server: ReturnType<typeof TcpSocket.createServer> | null = null;
-  let revision = 0;
-  let opening = false;
+  let listeningIp: string | null = null;
+  let refreshRequested = false;
+  let refreshing: Promise<void> | null = null;
   const sockets = new Set<LanSocket>();
   let zeroconf: Zeroconf | null = null;
   try {
@@ -131,7 +140,6 @@ export function startLanListener(options: LanListenerOptions): () => void {
     options.onError?.(new Error('本机尚未包含 mDNS 模块；请重新构建原生应用'));
   }
   let publishedName: string | null = null;
-  let discoveryDisposed = false;
   const report = (error: unknown) => {
     if (
       (error as { code?: string })?.code === 'AUTH_FAILED' ||
@@ -144,6 +152,7 @@ export function startLanListener(options: LanListenerOptions): () => void {
       );
   };
   const closeServer = () => {
+    listeningIp = null;
     for (const socket of sockets) socket.destroy();
     sockets.clear();
     if (!server) return;
@@ -155,20 +164,37 @@ export function startLanListener(options: LanListenerOptions): () => void {
       // 尚未监听时 close 会同步报错，无需继续保留实例。
     }
   };
-  const refresh = async () => {
-    const currentRevision = ++revision;
-    if (opening) return;
-    opening = true;
+  const unpublish = async () => {
+    const name = publishedName;
+    if (!name || !zeroconf) return;
     try {
+      await zeroconf.unpublishService(name);
+    } catch (error) {
+      if ((error as { code?: string })?.code !== 'NOT_PUBLISHED') throw error;
+    }
+    publishedName = null;
+  };
+  const refreshOnce = async () => {
+    let ip: string;
+    try {
+      ip = await wifiAddress();
+    } catch (error) {
       closeServer();
-      const ip = await wifiAddress();
-      if (stopped || currentRevision !== revision || !options.getInput())
-        return;
+      await unpublish();
+      throw error;
+    }
+    if (stopped) return;
+    // 网络初始通知可能重复；同一地址不重建监听或打断现有会话。
+    if (server && listeningIp === ip) return;
+    closeServer();
+    await unpublish();
+    if (stopped) return;
+    try {
       const nextServer = TcpSocket.createServer((rawSocket) => {
         const socket = rawSocket as unknown as LanSocket;
         sockets.add(socket);
         const input = options.getInput();
-        if (!input) {
+        if (stopped || server !== nextServer || !input) {
           socket.destroy();
           sockets.delete(socket);
           return;
@@ -177,74 +203,99 @@ export function startLanListener(options: LanListenerOptions): () => void {
           .catch(report)
           .finally(() => sockets.delete(socket));
       });
-      nextServer.once('error', report);
-      nextServer.listen({ port: PORT, host: ip, reuseAddress: true }, () => {
-        if (stopped || currentRevision !== revision) {
-          nextServer.close();
-          return;
-        }
-        server = nextServer;
-        if (zeroconf && !publishedName && !discoveryDisposed) {
-          const discovery = zeroconf;
-          const publish = (useInterface: boolean) =>
-            discovery.publishService({
-              type: SERVICE_TYPE,
-              protocol: 'tcp',
-              name: SERVICE_NAME,
-              port: PORT,
-              txt: { version: '2' },
-              ...(useInterface ? { networkInterface: wifiInterface() } : {}),
-              ...(Platform.OS === 'android'
-                ? { implType: ImplType.DNSSD }
-                : {}),
-            });
-          void publish(true)
-            .then((service) => {
-              if (discoveryDisposed) {
-                void discovery
-                  .unpublishService(service.name)
-                  .catch(() => undefined);
-              } else {
-                publishedName = service.name;
-              }
-            })
-            .catch(async (error: unknown) => {
-              const code = (error as { code?: string })?.code;
-              if (code !== 'UNKNOWN_INTERFACE' && code !== 'UNSUPPORTED') {
-                report(error);
-                return;
-              }
-              try {
-                const service = await publish(false);
-                if (discoveryDisposed)
-                  await discovery.unpublishService(service.name);
-                else publishedName = service.name;
-              } catch (fallbackError) {
-                report(fallbackError);
-              }
-            });
-        }
+      server = nextServer;
+      const listening = await new Promise<boolean>((resolve, reject) => {
+        const onError = (error: Error) => {
+          reject(error);
+        };
+        nextServer.once('error', onError);
+        nextServer.listen({ port: PORT, host: ip, reuseAddress: true }, () => {
+          nextServer.removeListener('error', onError);
+          if (stopped || server !== nextServer) {
+            nextServer.close();
+            resolve(false);
+            return;
+          }
+          nextServer.once('error', (error) => {
+            // TCP 库在抛出监听错误前已调用 close，不能再次关闭同一个原生 ID。
+            if (server === nextServer) {
+              server = null;
+              listeningIp = null;
+              for (const socket of sockets) socket.destroy();
+              sockets.clear();
+            }
+            report(error);
+          });
+          resolve(true);
+        });
       });
+      if (!listening || stopped) return;
+      listeningIp = ip;
+      if (zeroconf) {
+        const discovery = zeroconf;
+        const publish = (useInterface: boolean) =>
+          discovery.publishService({
+            type: SERVICE_TYPE,
+            protocol: 'tcp',
+            name: SERVICE_NAME,
+            port: PORT,
+            txt: { version: '2' },
+            ...(useInterface ? { networkInterface: wifiInterface() } : {}),
+            ...(Platform.OS === 'android' ? { implType: ImplType.NSD } : {}),
+          });
+        try {
+          publishedName = (await publish(true)).name;
+        } catch (error) {
+          const code = (error as { code?: string })?.code;
+          if (code !== 'UNKNOWN_INTERFACE' && code !== 'UNSUPPORTED') {
+            throw error;
+          }
+          if (!stopped) publishedName = (await publish(false)).name;
+        }
+      }
     } catch (error) {
-      report(error);
-    } finally {
-      opening = false;
-      if (!stopped && currentRevision !== revision) void refresh();
+      closeServer();
+      throw error;
     }
   };
-  const subscription = Network.addNetworkStateListener(() => void refresh());
-  void refresh();
+  const refresh = () => {
+    refreshRequested = true;
+    if (stopped || refreshing) return;
+    // 单飞范围包含原生监听、发布和撤销，不能只保护读取 WiFi 的 await。
+    refreshing = (async () => {
+      while (refreshRequested && !stopped) {
+        refreshRequested = false;
+        await refreshOnce().catch(report);
+      }
+    })().finally(() => {
+      refreshing = null;
+      if (refreshRequested && !stopped) refresh();
+    });
+  };
+  let subscription: ReturnType<typeof Network.addNetworkStateListener> | null =
+    null;
+  void previousCleanup.then(() => {
+    if (stopped) return;
+    subscription = Network.addNetworkStateListener(() => void refresh());
+    refresh();
+  });
   return () => {
+    if (stopped) return;
     stopped = true;
-    revision += 1;
-    subscription.remove();
+    subscription?.remove();
     closeServer();
-    discoveryDisposed = true;
-    const name = publishedName;
-    publishedName = null;
-    if (name && zeroconf)
-      void zeroconf.unpublishService(name).catch(() => undefined);
-    zeroconf?.removeDeviceListeners();
+    // 发布已提交到原生后不能取消；等它返回名称再撤销，避免遗留服务。
+    void previousCleanup
+      .then(() => refreshing)
+      .then(unpublish)
+      .catch(report)
+      .finally(() => {
+        try {
+          zeroconf?.removeDeviceListeners();
+        } finally {
+          releaseListener();
+        }
+      });
   };
 }
 
@@ -252,6 +303,8 @@ function connectHost(
   host: string,
   input: LanExchange,
   options: LanSessionOptions,
+  localAddress: string,
+  connectTimeout = 2_000,
 ) {
   return new Promise<{ accountId: string; journals: AccountJournal[] } | null>(
     (resolve, reject) => {
@@ -267,7 +320,7 @@ function connectHost(
         else resolve(result ?? null);
       };
       const rawSocket = TcpSocket.createConnection(
-        { port: PORT, host, interface: 'wifi', connectTimeout: 2_000 },
+        { port: PORT, host, localAddress, connectTimeout },
         () => {
           void runPeerSession(socket, input, options, 'outgoing')
             .then((result) => finish(undefined, result))
@@ -291,15 +344,17 @@ function connectHost(
 export async function exchangeOnLan(
   input: LanExchange,
   options: LanSessionOptions,
+  onProgress?: (message: string) => void,
 ): Promise<AccountJournal[]> {
   const ip = await wifiAddress();
   const prefix = lanPrefix(ip);
   const found = new Map<string, AccountJournal[]>();
+  const failures = createLanFailureTracker();
   const rejected = { auth: false };
   const sawBusySession = { current: false };
   const inFlightHosts = new Map<string, Promise<void>>();
   const markAttempted = createLanHostDeduper();
-  const attemptHost = (host: string) => {
+  const attemptHost = (host: string, connectTimeout = 2_000) => {
     const current = inFlightHosts.get(host);
     if (current) return current;
     if (!markAttempted(host)) return Promise.resolve();
@@ -307,10 +362,17 @@ export async function exchangeOnLan(
       let retry = 0;
       while (retry <= 3) {
         try {
-          const result = await connectHost(host, input, options);
+          const result = await connectHost(
+            host,
+            input,
+            options,
+            ip,
+            connectTimeout,
+          );
           if (result) found.set(result.accountId, result.journals);
           return;
         } catch (error) {
+          failures.capture(error);
           const code = (error as { code?: string })?.code;
           if (code === 'AUTH_FAILED') rejected.auth = true;
           if (code !== 'SESSION_BUSY') return;
@@ -331,7 +393,6 @@ export async function exchangeOnLan(
   } catch {
     // /24 扫描仍可用于旧安装包及 Expo Go 开发。
   }
-  const discoveryTasks: Promise<void>[] = [];
   const discoveredHosts = new Set<string>();
   const resolved = (service: Parameters<typeof lanServiceHosts>[0]) => {
     for (const host of lanServiceHosts(service, ip, PORT))
@@ -345,6 +406,8 @@ export async function exchangeOnLan(
   zeroconf?.on('resolved', resolved);
   zeroconf?.on('error', onDiscoveryError);
   let discoveryWindow: Promise<void> = Promise.resolve();
+  let scanExhausted = true;
+  onProgress?.('正在寻找同一 WiFi 下的小组手机…');
   try {
     if (zeroconf) {
       try {
@@ -354,7 +417,7 @@ export async function exchangeOnLan(
           domain: 'local.',
           resolveTimeout: 4,
           networkInterface: wifiInterface(),
-          ...(Platform.OS === 'android' ? { implType: ImplType.DNSSD } : {}),
+          ...(Platform.OS === 'android' ? { implType: ImplType.NSD } : {}),
         });
       } catch {
         zeroconf.stop();
@@ -364,37 +427,41 @@ export async function exchangeOnLan(
       });
       await discoveryWindow;
       zeroconf.stop();
-      for (const host of discoveredHosts)
-        discoveryTasks.push(attemptHost(host));
-      await Promise.allSettled(discoveryTasks);
+      // Discovery can return many services too; keep the native queue bounded.
+      await scanLanHosts([...discoveredHosts], attemptHost, {
+        found: () => found.size > 0,
+      });
     }
     if (!found.size) {
       const hosts = Array.from(
         { length: 254 },
         (_, index) => `${prefix}.${index + 1}`,
       ).filter((host) => host !== ip);
-      let cursor = 0;
-      const worker = async () => {
-        while (cursor < hosts.length) {
-          const host = hosts[cursor++];
-          await attemptHost(host);
-        }
-      };
-      await Promise.all(Array.from({ length: 24 }, () => worker()));
+      onProgress?.('未自动发现手机，正在检查局域网连接…');
+      const scan = await scanLanHosts(hosts, (host) => attemptHost(host, 300), {
+        found: () => found.size > 0,
+        progress: (completed, total) =>
+          onProgress?.(`正在检查局域网连接（${completed}/${total}）…`),
+      });
+      scanExhausted = scan.exhausted;
     }
     zeroconf?.stop();
-    await Promise.allSettled([...discoveryTasks, ...inFlightHosts.values()]);
+    await Promise.allSettled([...inFlightHosts.values()]);
   } finally {
     if (zeroconf) disposeLanDiscovery(zeroconf, resolved, onDiscoveryError);
   }
   const journals = [...found.values()].flat();
+  const localError = failures.getError();
+  if (localError) throw localError;
   if (!journals.length)
     throw new Error(
       rejected.auth
         ? '小组口令不一致'
         : sawBusySession.current
           ? '本机正在同步，请稍后重试'
-          : NOT_FOUND,
+          : !scanExhausted
+            ? '查找超时，尚未完成全部地址检查；请确认双方同一 WiFi、保持前台后重试'
+            : NOT_FOUND,
     );
   return journals;
 }
