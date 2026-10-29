@@ -5,6 +5,8 @@ dist-web/
 coverage/
 *.log
 
+# local test screenshots and raw logs
+docs/testing/runs/*-evidence/
 
 # local expo module build outputs
 modules/**/android/build/
