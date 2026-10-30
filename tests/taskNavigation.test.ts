@@ -334,3 +334,152 @@ test('更多导航和深链显式设置总览initialRoute，并保留账户与�
       .includes('NavigatorScreenParams<MoreStackParams> | undefined'),
   );
 });
+
+test('首页成员入口保留更多总览作为初始页，并传递成员和所选日期', () => {
+  const memberParams = find(today, ts.isObjectLiteralExpression).find((node) =>
+    node.properties.some(
+      (property) =>
+        ts.isPropertyAssignment(property) &&
+        property.name.getText(today) === 'screen' &&
+        property.initializer.getText(today) === "'member'",
+    ),
+  );
+  assert.ok(memberParams);
+  const properties = memberParams.properties.filter(ts.isPropertyAssignment);
+  assert.equal(
+    properties
+      .find((property) => property.name.getText(today) === 'initial')
+      ?.initializer.getText(today),
+    'false',
+  );
+  const params = properties.find(
+    (property) => property.name.getText(today) === 'params',
+  )?.initializer;
+  assert.ok(params && ts.isObjectLiteralExpression(params));
+  assert.deepEqual(
+    params.properties
+      .filter(ts.isPropertyAssignment)
+      .map((property) => [
+        property.name.getText(today),
+        property.initializer.getText(today),
+      ]),
+    [
+      ['accountId', 'peer.accountId'],
+      ['date', 'selectedDate'],
+    ],
+  );
+});
+
+test('更多成员栈回总览，并经真实beforeRemove保护草稿', async () => {
+  const bar = find(app, ts.isJsxSelfClosingElement).find(
+    (node) => node.tagName.getText(app) === 'BottomNavigation.Bar',
+  );
+  assert.ok(bar);
+  const handler = bar.attributes.properties.find(
+    (attribute): attribute is ts.JsxAttribute =>
+      ts.isJsxAttribute(attribute) &&
+      attribute.name.getText(app) === 'onTabPress',
+  )?.initializer;
+  assert.ok(handler && ts.isJsxExpression(handler) && handler.expression);
+  const options = {
+    routeNames: ['index', 'member', 'settings'],
+    routeParamList: {},
+    routeGetIdList: {},
+  };
+  const router = StackRouter({ initialRouteName: 'index' });
+  const { shouldPreventRemove } = await import(
+    new URL(
+      '../node_modules/@react-navigation/core/lib/module/useOnPreventRemove.js',
+      import.meta.url,
+    ).href
+  );
+  for (const { names, protectRoot } of [
+    { names: ['index', 'member'], protectRoot: false },
+    { names: ['member'], protectRoot: false },
+    { names: ['member', 'settings'], protectRoot: false },
+    { names: ['member', 'settings'], protectRoot: true },
+    { names: ['member', 'index', 'settings'], protectRoot: false },
+  ]) {
+    let stackState = router.getRehydratedState(
+      { stale: true, routes: names.map((name) => ({ name })) },
+      options,
+    );
+    const initialKeys = stackState.routes.map((route) => route.key);
+    let protectedKey: string | undefined = protectRoot
+      ? initialKeys[0]
+      : initialKeys.at(-1);
+    let intercepted = false;
+    let retryAction: Parameters<typeof router.getStateForAction>[1] | undefined;
+    const emitter = {
+      emit: ({
+        target,
+        data,
+      }: {
+        target: string;
+        data: { action: unknown };
+      }) => {
+        if (target === protectedKey) {
+          intercepted = true;
+          retryAction = data.action as typeof retryAction;
+          return { defaultPrevented: true };
+        }
+        return { defaultPrevented: false };
+      },
+    };
+    const dispatch = (
+      action: Parameters<typeof router.getStateForAction>[1],
+    ) => {
+      const result = router.getStateForAction(stackState, action, options);
+      assert.ok(result);
+      const next =
+        result.stale === false
+          ? result
+          : router.getRehydratedState(result, options);
+      if (
+        !shouldPreventRemove(
+          emitter,
+          {},
+          stackState.routes,
+          next.routes,
+          action,
+        )
+      ) {
+        stackState = next;
+      }
+    };
+    const navigation = {
+      emit: () => ({ defaultPrevented: false }),
+      navigate: () => {},
+      dispatch,
+    };
+    const state = { routes: [{ key: 'more-tab', state: stackState }] };
+    const callback = new Function(
+      'navigation',
+      'state',
+      'StackActions',
+      'return (' + handler.expression.getText(app) + ')',
+    )(navigation, state, StackActions) as (event: {
+      route: { name: string; key: string };
+      preventDefault: () => void;
+    }) => void;
+    callback({
+      route: { name: 'more', key: 'more-tab' },
+      preventDefault: () => assert.fail('tabPress 未取消'),
+    });
+    assert.equal(intercepted, true);
+    assert.ok(retryAction);
+    assert.deepEqual(
+      stackState.routes.map((route) => route.key),
+      initialKeys,
+    );
+    protectedKey = undefined;
+    dispatch(retryAction);
+    assert.deepEqual(
+      stackState.routes.map((route) => route.name),
+      ['index'],
+    );
+    if (names[0] === 'index') {
+      assert.equal(stackState.routes[0].key, initialKeys[0]);
+    }
+  }
+});

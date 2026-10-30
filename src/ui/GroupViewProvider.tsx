@@ -13,14 +13,17 @@ interface GroupViewContextValue {
   mode: GroupViewMode;
   busy: boolean;
   error: string;
+  readFailed: boolean;
   setMode: (mode: GroupViewMode) => Promise<boolean>;
 }
 const GroupViewContext = createContext<GroupViewContextValue | null>(null);
 export function GroupViewProvider({ children }: { children: ReactNode }) {
   const [mode, setStoredMode] = useState<GroupViewMode>('self');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
+  const [readFailed, setReadFailed] = useState(false);
   const changing = useRef(false);
+  const loaded = useRef(false);
   useEffect(() => {
     let active = true;
     void groupViewRepository
@@ -29,14 +32,24 @@ export function GroupViewProvider({ children }: { children: ReactNode }) {
         if (active) setStoredMode(value);
       })
       .catch(() => {
-        if (active) setError('查看方式读取失败，暂只看自己。');
+        if (active) {
+          setReadFailed(true);
+          setError('查看方式读取失败，暂只看自己。');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          loaded.current = true;
+          setBusy(false);
+        }
       });
     return () => {
       active = false;
     };
   }, []);
   async function setMode(next: GroupViewMode) {
-    if (!isGroupViewMode(next) || changing.current) return false;
+    if (!isGroupViewMode(next) || !loaded.current || changing.current)
+      return false;
     if (next === mode && !error) return true;
     changing.current = true;
     setBusy(true);
@@ -44,6 +57,7 @@ export function GroupViewProvider({ children }: { children: ReactNode }) {
     try {
       await groupViewRepository.save(next);
       setStoredMode(next);
+      setReadFailed(false);
       return true;
     } catch {
       setError('查看方式保存失败，已保留当前选择。');
@@ -54,7 +68,9 @@ export function GroupViewProvider({ children }: { children: ReactNode }) {
     }
   }
   return (
-    <GroupViewContext.Provider value={{ mode, busy, error, setMode }}>
+    <GroupViewContext.Provider
+      value={{ mode, busy, error, readFailed, setMode }}
+    >
       {children}
     </GroupViewContext.Provider>
   );

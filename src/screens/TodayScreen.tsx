@@ -53,7 +53,7 @@ export function TodayScreen() {
   const styles = useScreenStyles();
   const { state, now, busy, run } = useApp();
   const navigation = useNavigation();
-  const { mode } = useGroupView();
+  const { mode, error: viewError, readFailed } = useGroupView();
   const showGroup = mode === 'group' && !!state.groupLink;
   const peers = showGroup ? peerBoards(state) : [];
   const [pickedDate, setPickedDate] = useState<string | null>(null);
@@ -564,24 +564,31 @@ export function TodayScreen() {
               </Text>
               <View
                 testID="reward-progress-track"
+                accessible
+                accessibilityRole="progressbar"
+                accessibilityLabel="距离下一张奖券的打卡进度"
+                aria-valuemin={0}
+                aria-valuemax={state.settings.threshold}
+                aria-valuenow={stats.remainder}
+                aria-valuetext={
+                  '已积累 ' +
+                  stats.remainder +
+                  ' 次，共需 ' +
+                  state.settings.threshold +
+                  ' 次'
+                }
                 style={{ height: 6, flexShrink: 0 }}
               >
-                <ProgressBar
-                  accessibilityLabel="距离下一张奖券的打卡进度"
-                  accessibilityValue={{
-                    min: 0,
-                    max: state.settings.threshold,
-                    now: stats.remainder,
-                    text:
-                      '已积累 ' +
-                      stats.remainder +
-                      ' 次，共需 ' +
-                      state.settings.threshold +
-                      ' 次',
-                  }}
-                  progress={stats.remainder / state.settings.threshold}
-                  style={{ height: 6, borderRadius: 3 }}
-                />
+                <View
+                  aria-hidden
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <ProgressBar
+                    progress={stats.remainder / state.settings.threshold}
+                    style={{ height: 6, borderRadius: 3 }}
+                  />
+                </View>
               </View>
               <View
                 testID="redemption-bar"
@@ -644,6 +651,9 @@ export function TodayScreen() {
                 </ActionButton>
               </View>
             </Panel>
+            {!state.groupLink && readFailed ? (
+              <ErrorText message={viewError} />
+            ) : null}
             <SectionTitle
               title={isToday ? '今日小任务' : selectedDate + ' 的任务'}
               action={
@@ -666,6 +676,7 @@ export function TodayScreen() {
                 上方统计与任务仍属自己；选择看全组可浏览其他成员
               </Text>
               <GroupViewSwitch />
+              <ErrorText message={viewError} />
               {showGroup ? (
                 peers.length ? (
                   peers.map((peer) => {
@@ -702,6 +713,7 @@ export function TodayScreen() {
                               params: object,
                             ) => void
                           )('more', {
+                            initial: false,
                             screen: 'member',
                             params: {
                               accountId: peer.accountId,

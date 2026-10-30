@@ -4,8 +4,17 @@ import { Text } from 'react-native-paper';
 import { useApp } from '../state/AppProvider';
 import { useAppTheme } from './ThemeProvider';
 import { useGroupView } from './GroupViewProvider';
+import type { GroupViewMode } from '../state/groupView';
 
-export function GroupViewSwitch() {
+export function GroupViewSwitch({
+  displayMode,
+  onChangeMode,
+  disabled = false,
+}: {
+  displayMode?: GroupViewMode;
+  onChangeMode?: (mode: GroupViewMode) => Promise<boolean>;
+  disabled?: boolean;
+} = {}) {
   const { state } = useApp();
   const { mode, busy, setMode } = useGroupView();
   const { colors } = useAppTheme();
@@ -21,16 +30,16 @@ export function GroupViewSwitch() {
           ['group', '看全组'],
         ] as const
       ).map(([value, label]) => {
-        const selected = mode === value;
+        const selected = (displayMode ?? mode) === value;
         return (
           <Pressable
             key={value}
             accessibilityRole="radio"
-            accessibilityState={{ selected, disabled: busy }}
+            accessibilityState={{ selected, disabled: busy || disabled }}
             accessibilityLabel={label}
-            disabled={busy}
+            disabled={busy || disabled}
             onPress={() => {
-              void setMode(value);
+              void (onChangeMode ?? setMode)(value);
             }}
             style={{ borderRadius: 18 }}
           >

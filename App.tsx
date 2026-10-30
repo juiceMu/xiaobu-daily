@@ -129,11 +129,21 @@ function TabBar({ state, navigation, insets }: BottomTabBarProps) {
           const nested = state.routes.find(
             (item) => item.key === route.key,
           )?.state;
-          if (nested?.key && (nested.index ?? 0) > 0) {
-            navigation.dispatch({
-              ...StackActions.popToTop(),
-              target: nested.key,
-            });
+          if (nested?.key) {
+            const root = nested.routes[0];
+            if (root?.name !== 'index' && root?.key) {
+              // 兼容旧的非总览根栈；保留路由移除确认，不直接重置状态。
+              navigation.dispatch({
+                ...StackActions.popTo('index'),
+                source: root.key,
+                target: nested.key,
+              });
+            } else if (root?.name === 'index' && (nested.index ?? 0) > 0) {
+              navigation.dispatch({
+                ...StackActions.popToTop(),
+                target: nested.key,
+              });
+            }
           }
         } else navigation.navigate(route.name);
       }}

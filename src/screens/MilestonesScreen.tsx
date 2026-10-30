@@ -10,6 +10,7 @@ import {
 } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
+import { nextTicketLandingId } from '../ui/ticketLandingId';
 import {
   addMilestoneGoal,
   archiveMilestoneGoal,
@@ -619,7 +620,7 @@ export function MilestonesScreen() {
                   onPress={() =>
                     navigation.navigate('tickets', {
                       intent: 'own-available',
-                      at: Date.now(),
+                      at: nextTicketLandingId(),
                     })
                   }
                 >

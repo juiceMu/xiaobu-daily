@@ -140,12 +140,9 @@ test('奖励展示入口使用正常导航，界面不将普通记录当作奖�
   const timestamp = 123456789;
   const handler = new Function(
     'navigation',
-    'Date',
+    'nextTicketLandingId',
     `return (${handlers[0].getText(parsed)});`,
-  )(
-    { navigate: (...args: unknown[]) => calls.push(args) },
-    { now: () => timestamp },
-  );
+  )({ navigate: (...args: unknown[]) => calls.push(args) }, () => timestamp);
   assert.deepEqual(calls, []);
   handler();
   assert.deepEqual(calls, [

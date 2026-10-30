@@ -108,6 +108,7 @@ QA1.0.14首次拒绝/随后允许相机权限后扫码Modal都关闭，系统gra
 - 此技能位于项目 `.cursor/skills/android-native-crash-avoidance/SKILL.md`，不是仅Cursor可用；Codex等执行者按根 `AGENTS.md` 默认读取。维护技能时保持已证实真机规则，不把Node替身或资源导出说成设备证据。
 - 升 `app.json` `version`、`android.versionCode`、`android/app/build.gradle` 的 `versionName`/`versionCode`、`package.json` 及 `package-lock.json` 两个根 `version`，不改依赖版本来凑一致。
 - 默认入口：`npm run build:apk`；只验证元数据时用 `npm run build:apk -- --check`。脚本检查版本一致、当前更新日志及技能文件存在，**不能自动判断技能与更新日志的内容是否完整**，上面的人工/代理审查仍必做。
+- 已交付APK存放在 `dist/`；执行Expo资源导出时显式指定独立输出目录，不能让默认输出目录覆盖或清理现有交付物。资源导出仍不等于设备验收。
 - 同机写操作回归使用 `npm run build:apk -- --qa`：独立包名 `com.smallsteps.checkin.qa`、应用名「小步日常测试」、深链 `sprout-qa`、独立存储且禁止系统备份；不导入真实存档/邀请码。QA沿用release业务和测试签名，交付物带 `-QA`，不能拿常规应用做新增/删除/消费测试；QA构建成功仍需实际核对APK及独立安装启动。
 - 本地构建：`JAVA_HOME`=OpenJDK 17，`ANDROID_HOME`=commandlinetools；国内网络用  
   `./android/gradlew -p android assembleRelease --no-daemon -I "$PWD/android/init.aliyun.gradle"`，再拷到 `dist/小步日常-{version}-{YYYYMMDD}.apk`。

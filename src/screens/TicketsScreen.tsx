@@ -1,6 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import {
+  useIsFocused,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
 import { Icon, Text } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { getTicketStatus, useTicket as consumeTicket } from '../domain/engine';
@@ -16,6 +20,7 @@ import { usedTicketRows, type TicketListRow } from '../ui/rewardHistory';
 import { discardDraft, ErrorText, formatDate, useScreenStyles } from './shared';
 import { GroupViewSwitch } from '../ui/GroupViewSwitch';
 import { useGroupView } from '../ui/GroupViewProvider';
+import { useTicketLanding } from '../ui/useTicketLanding';
 import { peerBoards } from '../domain/groupSync';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { isTicketReserved } from '../domain/companion';
@@ -28,7 +33,14 @@ export function TicketsScreen() {
   const { colors } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, run, busy } = useApp();
-  const { mode, setMode } = useGroupView();
+  const {
+    mode,
+    busy: viewBusy,
+    error: viewError,
+    readFailed,
+    setMode,
+  } = useGroupView();
+  const focused = useIsFocused();
   const route =
     useRoute<
       RouteProp<
@@ -38,15 +50,29 @@ export function TicketsScreen() {
     >();
   const landingAt =
     route.params?.intent === 'own-available' ? route.params.at : undefined;
-  const showGroup = mode === 'group' && !!state.groupLink;
-  const [filter, setFilter] = useState<TicketStatus | 'all'>('available');
-  const [memberId, setMemberId] = useState('all');
-  useEffect(() => {
-    if (landingAt == null) return;
-    setFilter('available');
-    setMemberId('all');
-    void setMode('self');
-  }, [landingAt]);
+  const landing = useTicketLanding(
+    landingAt,
+    focused,
+    mode,
+    viewBusy,
+    setMode,
+    readFailed,
+  );
+  const showGroup = !landing.forceSelf && mode === 'group' && !!state.groupLink;
+  const [filterState, setFilterState] = useState<{
+    at: number | undefined;
+    value: TicketStatus | 'all';
+  }>({ at: landingAt, value: 'available' });
+  const [memberState, setMemberState] = useState({
+    at: landingAt,
+    value: 'all',
+  });
+  const filter = filterState.at === landingAt ? filterState.value : 'available';
+  const memberId = memberState.at === landingAt ? memberState.value : 'all';
+  const setFilter = (value: TicketStatus | 'all') =>
+    setFilterState({ at: landingAt, value });
+  const setMemberId = (value: string) =>
+    setMemberState({ at: landingAt, value });
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [companionTicket, setCompanionTicket] = useState<Ticket | null>(null);
   const [note, setNote] = useState('');
@@ -182,8 +208,25 @@ export function TicketsScreen() {
             {state.groupLink ? (
               <>
                 <Text style={styles.muted}>选择看全组后，可按成员查看奖券</Text>
-                <GroupViewSwitch />
+                <GroupViewSwitch
+                  displayMode={landing.forceSelf ? 'self' : undefined}
+                  onChangeMode={landing.selectMode}
+                  disabled={landing.pending}
+                />
               </>
+            ) : null}
+            {state.groupLink || landing.failed ? (
+              <ErrorText
+                message={
+                  landing.failed
+                    ? readFailed
+                      ? `${viewError} 当前仅显示自己的奖券，已存偏好尚未确认。${state.groupLink ? '请重试切换。' : ''}`
+                      : `查看方式保存失败，当前仅显示自己的奖券，已存偏好需重新确认。${state.groupLink ? '请重试切换。' : ''}`
+                    : viewError
+                }
+              />
+            ) : readFailed ? (
+              <ErrorText message={viewError} />
             ) : null}
             {showGroup ? (
               <Text style={styles.muted}>
