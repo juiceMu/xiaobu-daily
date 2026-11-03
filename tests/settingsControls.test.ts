@@ -91,10 +91,10 @@ test('Web使用小时分钟选择弹窗，不用系统time输入，仅确认提�
   assert.equal(source.text.includes('type="time"'), false);
   const modal = find(source, 'Modal')[0];
   assert.ok(modal);
-  assert.ok(expr(modal, 'onRequestClose', source).includes('setVisible(false)'));
   assert.ok(
-    source.text.includes('onChange(formatTime(hour, minute))'),
+    expr(modal, 'onRequestClose', source).includes('setVisible(false)'),
   );
+  assert.ok(source.text.includes('onChange(formatTime(hour, minute))'));
   assert.ok(source.text.includes('column === 0 ? 24 : 60'));
   assert.ok(source.text.includes('keyboardFocus.focusVisible'));
   assert.ok(source.text.includes('backgroundColor: colors.field'));
@@ -129,5 +129,5 @@ test('原生使用社区时间选择器，Android 系统弹窗，iOS 确认才�
   );
   assert.ok(cancel);
   assert.equal(expr(cancel, 'onPress', source).includes('onChange'), false);
-  assert.ok(source.text.includes('Platform.OS === \'ios\''));
+  assert.ok(source.text.includes("Platform.OS === 'ios'"));
 });

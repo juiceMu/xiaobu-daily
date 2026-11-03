@@ -4,6 +4,7 @@ import { constants } from 'node:fs';
 import { copyFile, mkdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { patchInstalledExpoActivityResult } from './patch-expo-activity-result.mjs';
 import { patchInstalledTcpSocket } from './patch-tcp-socket.mjs';
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -112,6 +113,7 @@ async function main() {
   if (args.includes('--check')) return;
 
   await patchInstalledTcpSocket();
+  await patchInstalledExpoActivityResult();
 
   const gradlew = join(PROJECT_ROOT, 'android/gradlew');
   const initScript = join(PROJECT_ROOT, 'android/init.aliyun.gradle');

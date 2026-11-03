@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { Icon, Text } from 'react-native-paper';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
+import { useHeaderHeight } from '@react-navigation/elements';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { updateLocalProfile } from '../domain/engine';
@@ -25,6 +26,7 @@ export function AccountScreen() {
   const { colors } = useAppTheme();
   const styles = useScreenStyles();
   const navigation = useNavigation();
+  const headerHeight = useHeaderHeight();
   // 账户页控件更多，Android 多等一会再挂正文，避开栈切换竞态。
   const mountReady = useAndroidMountReady(600);
   const profile = state.giftState?.profile;
@@ -159,108 +161,112 @@ export function AccountScreen() {
     }
   }
   return (
-    <Page title="账户资料" subtitle="仅本机资料，尚未登录云账户。">
-      {!mountReady ? (
-        <Panel>
-          <View collapsable={false} style={{ minHeight: 120 }} />
-        </Panel>
-      ) : (
-        <View collapsable={false}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={headerHeight}
+    >
+      <Page title="账户资料" subtitle="本机保存，应用不提供云账户。">
+        {!mountReady ? (
           <Panel>
-            <Text style={styles.muted}>
-              头像和昵称只保存在此设备，不会同步。赠券与这里共用昵称；已发出券和领取回执保留当时的称呼，修改后只影响新的记录。头像不会放进券码或回执。
-            </Text>
+            <View collapsable={false} style={{ minHeight: 120 }} />
           </Panel>
-          <Panel>
-            <SectionTitle title="我的头像" />
-            <View style={{ alignItems: 'center', gap: 8 }}>
-              <ProfileAvatar avatar={avatar} size={72} />
+        ) : (
+          <View collapsable={false}>
+            <Panel>
               <Text style={styles.muted}>
-                {avatar.kind === 'image'
-                  ? '已选择相册图片'
-                  : `当前：${avatarOptions.find((item) => item.id === avatar.id)?.name}`}
+                资料保存在本机，应用不提供云账号或云备份功能。小组同步后，组内成员可看到你的昵称和头像。赠券与这里共用昵称；已发出券和领取回执保留当时的称呼，修改后只影响新的记录。头像不会放进券码或回执。
               </Text>
-            </View>
-            <View style={styles.actions} accessibilityRole="radiogroup">
-              {avatarOptions.map((item) => {
-                const selected =
-                  avatar.kind === 'preset' && avatar.id === item.id;
-                return (
-                  <AvatarChoice
-                    key={item.id}
-                    icon={item.icon}
-                    label={item.name + (selected ? ' · 已选' : '')}
-                    selected={selected}
-                    disabled={busy || picking}
-                    color={colors.primary}
-                    fill={
-                      selected ? colors.primaryContainer : colors.field
-                    }
-                    onPress={() => {
-                      setAvatar({ kind: 'preset', id: item.id });
-                      setSaved(false);
-                    }}
-                  />
-                );
-              })}
-            </View>
-            <ActionButton
-              icon="image-outline"
-              disabled={busy || picking}
-              loading={picking}
-              onPress={() => {
-                void pickAvatar();
-              }}
-            >
-              从相册选择
-            </ActionButton>
-            <Text style={styles.muted}>
-              支持不超过10MB的静态图片；居中裁成方形并压缩至320像素、200KB以内。取消选择会保留当前草稿。
-            </Text>
-          </Panel>
-          <Panel>
-            <SectionTitle title="昵称" />
-            <AppTextInput
-              label="昵称（1–20字）"
-              value={name}
-              onChangeText={(value) => {
-                setName(value);
-                setSaved(false);
-              }}
-              maxLength={20}
-              disabled={busy || picking}
-            />
-            {profile && (
-              <Text
-                selectable={Platform.OS !== 'android'}
-                style={styles.muted}
+            </Panel>
+            <Panel>
+              <SectionTitle title="我的头像" />
+              <View style={{ alignItems: 'center', gap: 8 }}>
+                <ProfileAvatar avatar={avatar} size={72} />
+                <Text style={styles.muted}>
+                  {avatar.kind === 'image'
+                    ? '已选择相册图片'
+                    : `当前：${avatarOptions.find((item) => item.id === avatar.id)?.name}`}
+                </Text>
+              </View>
+              <View style={styles.actions} accessibilityRole="radiogroup">
+                {avatarOptions.map((item) => {
+                  const selected =
+                    avatar.kind === 'preset' && avatar.id === item.id;
+                  return (
+                    <AvatarChoice
+                      key={item.id}
+                      icon={item.icon}
+                      label={item.name + (selected ? ' · 已选' : '')}
+                      selected={selected}
+                      disabled={busy || picking}
+                      color={colors.primary}
+                      fill={selected ? colors.primaryContainer : colors.field}
+                      onPress={() => {
+                        setAvatar({ kind: 'preset', id: item.id });
+                        setSaved(false);
+                      }}
+                    />
+                  );
+                })}
+              </View>
+              <ActionButton
+                icon="image-outline"
+                disabled={busy || picking}
+                loading={picking}
+                onPress={() => {
+                  void pickAvatar();
+                }}
               >
-                本机身份编号（不可修改）：{profile.id}
+                从相册选择
+              </ActionButton>
+              <Text style={styles.muted}>
+                支持不超过10MB的静态图片；居中裁成方形并压缩至320像素、200KB以内。取消选择会保留当前草稿。
               </Text>
-            )}
-            <ErrorText message={error} />
-            {saved && (
-              <Text accessibilityLiveRegion="polite" style={styles.muted}>
-                账户资料已保存到本机。
-              </Text>
-            )}
-            <ActionButton
-              tone="save"
-              mode="contained"
-              disabled={
-                busy || picking || !name.trim() || (!dirty && !!profile)
-              }
-              loading={busy}
-              onPress={() => {
-                void save();
-              }}
-            >
-              保存资料
-            </ActionButton>
-          </Panel>
-        </View>
-      )}
-    </Page>
+            </Panel>
+            <Panel>
+              <SectionTitle title="昵称" />
+              <AppTextInput
+                label="昵称（1–20字）"
+                value={name}
+                onChangeText={(value) => {
+                  setName(value);
+                  setSaved(false);
+                }}
+                maxLength={20}
+                disabled={busy || picking}
+              />
+              {profile && (
+                <Text
+                  selectable={Platform.OS !== 'android'}
+                  style={styles.muted}
+                >
+                  本机身份编号（不可修改）：{profile.id}
+                </Text>
+              )}
+              <ErrorText message={error} />
+              {saved && (
+                <Text accessibilityLiveRegion="polite" style={styles.muted}>
+                  账户资料已保存到本机。
+                </Text>
+              )}
+              <ActionButton
+                tone="save"
+                mode="contained"
+                disabled={
+                  busy || picking || !name.trim() || (!dirty && !!profile)
+                }
+                loading={busy}
+                onPress={() => {
+                  void save();
+                }}
+              >
+                保存资料
+              </ActionButton>
+            </Panel>
+          </View>
+        )}
+      </Page>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -130,7 +130,7 @@ export function MoreScreen({
                   {state.giftState?.profile.name ?? '设置头像和昵称'}
                 </Text>
                 <Text style={styles.muted}>
-                  账户资料 · 仅本机，未登录云账户
+                  账户资料 · 本机保存，小组同步可见
                 </Text>
               </View>
               <Icon source="chevron-right" size={20} color={colors.muted} />

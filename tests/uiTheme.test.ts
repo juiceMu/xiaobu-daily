@@ -37,6 +37,38 @@ function mix(background: string, foreground: string, strength: number) {
       .join('')
   );
 }
+test('赠券发出及收到记录使用主题行间分隔且文字在五主题可读', () => {
+  const gifts = readFileSync(
+    new URL('../src/screens/GiftsScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  const entries = gifts.slice(
+    gifts.indexOf('<SectionTitle title="本机发出"'),
+    gifts.indexOf('<Confirm', gifts.indexOf('<SectionTitle title="本机收到"')),
+  );
+  assert.equal((entries.match(/giftRowStyle,/g) ?? []).length, 2);
+  const giftRowStyle = gifts.slice(
+    gifts.indexOf('const giftRowStyle = {'),
+    gifts.indexOf('};', gifts.indexOf('const giftRowStyle = {')),
+  );
+  assert.doesNotMatch(giftRowStyle, /backgroundColor/);
+  assert.match(gifts, /borderColor: colors\.border/);
+  assert.match(gifts, /borderBottomWidth: 1/);
+  assert.match(gifts, /paddingVertical: 8/);
+  assert.equal((entries.match(/index === \w+\.length - 1/g) ?? []).length, 2);
+  assert.doesNotMatch(giftRowStyle, /borderRadius|borderWidth/);
+  for (const { id, colors } of themeOptions) {
+    assert.ok(contrast(colors.ink, colors.surface) >= 4.5, `${id} 标题对比度`);
+    assert.ok(
+      contrast(colors.muted, colors.surface) >= 4.5,
+      `${id} 说明对比度`,
+    );
+    assert.ok(
+      Math.abs(luminance(colors.surface) - luminance(colors.border)) >= 0.1,
+      `${id} 分隔线与面板底区分`,
+    );
+  }
+});
 test('五套主题的按钮悬停与按压实际混色后仍达正文对比度', () => {
   for (const { id, colors } of themeOptions) {
     for (const [foreground, background] of [

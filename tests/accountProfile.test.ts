@@ -299,6 +299,39 @@ test('账户UI仅用系统相册并保留取消和失败草稿，不在聚焦主
   assert.doesNotMatch(gifts, /ensureGiftProfile|setName/);
 });
 
+test('账户资料页面为键盘留出滚动空间，同时保留昵称和保存操作', () => {
+  const screen = readFileSync(
+    new URL('../src/screens/AccountScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(screen, /const headerHeight = useHeaderHeight\(\)/);
+  assert.match(
+    screen,
+    /<KeyboardAvoidingView\s+style=\{\{ flex: 1 \}\}\s+behavior=\{Platform\.OS === 'ios' \? 'padding' : 'height'\}\s+keyboardVerticalOffset=\{headerHeight\}\s*>\s*<Page/s,
+  );
+  assert.match(screen, /label="昵称（1–20字）"/);
+  assert.match(screen, /保存资料/);
+  assert.match(screen, /usePreventRemove\(dirty \|\| busy \|\| picking/);
+});
+
+test('PROFILE-008：账户页说明本机保存与小组同步的资料可见范围', () => {
+  const screen = readFileSync(
+    new URL('../src/screens/AccountScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  const more = readFileSync(
+    new URL('../src/screens/MoreScreens.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(screen, /本机保存，应用不提供云账户/);
+  assert.match(screen, /应用不提供云账号或云备份功能/);
+  assert.match(screen, /小组同步后，组内成员可看到你的昵称和头像/);
+  assert.match(screen, /头像不会放进券码或回执/);
+  assert.doesNotMatch(screen, /头像和昵称只保存在此设备，不会同步/);
+  assert.match(more, /账户资料 · 本机保存，小组同步可见/);
+  assert.doesNotMatch(more, /账户资料 · 仅本机/);
+});
+
 test('同步操作头像只含附件ref，未确认旧头像快照仍可读取且每份图片仅一个上传附件', () => {
   const state = initializeSync(createInitialState(now));
   const draft = clone(state);

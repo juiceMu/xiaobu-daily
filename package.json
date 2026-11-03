@@ -1,10 +1,19 @@
 {
   "name": "sprout-checkin-native",
-  "version": "1.0.17",
+  "version": "1.0.33",
   "private": true,
   "main": "index.ts",
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-camera"
+        ]
+      }
+    }
+  },
   "scripts": {
-    "postinstall": "node scripts/patch-tcp-socket.mjs",
+    "postinstall": "node scripts/patch-tcp-socket.mjs && node scripts/patch-expo-activity-result.mjs",
     "start": "expo start",
     "web": "expo start --web --localhost --port 8082",
     "export:web": "expo export --platform web --output-dir dist-web",

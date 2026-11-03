@@ -5,3 +5,6 @@ dist-web
 package-lock.json
 src/domain/engineCore.mjs
 tests/engine.test.mjs
+android/**/build/
+android/**/.cxx/
+android/.gradle/

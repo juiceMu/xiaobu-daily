@@ -97,9 +97,7 @@ export function TimeField({
                   mode="contained"
                   disabled={disabled}
                   onPress={() => {
-                    onChange(
-                      formatTime(draft.getHours(), draft.getMinutes()),
-                    );
+                    onChange(formatTime(draft.getHours(), draft.getMinutes()));
                     setVisible(false);
                   }}
                 >

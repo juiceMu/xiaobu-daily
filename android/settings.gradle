@@ -31,6 +31,24 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 expoAutolinking.useExpoModules()
 
+// 每次构建使用经版本和源码校验的临时副本，原依赖目录保持不变。
+def cameraProject = findProject(':expo-camera')
+if (cameraProject == null) {
+  throw new GradleException('未找到 expo-camera 自动链接项目')
+}
+def cameraCopy = providers.exec {
+  workingDir(rootDir.parentFile)
+  commandLine('node', 'scripts/prepare-camera-android.mjs')
+}.standardOutput.asText.get().trim()
+def cameraCopyDir = new File(cameraCopy)
+if (!new File(cameraCopyDir, 'build.gradle').isFile()) {
+  throw new GradleException('expo-camera 构建副本无效')
+}
+cameraProject.projectDir = cameraCopyDir
+gradle.buildFinished {
+  cameraCopyDir.deleteDir()
+}
+
 rootProject.name = '小步日常'
 
 expoAutolinking.useExpoVersionCatalog()

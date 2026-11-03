@@ -1,10 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo, View, useWindowDimensions } from 'react-native';
+import {
+  AccessibilityInfo,
+  Platform,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import {
   NavigationContainer,
   DefaultTheme,
   StackActions,
+  useNavigationContainerRef,
   type LinkingOptions,
+  type NavigationContainerRef,
   type NavigatorScreenParams,
 } from '@react-navigation/native';
 import {
@@ -92,7 +100,14 @@ const linking: LinkingOptions<TabsParams> = {
     },
   },
 };
-function TabBar({ state, navigation, insets }: BottomTabBarProps) {
+function TabBar({
+  state,
+  navigation,
+  insets,
+  getRootState,
+}: BottomTabBarProps & {
+  getRootState: NavigationContainerRef<TabsParams>['getRootState'];
+}) {
   const { colors } = useAppTheme();
   const { fontScale } = useWindowDimensions();
   const bottomInset = insets.bottom + 12;
@@ -126,7 +141,8 @@ function TabBar({ state, navigation, insets }: BottomTabBarProps) {
         else if (route.name === 'more') {
           navigation.navigate('more');
           // 正常派发退栈动作，让未保存设置的离开确认继续生效。
-          const nested = state.routes.find(
+          // 冷启动深链的父路由可能仍是部分状态；从容器读取子栈水合后的实时键。
+          const nested = getRootState()?.routes.find(
             (item) => item.key === route.key,
           )?.state;
           if (nested?.key) {
@@ -160,6 +176,20 @@ function MoreNavigator() {
       initialRouteName="index"
       screenOptions={{
         headerShadowVisible: false,
+        // Android 原生返回按钮保留完整触控区，仅收紧标题与按钮的视觉间距。
+        headerTitle: ({ children, tintColor }) => (
+          <Text
+            numberOfLines={1}
+            style={{
+              color: tintColor,
+              fontSize: 16,
+              fontWeight: '500',
+              transform: [{ translateX: Platform.OS === 'android' ? -30 : 0 }],
+            }}
+          >
+            {children}
+          </Text>
+        ),
         headerTitleStyle: { fontSize: 16 },
         headerStyle: { backgroundColor: colors.background },
         headerTintColor: colors.ink,
@@ -234,6 +264,7 @@ function TicketsRoute() {
   );
 }
 function Navigation() {
+  const navigationRef = useNavigationContainerRef<TabsParams>();
   const { colors } = useAppTheme();
   const { message, clearMessage } = useApp();
   return (
@@ -243,6 +274,7 @@ function Navigation() {
         style={{ flex: 1, backgroundColor: colors.background }}
       >
         <NavigationContainer
+          ref={navigationRef}
           linking={linking}
           theme={{
             ...DefaultTheme,
@@ -257,7 +289,9 @@ function Navigation() {
           }}
         >
           <Tabs.Navigator
-            tabBar={(props) => <TabBar {...props} />}
+            tabBar={(props) => (
+              <TabBar {...props} getRootState={navigationRef.getRootState} />
+            )}
             screenOptions={{
               headerShown: false,
               animation: 'none',

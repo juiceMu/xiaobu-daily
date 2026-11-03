@@ -71,6 +71,8 @@ test('时间框保持原生和web弹窗选择，文字14和最小44高度且无�
   }
   assert.ok(web.includes('formatTime(hour, minute)'));
   assert.ok(native.includes('@react-native-community/datetimepicker'));
-  assert.ok(native.includes('formatTime(draft.getHours(), draft.getMinutes())'));
+  assert.ok(
+    native.includes('formatTime(draft.getHours(), draft.getMinutes())'),
+  );
   assert.ok(web.includes('keyboardFocus.focusVisible'));
 });

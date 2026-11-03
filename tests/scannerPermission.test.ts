@@ -4,7 +4,11 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
 // 执行真实组件函数，替身模拟hooks、权限与AppState；不挂载React或原生相机。
-function scannerHarness() {
+function scannerHarness(
+  pauseMode: 'resolve' | 'reject' | 'throw' = 'resolve',
+  initialState = 'active',
+  backgroundBeforeSubscribe = false,
+) {
   const source = ts.createSourceFile(
     'GiftScanner.tsx',
     readFileSync(new URL('../src/ui/GiftScanner.tsx', import.meta.url), 'utf8'),
@@ -23,6 +27,7 @@ function scannerHarness() {
   let index = 0;
   let closed = 0;
   let requests = 0;
+  let pauses = 0;
   let permission = { granted: false, canAskAgain: true };
   let resolvePermission!: (result: typeof permission) => void;
   let rejectPermission!: (error: Error) => void;
@@ -33,9 +38,11 @@ function scannerHarness() {
   const scanned: string[] = [];
   let onScan = (value: string) => scanned.push(value);
   let subscriptions = 0;
+  let attachedCameraRef: unknown;
   const appState = {
-    currentState: 'active',
+    currentState: initialState,
     addEventListener: (_: string, next: typeof listener) => {
+      if (backgroundBeforeSubscribe) appState.currentState = 'background';
       subscriptions += 1;
       listener = next;
       return {
@@ -49,12 +56,33 @@ function scannerHarness() {
     type: unknown,
     props: Record<string, unknown> | null,
     ...children: unknown[]
-  ) => ({ type, props: props ?? {}, children: children.flat(Infinity) });
+  ) => {
+    if (
+      type === 'CameraView' &&
+      props?.ref &&
+      props.ref !== attachedCameraRef
+    ) {
+      attachedCameraRef = props.ref;
+      const camera = {
+        pausePreview() {
+          pauses += 1;
+          if (pauseMode === 'throw') throw new Error('synthetic camera error');
+          if (pauseMode === 'reject')
+            return Promise.reject(new Error('synthetic camera error'));
+          return Promise.resolve();
+        },
+      };
+      if (typeof props.ref === 'function') props.ref(camera);
+      else (props.ref as { current: unknown }).current = camera;
+    }
+    return { type, props: props ?? {}, children: children.flat(Infinity) };
+  };
   const renderComponent = new Function(
     'React',
     'useState',
     'useRef',
     'useEffect',
+    'useCallback',
     'AppState',
     'View',
     'CameraView',
@@ -104,6 +132,20 @@ function scannerHarness() {
         slots[at] = { deps, cleanup };
         if (cleanup) effects.push(cleanup);
       }
+    },
+    (callback: unknown, deps: unknown[]) => {
+      const at = index++;
+      const previous = slots[at] as
+        { callback: unknown; deps: unknown[] } | undefined;
+      if (
+        !previous ||
+        deps.some(
+          (value, position) => !Object.is(value, previous.deps[position]),
+        )
+      ) {
+        slots[at] = { callback, deps };
+      }
+      return (slots[at] as { callback: unknown }).callback;
     },
     appState,
     'View',
@@ -178,7 +220,18 @@ function scannerHarness() {
     text: () => JSON.stringify(render()),
     closed: () => closed,
     requests: () => requests,
+    pauses: () => pauses,
     stateWrites: () => stateWrites,
+    cameraError() {
+      const camera = nodes(render(), 'CameraView')[0];
+      assert.ok(camera);
+      (camera.props.onMountError as () => void)();
+    },
+    captureCameraError() {
+      const camera = nodes(render(), 'CameraView')[0];
+      assert.ok(camera);
+      return camera.props.onMountError as () => void;
+    },
     scan(value: string) {
       const camera = nodes(render(), 'CameraView')[0];
       assert.ok(camera);
@@ -192,6 +245,28 @@ function scannerHarness() {
       const camera = nodes(render(), 'CameraView')[0];
       assert.ok(camera);
       return camera.props.onBarcodeScanned as (event: { data: string }) => void;
+    },
+    detachCamera() {
+      const camera = nodes(render(), 'CameraView')[0];
+      assert.ok(camera);
+      const ref = camera.props.ref;
+      if (typeof ref === 'function') ref(null);
+      else (ref as { current: unknown }).current = null;
+      attachedCameraRef = undefined;
+    },
+    captureCameraRef() {
+      const camera = nodes(render(), 'CameraView')[0];
+      assert.ok(camera);
+      const ref = camera.props.ref;
+      return () => {
+        const lateCamera = {
+          pausePreview: async () => {
+            pauses += 1;
+          },
+        };
+        if (typeof ref === 'function') ref(lateCamera);
+        else (ref as { current: unknown }).current = lateCamera;
+      };
     },
     scanned: () => scanned,
     subscriptions: () => subscriptions,
@@ -208,6 +283,66 @@ function scannerHarness() {
 const settle = async () => {
   for (let i = 0; i < 6; i += 1) await Promise.resolve();
 };
+
+test('原生相机挂载失败后卸载预览，只能显式重试', async () => {
+  const h = scannerHarness();
+  h.request();
+  h.resolve(true);
+  await settle();
+  assert.equal(h.cameras(), 1);
+  const oldError = h.captureCameraError();
+  const oldScan = h.captureScan();
+  h.cameraError();
+  assert.equal(h.cameras(), 0);
+  assert.match(h.text(), /相机暂时无法打开.*重试/);
+  h.request();
+  assert.equal(h.cameras(), 1);
+  oldError();
+  oldScan({ data: 'old-qr-code' });
+  assert.equal(h.cameras(), 1);
+  assert.deepEqual(h.scanned(), []);
+});
+
+for (const initialState of ['background', 'active']) {
+  test(`异步扫码初次挂载${initialState}并错过后台事件时不在返回后自动开启`, async () => {
+    const h = scannerHarness(
+      'resolve',
+      initialState,
+      initialState === 'active',
+    );
+    assert.equal(h.closed(), 1);
+    h.change('active');
+    // 模拟后来权限状态已经允许，但不能复活后台取消的首次加载。
+    h.request();
+    assert.equal(h.requests(), 0);
+    assert.equal(h.cameras(), 0);
+  });
+}
+
+test('React先拆除相机ref再执行effect清理时仍暂停旧镜头', async () => {
+  const h = scannerHarness();
+  h.request();
+  h.resolve(true);
+  await settle();
+  assert.equal(h.cameras(), 1);
+  const before = h.pauses();
+  h.detachCamera();
+  h.unmount();
+  assert.ok(h.pauses() > before);
+});
+
+test('后台关闭后才交付的相机ref立即暂停，不允许迟到镜头恢复', async () => {
+  const h = scannerHarness();
+  h.request();
+  h.resolve(true);
+  await settle();
+  const attach = h.captureCameraRef();
+  h.detachCamera();
+  h.change('background');
+  const before = h.pauses();
+  attach();
+  assert.equal(h.pauses(), before + 1);
+});
 
 test('系统授权期间background不关闭扫码，拒绝结果在原界面明确显示', async () => {
   const h = scannerHarness();
@@ -334,3 +469,46 @@ test('父回调重建不重装监听，扫描连续帧只向最新回调交付�
   nativeCallback({ data: 'late-event' });
   assert.equal(h.scanned().length, 1);
 });
+
+test('后台事件在下一次React渲染前已主动暂停原生预览', async () => {
+  const h = scannerHarness();
+  h.request();
+  h.resolve(true);
+  await settle();
+  assert.equal(h.cameras(), 1);
+  assert.equal(h.pauses(), 0);
+  h.change('background');
+  // 不先调用cameras/text触发替身渲染，避免把卸载误当作原生暂停命令。
+  assert.equal(h.pauses(), 1);
+  assert.equal(h.closed(), 1);
+  h.change('active');
+  assert.equal(h.cameras(), 0);
+});
+
+test('未挂载镜头的权限请求期间不发送原生暂停命令', async () => {
+  const h = scannerHarness();
+  h.request();
+  h.change('background');
+  assert.equal(h.pauses(), 0);
+  assert.equal(h.closed(), 0);
+  h.change('active');
+  h.resolve(true);
+  await settle();
+  assert.equal(h.cameras(), 0);
+});
+
+for (const pauseMode of ['resolve', 'reject', 'throw'] as const) {
+  test(`原生暂停${pauseMode}不阻止显式关闭及卸载清理`, async () => {
+    for (const operation of ['close', 'unmount'] as const) {
+      const h = scannerHarness(pauseMode);
+      h.request();
+      h.resolve(true);
+      await settle();
+      assert.equal(h.cameras(), 1);
+      h[operation]();
+      assert.equal(h.pauses(), 1);
+      if (operation === 'close') assert.equal(h.closed(), 1);
+      await settle();
+    }
+  });
+}

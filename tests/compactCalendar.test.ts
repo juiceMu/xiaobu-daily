@@ -85,7 +85,7 @@ test('日期前后按钮图标22、触控28并与选日期同行，保留键盘�
   assert.ok(text.includes('const dateNavigationIconSize = 22'));
   assert.ok(text.includes('size={dateNavigationIconSize}'));
   assert.ok(text.includes('weekRangeLabel'));
-  assert.ok(text.includes("accessibilityLabel=\"查看上一周\""));
+  assert.ok(text.includes('accessibilityLabel="查看上一周"'));
   assert.ok(text.includes('event.preventDefault()'));
   assert.ok(text.includes('changePickedDate'));
   assert.ok(
@@ -117,7 +117,9 @@ test('日期前后按钮图标22、触控28并与选日期同行，保留键盘�
     '选择月份和年份',
     '选择年份',
   ])
-    assert.ok(text.includes("'" + label + "'") || text.includes('"' + label + '"'));
+    assert.ok(
+      text.includes("'" + label + "'") || text.includes('"' + label + '"'),
+    );
   assert.ok(text.includes("calendarView === 'month'"));
   assert.ok(text.includes("calendarView === 'year'"));
   assert.equal(text.includes('日期（YYYY-MM-DD）'), false);

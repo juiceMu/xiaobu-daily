@@ -243,10 +243,11 @@ export const AppTextInput = forwardRef<
             label={undefined}
             accessibilityLabel={fieldLabel}
             accessibilityLabelledBy={
-              accessibilityLabelledBy ??
-              (label != null ? labelId : undefined)
+              accessibilityLabelledBy ?? (label != null ? labelId : undefined)
             }
-            ref={(instance: React.ComponentRef<typeof PaperTextInput> | null) => {
+            ref={(
+              instance: React.ComponentRef<typeof PaperTextInput> | null,
+            ) => {
               inputRef.current = instance;
               if (typeof ref === 'function') ref(instance);
               else if (ref) ref.current = instance;
@@ -322,7 +323,10 @@ export const AppTextInput = forwardRef<
                   }
                   onChangeText?.(next);
                 }
-                if (event.nativeEvent && typeof event.nativeEvent === 'object') {
+                if (
+                  event.nativeEvent &&
+                  typeof event.nativeEvent === 'object'
+                ) {
                   blurEvent = {
                     ...event,
                     nativeEvent: {

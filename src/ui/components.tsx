@@ -185,10 +185,7 @@ export const ActionButton = forwardRef<
       : tones[actionTone].text);
   // 已选中只保留选中底色；悬停只在网页，避免触摸 pointer 残留导致筛选切换闪烁。
   const selected = accessibilityState?.selected === true;
-  const active =
-    !disabled &&
-    !selected &&
-    ((isWeb && hovered) || pressed);
+  const active = !disabled && !selected && ((isWeb && hovered) || pressed);
   const base = fill === 'transparent' ? colors.surface : fill;
   const strength = pressed ? 0.12 : 0.07;
   // 按压和悬停仅叠加底色，轮廓只用于键盘焦点。
@@ -284,9 +281,7 @@ export const ActionButton = forwardRef<
         contentStyle,
         {
           backgroundColor: active ? feedbackFill : fill,
-          ...(isWeb
-            ? ({ transitionDuration: '0ms' } as ViewStyle)
-            : null),
+          ...(isWeb ? ({ transitionDuration: '0ms' } as ViewStyle) : null),
         },
         isWeb && {
           outlineWidth: !disabled && keyboardFocus.focusVisible ? 2 : 0,

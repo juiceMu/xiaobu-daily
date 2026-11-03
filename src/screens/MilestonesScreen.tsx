@@ -191,12 +191,11 @@ function RewardRow({ value, goal }: { value: number; goal: MilestoneGoal }) {
 export function MilestonesScreen() {
   const { colors } = useAppTheme();
   const styles = useScreenStyles();
-  const navigation =
-    useNavigation<
-      NavigationProp<{
-        tickets: { intent: 'own-available'; at: number } | undefined;
-      }>
-    >();
+  const navigation = useNavigation<
+    NavigationProp<{
+      tickets: { intent: 'own-available'; at: number } | undefined;
+    }>
+  >();
   const { state, run, busy } = useApp();
   const groups = milestoneGroups([state.weight, ...state.milestoneGoals]);
   const [archiveFilter, setArchiveFilter] = useState(false);
@@ -700,39 +699,39 @@ export function MilestonesScreen() {
         </>
       )}
       {historyOpen ? (
-      <Modal
-        visible={historyOpen}
-        animationType="none"
-        onRequestClose={() => setHistoryOpen(false)}
-      >
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-          <View style={{ flex: 1, padding: 16 }}>
-            <View style={styles.row}>
-              <Text style={[styles.heading, styles.grow]}>
-                {goal?.name} · 已解锁的永久奖励
-              </Text>
-              <ActionButton
-                tone="neutral"
-                onPress={() => setHistoryOpen(false)}
-              >
-                关闭
-              </ActionButton>
+        <Modal
+          visible={historyOpen}
+          animationType="none"
+          onRequestClose={() => setHistoryOpen(false)}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <View style={{ flex: 1, padding: 16 }}>
+              <View style={styles.row}>
+                <Text style={[styles.heading, styles.grow]}>
+                  {goal?.name} · 已解锁的永久奖励
+                </Text>
+                <ActionButton
+                  tone="neutral"
+                  onPress={() => setHistoryOpen(false)}
+                >
+                  关闭
+                </ActionButton>
+              </View>
+              <FlatList
+                style={styles.listViewport}
+                data={rewards}
+                keyExtractor={(value) => String(value)}
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.list}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+                renderItem={({ item }) =>
+                  goal ? <RewardRow value={item} goal={goal} /> : null
+                }
+              />
             </View>
-            <FlatList
-              style={styles.listViewport}
-              data={rewards}
-              keyExtractor={(value) => String(value)}
-              showsVerticalScrollIndicator={false}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.list}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-              renderItem={({ item }) =>
-                goal ? <RewardRow value={item} goal={goal} /> : null
-              }
-            />
-          </View>
-        </SafeAreaView>
-      </Modal>
+          </SafeAreaView>
+        </Modal>
       ) : null}
       <FormModal
         visible={!!form}

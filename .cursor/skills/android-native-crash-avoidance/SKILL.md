@@ -75,6 +75,14 @@ description: >-
 
 QA1.0.14首次拒绝/随后允许相机权限后扫码Modal都关闭，系统granted=true但Active Camera Clients为空。RN0.86的Android background包含另一个Activity及系统临时Activity，不能把权限请求期间每次background直接当作用户关闭扫码。请求期间保留容器/拒绝反馈但卸载镜头；AppState不能区分Home和系统Activity，所以暂挂后回active并获准也应让用户明确点「开始扫码」，不自动开镜头；无请求时background仍关闭扫码。不要仅靠CameraView.active属性保证Android释放，该版本属性只标iOS。useCameraPermissions请求Promise返回PermissionResponse（granted/status/canAskAgain），错误需捕获、关闭/卸载后迟到结果不应重开相机。新包验证实际预览与资源释放，不能只查权限或用回调替身宣称相机通过。
 
+补充相机生命周期证据（2026-11-01）：三星QA1.0.24按Home后稳定客户端为空，但回前台事件日志两次出现短暂CONNECT再DISCONNECT；最终空态不证明过渡期未重连。已安装expo-camera的Android实现把相机绑定到Activity生命周期，React卸载与原生恢复可能有时序差。使用公开pausePreview主动暂停时仍保留卸载和关闭兜底，捕获暂停失败；不能据替身命令通过就宣布问题消失，须用新包双机核对期间事件。不要修改node_modules或只用iOS active属性代替Android回归。
+
+QA1.0.25进一步实测：两机冷进程首次打开扫码后立即Home，后台客户端为空，回前台仍有新增CONNECT；暖进程或额外等待100/500ms的成功不覆盖该失败。回归须分别冷进程/暖进程，并记录tap结束到Home开始的实测间隔，不把脚本参数0ms说成原生零延迟。React可能先解绑ref再执行effect清理；应在稳定回调ref中保留并暂停旧实例，迟到ref若已关闭/后台也须暂停。此兜底不能单凭Node替身证明消除原生初始化竞态，必须新包检查整个返回阶段相机事件。
+
+QA1.0.27仅补ref后双机冷首次仍失败。异步import可能让组件在后台才首次挂载，或者后台事件发生在首次render和effect订阅之间；初始预览允许值应来自实际AppState，订阅后须立即核对当前状态，而非只等下一次change。权限请求期间已挂载的暂挂/拒绝反馈逻辑仍须保留。新包是否消除重连必须用同一冷首次0ms参数双机验证，不用延长等待或暖机掩盖。
+
+QA1.0.28双机冷首次立即Home仍失败。经用户许可，Android构建采用固定版本与源码摘要校验的expo-camera临时副本，原依赖目录不修改；构建必须确认实际从副本编译。原生暂停及迟到初始化保护是候选方案，须验证前台手动重试、权限流程和双机相机事件，不能以源码或编译通过代替设备证据。
+
 ## 日期选择与列表滚动（2026-10-29 真机复现）
 
 主代理在隔离QA1.0.11上重复选择10月22日后，多次swipe观察到列表顶部不动。回调/effect抽取回归确认：同key重选会设置恢复ref但不触发依赖所选日期的effect，导致恢复状态持续回拉。有效日期相同应清理恢复ref，同时保留null跟随今天语义；480ms恢复窗口内重选后，旧timer也须检查恢复状态仍有效才回拉。维护日期切换保位置时，必须回归同日重选、重复回今天及快速换日；修复后须新QA包实测，回调替身不能代替真实FlatList手势。
@@ -84,6 +92,10 @@ QA1.0.14首次拒绝/随后允许相机权限后扫码Modal都关闭，系统gra
 脏检查不要对整份头像 `JSON.stringify`（大 data URI 每帧序列化易卡死/OOM）。按 `kind` / `id` / `dataUri` 字段比对。
 相册头像 `Image` 设置 `resizeMethod="resize"`，避免进页按原图像素解码。
 
+2026-10-31 OPPO QA1.0.18在字体缩放1.5时，账户昵称聚焦并展开键盘后，滚动仍无法将昵称与保存按钮移至键盘上方。manifest已有 `adjustResize` 且项目开启edge-to-edge，不能据此认定系统根因；账户页增加与设置页一致的键盘避让作为待复测修复。必须在新包分别验证键盘展开时输入/保存可达、键盘收起和草稿保留，并覆盖其他设备及iOS；源码结构断言不能代替真机。
+
+QA32 三星曾出现 Expo 选图启动器未注册；具体生命周期时序尚未证实。`scripts/patch-expo-activity-result.mjs` 针对固定版本源码提供候选补丁并接入 postinstall 和打包入口，变更共享 Expo 模块，可能影响其他调用方；源码测试和 Kotlin 编译不能证明设备修复。正式发布前须验证选图及其他相关调用方、取消和生命周期边界，并重新独立评估；不能把 OPPO 文案隔离包的验证当作该候选的验证。
+
 ## 已证伪（不要再当修复）
 
 - 只加 `useAndroidMountReady(300)`、Android 点按后再挂 `EditText`、关掉 `selectable`、去掉不可见 `Modal`：1.0.6 仍进账户页闪退。
@@ -91,12 +103,22 @@ QA1.0.14首次拒绝/随后允许相机权限后扫码Modal都关闭，系统gra
 
 ## 打包与版本
 
+### 原生页头间距验收（2026-11-01 真机证据）
+
+- native-stack 自定义标题的 Android `transform` 只改变视觉位置；UIAutomator 的标题节点 bounds 仍可代表原容器，不能拿它与返回触控区 bounds 相减作为可见字形间距。必须在原始截图量箭头右缘至标题字形左缘，再按设备实际 density 换算 dp；override density 优先于物理 density。1.0.23 的三星 420dpi 截图约23px（8.8dp），仍未满足 NAV-009 的8dp门槛，不能因视觉改善宣称双机通过。
+- 收紧标题时保留原生返回控件与至少48dp触控区，自定义标题显式保持16sp；iOS不随 Android 位移。新包分别截图、点击原生返回并核对总览，不以源码属性替代设备回归。
+
 ### QA深链双层配置（2026-10-29 真机复现）
 
 - QA1.0.15已由系统接收 `sprout-qa://more/account`，冷热启动仍停原页/今日；正式 `sprout://` 可进入账户、成长、赠券、小组。Expo `Linking.createURL` 从Expo配置解析协议，不会自动读取Gradle QA的 `appScheme` 占位。导航 `prefixes` 必须显式兼容QA协议，同时保留开发和正式前缀；不要改全局Expo scheme或给正式Manifest额外注册QA协议。官方导航库路径解析回归不代替新APK冷热启动与返回键真机验证。
 
+### 冷启动深链退栈（2026-10-31 真机复现）
+
+- QA1.0.17冷启动深链进入成员空态后，重按「更多」及切奖券再点「更多」仍停成员页，而Android返回键可返回。父Tab的嵌套路由可保留解析得到的部分状态（无栈键），不能据此决定子栈是否可退；当前导航库的容器 `getRootState()` 通过子级监听器读取水合后状态。正常派发定向 `popToTop`/`popTo`，不可用reset绕过草稿离开确认。回归须覆盖部分父状态/实时子栈、取消tabPress和beforeRemove；新包冷热启动、重按及跨Tab返回仍须分别真机复测。
+
 ### TCP 原生连接清理（2026-10-28 真机故障）
 
+- QA32 另有一次监听线程空指针，确切时序未证实。6.4.3 服务端关闭后把共享 ServerSocket 设为 null；候选补丁保留 final 引用并串行化同一实例的关闭，避免监听线程取到该空引用。脚本/编译通过不等于真机修复，重复关闭的 ID 查找和跨实例关闭时序仍须独立评估。
 - `react-native-tcp-socket@6.4.3` 在 socket 注册前失败后，JS 错误处理仍会调用 destroy；原生 end 的缺失 ID 查询可抛 `No socket with id` 杀进程，JS try/catch 无法拦住。`scripts/patch-tcp-socket.mjs` 在 postinstall 与打包入口保证 end 对缺失 client 安全返回；依赖版本或补丁上下文变化必须显式复核，不静默跳过。
 - 不对整个网段一次排入24路连接：原生执行器只有2线程，会延迟销毁、关闭和后续连接。探测须限制并发及预算，并等待已开始任务清理。
 - 通过已读取的 WiFi IPv4 `localAddress` 绑定连接，不对每个探测使用 `interface: 'wifi'` 触发共享 currentNetwork 与 requestNetwork 线程风险。
@@ -112,8 +134,10 @@ QA1.0.14首次拒绝/随后允许相机权限后扫码Modal都关闭，系统gra
 - 同机写操作回归使用 `npm run build:apk -- --qa`：独立包名 `com.smallsteps.checkin.qa`、应用名「小步日常测试」、深链 `sprout-qa`、独立存储且禁止系统备份；不导入真实存档/邀请码。QA沿用release业务和测试签名，交付物带 `-QA`，不能拿常规应用做新增/删除/消费测试；QA构建成功仍需实际核对APK及独立安装启动。
 - 本地构建：`JAVA_HOME`=OpenJDK 17，`ANDROID_HOME`=commandlinetools；国内网络用  
   `./android/gradlew -p android assembleRelease --no-daemon -I "$PWD/android/init.aliyun.gradle"`，再拷到 `dist/小步日常-{version}-{YYYYMMDD}.apk`。
+- 默认 Homebrew 路径只适用于原构建机；目录不存在时不得复制旧 APK 冒充新构建。当前 Mac 已实证可用 Android Studio 自带 JBR（`/Applications/Android Studio.app/Contents/jbr/Contents/Home`）及 SDK（`/Users/mac/Library/Android/sdk`），用命令级 `JAVA_HOME`/`ANDROID_HOME` 覆盖即可，不改用户全局配置；每次仍须核对实际 Java 版本及 Gradle 成功结果。
 - 沿用已配置签名，不擅自更换密钥。当前release配置使用debug测试签名；此类包适合内部覆盖测试，不应宣称商店正式签名。打包后实际核对APK版本、包名、签名与SHA-256，不覆盖旧交付物。
 - 同步 `CHANGELOG.md`。`dist/` 在 `.gitignore`，安装包不入库；用户只要求打包不代表授权commit、push或商店发布。
+- 用户明确要求将代码与 APK 推到 GitHub 时，可使用 `.github/workflows/android-prerelease.yml`：推送与版本一致的标签后，由 CI 重新构建并校验，再上传全部草稿附件，最后公开为预发布。调试签名不得标成商店正式版；远程重建摘要与本地可能不同，按同次发布附件核对。新增此流程不代表已实测 CI，必须检查实际运行及附件结果；未获得明确推送授权时不触发。
 - 新增原生依赖（如 `react-native-tcp-socket` / `react-native-zeroconf` / `modules/sprout-identity`）必须打**新 APK**；仅热更 JS 不会带上原生模块。
 - 真机闪退必须以**新 APK 覆盖安装**验证；本机无设备时不得声称已验证。局域网同步同理，不得在未装新包时声称 mDNS/TCP 可用。
 

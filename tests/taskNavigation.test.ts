@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { getStateFromPath } from '../node_modules/@react-navigation/core/src/getStateFromPath';
 import {
   CommonActions,
   StackActions,
@@ -182,9 +183,95 @@ test('更多Tab只在tabPress未取消时显式回到总览，其他Tab保留原
     more.thenStatement.getText(app).includes('StackActions.popToTop()'),
   );
   assert.ok(more.thenStatement.getText(app).includes('target: nested.key'));
+  assert.ok(more.thenStatement.getText(app).includes('getRootState()?.routes'));
+  assert.ok(app.text.includes('ref={navigationRef}'));
+  assert.ok(app.text.includes('getRootState={navigationRef.getRootState}'));
   assert.equal(
     more.elseStatement?.getText(app),
     'navigation.navigate(route.name);',
+  );
+});
+
+test('更多原生子页收紧Android返回键与标题间距但保留原生返回控件', () => {
+  assert.ok(
+    app.text.includes("{ translateX: Platform.OS === 'android' ? -30 : 0 }"),
+  );
+  assert.ok(app.text.includes('headerTitle: ({ children, tintColor })'));
+  assert.ok(app.text.includes('numberOfLines={1}'));
+  assert.ok(app.text.includes("fontWeight: '500'"));
+  assert.ok(app.text.includes('headerTitleStyle: { fontSize: 16 }'));
+  assert.equal(app.text.includes('headerBackVisible: false'), false);
+});
+
+test('冷启动深链的父Tab仍为部分状态时，更多点击使用已水合的实时子栈', () => {
+  const bar = find(app, ts.isJsxSelfClosingElement).find(
+    (node) => node.tagName.getText(app) === 'BottomNavigation.Bar',
+  );
+  assert.ok(bar);
+  const handler = bar.attributes.properties.find(
+    (attribute): attribute is ts.JsxAttribute =>
+      ts.isJsxAttribute(attribute) &&
+      attribute.name.getText(app) === 'onTabPress',
+  )?.initializer;
+  assert.ok(handler && ts.isJsxExpression(handler) && handler.expression);
+  const linking = find(app, ts.isVariableDeclaration).find(
+    (node) => node.name.getText(app) === 'linking',
+  )?.initializer;
+  assert.ok(linking);
+  const { config } = new Function(
+    'Linking',
+    'return (' + linking.getText(app) + ')',
+  )({ createURL: () => 'sprout-qa://' }) as {
+    config: Parameters<typeof getStateFromPath>[1];
+  };
+  const partial = getStateFromPath('more/member/qa-missing-member', config)
+    ?.routes[0].state;
+  assert.ok(partial);
+  assert.equal(partial.key, undefined);
+  const options = {
+    routeNames: ['index', 'member'],
+    routeParamList: {},
+    routeGetIdList: {},
+  };
+  const router = StackRouter({ initialRouteName: 'index' });
+  let stackState = router.getRehydratedState(
+    { ...partial, type: 'stack' },
+    options,
+  );
+  assert.deepEqual(stackState.routes.at(-1)?.params, {
+    accountId: 'qa-missing-member',
+  });
+  const state = { routes: [{ key: 'more-tab', state: partial }] };
+  let dispatched = 0;
+  const navigation = {
+    emit: () => ({ defaultPrevented: false }),
+    navigate: (name: string) => assert.equal(name, 'more'),
+    dispatch: (action: Parameters<typeof router.getStateForAction>[1]) => {
+      dispatched += 1;
+      assert.equal(action.target, stackState.key);
+      const next = router.getStateForAction(stackState, action, options);
+      assert.ok(next);
+      stackState = router.getRehydratedState(next, options);
+    },
+  };
+  const getRootState = () => ({
+    routes: [{ key: 'more-tab', state: stackState }],
+  });
+  const callback = new Function(
+    'navigation',
+    'state',
+    'StackActions',
+    'getRootState',
+    'return (' + handler.expression.getText(app) + ')',
+  )(navigation, state, StackActions, getRootState);
+  callback({
+    route: { name: 'more', key: 'more-tab' },
+    preventDefault: () => assert.fail('tabPress 未取消'),
+  });
+  assert.equal(dispatched, 1);
+  assert.deepEqual(
+    stackState.routes.map((route) => route.name),
+    ['index'],
   );
 });
 
@@ -243,8 +330,9 @@ test('真实StackRouter中更多点击退栈不追加index，取消tabPress不�
     'navigation',
     'state',
     'StackActions',
+    'getRootState',
     'return (' + handler.expression.getText(app) + ')',
-  )(navigation, state, StackActions) as (event: {
+  )(navigation, state, StackActions, () => state) as (event: {
     route: { name: string; key: string };
     preventDefault: () => void;
   }) => void;
@@ -457,8 +545,9 @@ test('更多成员栈回总览，并经真实beforeRemove保护草稿', async ()
       'navigation',
       'state',
       'StackActions',
+      'getRootState',
       'return (' + handler.expression.getText(app) + ')',
-    )(navigation, state, StackActions) as (event: {
+    )(navigation, state, StackActions, () => state) as (event: {
       route: { name: string; key: string };
       preventDefault: () => void;
     }) => void;
