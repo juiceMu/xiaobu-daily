@@ -1,0 +1,13 @@
+version=1.0.33
+versionCode=34
+package=com.smallsteps.checkin
+signing=Android Debug
+certificateSha256=fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c
+size=128093087
+sha256=5f0468be445addfc05b694ed420432ec7458296e8099138602ad28fc882694bf
+sourceCommit=b6e4406c3989e68084f9eebd8ca3c08452b765c4
+sourceTag=v1.0.33
+buildDate=2026-11-03
+timezone=Asia/Shanghai
+buildCommand=npm run build:apk
+installedOrDeviceTested=false

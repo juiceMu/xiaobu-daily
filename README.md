@@ -125,6 +125,8 @@ Android内部测试包入口：`npm run build:apk`，只做预检：`npm run bui
 
 用户明确要求推送代码及安装包时，推送与应用版本一致的 `v版本号` 标签会触发 [Android 内部预发布流程](./.github/workflows/android-prerelease.yml)。CI 从标签代码重新构建，核对 APK 版本、包名、签名及摘要，完整上传草稿附件后再公开预发布；不会将 APK 加进 Git 历史或覆盖已有 Release。每个版本需提供 `docs/releases/v版本号.md` 发布说明。此流程沿用调试签名，不代表商店发布或真机验收完成。
 
+1.0.33 首次标签推送未见 Actions 运行记录，实际安装包改由 [Git LFS 目录](./release-apks/v1.0.33/README.md)交付：普通 Git 只保存指针，不写入 APK 二进制。下载实际 APK 后按同目录摘要核对；当前不声称 GitHub Release 已发布。
+
 **未完成**：当前同行功能双手机实测，以及375宽/横屏/大字号/读屏/软键盘及数据库重启验证。APK构建成功不证明安装启动成功；尚未配置商店正式发布签名或上架。应用标识com.smallsteps.checkin沿用既有包，安装覆盖前应确认身份及数据备份，不在本次打包擅自更换。
 
 ### 依赖安全提醒（2026-10-19）

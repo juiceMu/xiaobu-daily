@@ -137,6 +137,7 @@ QA32 三星曾出现 Expo 选图启动器未注册；具体生命周期时序尚
 - 默认 Homebrew 路径只适用于原构建机；目录不存在时不得复制旧 APK 冒充新构建。当前 Mac 已实证可用 Android Studio 自带 JBR（`/Applications/Android Studio.app/Contents/jbr/Contents/Home`）及 SDK（`/Users/mac/Library/Android/sdk`），用命令级 `JAVA_HOME`/`ANDROID_HOME` 覆盖即可，不改用户全局配置；每次仍须核对实际 Java 版本及 Gradle 成功结果。
 - 沿用已配置签名，不擅自更换密钥。当前release配置使用debug测试签名；此类包适合内部覆盖测试，不应宣称商店正式签名。打包后实际核对APK版本、包名、签名与SHA-256，不覆盖旧交付物。
 - 同步 `CHANGELOG.md`。`dist/` 在 `.gitignore`，安装包不入库；用户只要求打包不代表授权commit、push或商店发布。
+- 上述“不入库”指不把 APK 二进制写入普通 Git 历史；用户明确要求远程交付时，可在 `release-apks/` 保存 Git LFS 指针并上传对应对象，`dist/` 继续忽略。必须先上传 LFS 对象，再推指针提交，并用独立下载核对远程 SHA-256；本仓库本机 LFS 工具放在 `.git/codex-tools/`，仅配置本仓库过滤器，未安装推送钩子，需显式执行 LFS push。
 - 用户明确要求将代码与 APK 推到 GitHub 时，可使用 `.github/workflows/android-prerelease.yml`：推送与版本一致的标签后，由 CI 重新构建并校验，再上传全部草稿附件，最后公开为预发布。调试签名不得标成商店正式版；远程重建摘要与本地可能不同，按同次发布附件核对。新增此流程不代表已实测 CI，必须检查实际运行及附件结果；未获得明确推送授权时不触发。
 - 新增原生依赖（如 `react-native-tcp-socket` / `react-native-zeroconf` / `modules/sprout-identity`）必须打**新 APK**；仅热更 JS 不会带上原生模块。
 - 真机闪退必须以**新 APK 覆盖安装**验证；本机无设备时不得声称已验证。局域网同步同理，不得在未装新包时声称 mDNS/TCP 可用。

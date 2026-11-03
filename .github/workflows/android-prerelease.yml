@@ -50,8 +50,15 @@ jobs:
           set -euo pipefail
           npm run build:apk -- --check
           version="$(node -p 'require("./package.json").version')"
-          test "$GITHUB_REF_NAME" = "v$version"
-          test -f "docs/releases/$GITHUB_REF_NAME.md"
+          tagBase="v$version"
+          if [[ "$GITHUB_REF_NAME" != "$tagBase" ]]; then
+            previewNumber="${GITHUB_REF_NAME#"$tagBase-preview."}"
+            if [[ "$GITHUB_REF_NAME" != "$tagBase-preview.$previewNumber" || ! "$previewNumber" =~ ^[1-9][0-9]*$ ]]; then
+              printf '%s\n' '标签必须与应用版本一致，或使用同版本的 -preview.正整数 重试标签'
+              exit 1
+            fi
+          fi
+          test -f "docs/releases/$tagBase.md"
 
       - name: 执行质量检查
         run: |
@@ -133,10 +140,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
+          version="$(node -p 'require("./package.json").version')"
           gh release create "$TAG_NAME" \
             --verify-tag --draft --prerelease --latest=false \
             --title "小步日常 ${TAG_NAME#v} · 内部预发布（调试签名）" \
-            --notes-file "docs/releases/$TAG_NAME.md" \
+            --notes-file "docs/releases/v$version.md" \
             dist/*.apk dist/SHA256SUMS.txt dist/APK-METADATA.txt \
             dist/APK-SIGNATURE.txt dist/BUILD-INFO.txt
 
