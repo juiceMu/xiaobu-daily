@@ -18,11 +18,14 @@ import {
   hasDemoHistory,
   seedCompanionDemoHistory,
   seedDemoHistory,
+  hasGroupActivityDemoHistory,
+  seedGroupActivityDemoHistory,
 } from '../src/domain/demoData';
 import { initializeSync, validateSync } from '../src/domain/syncModel';
 import { createAppStore } from '../src/state/store';
 import { populateDemoHistory } from '../src/state/demoHistory';
-import { createGroup } from '../src/domain/groupSync';
+import { createGroup, peerBoards } from '../src/domain/groupSync';
+import { getGroupActivity } from '../src/domain/groupActivity';
 
 const NOW = new Date(2026, 9, 20, 12);
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -356,4 +359,163 @@ test('预览入口为已有演示补齐同行券，重复调用不写入；真�
     assert.deepEqual(saved, before);
     validateSync(saved);
   }
+});
+
+test('旧演示跨周补齐本人任务与多人排行，延长成员日志且重复无写入', async () => {
+  let saved = initializeSync(createInitialState(NOW));
+  let writes = 0;
+  const store = createAppStore({
+    load: async () => copy(saved),
+    save: async (state) => {
+      writes += 1;
+      saved = copy(state);
+    },
+  });
+  await store.initialize();
+  assert.equal(
+    (await store.run((draft) => seedDemoHistory(draft, NOW))).ok,
+    true,
+  );
+  for (let index = 0; index < 2; index += 1)
+    assert.equal(
+      (await store.run((draft) => seedCompanionDemoHistory(draft, NOW))).ok,
+      true,
+    );
+  const before = copy(saved);
+  const previewAt = new Date(2026, 10, 4, 12);
+  const result = await populateDemoHistory(
+    store.run,
+    () => store.getSnapshot().state,
+    previewAt,
+  );
+  assert.equal(result.ok, true, result.message);
+  assert.equal(hasGroupActivityDemoHistory(saved, previewAt), true);
+  assert.equal(getWeekStats(before, previewAt).total, 0);
+  assert.equal(getWeekStats(saved, previewAt).total, 12);
+  assert.equal(getWeekStats(saved, previewAt).available, 12);
+  assert.deepEqual(saved.settings, before.settings);
+  assert.deepEqual(saved.giftState?.profile, before.giftState?.profile);
+  assert.deepEqual(saved.tasks.slice(0, before.tasks.length), before.tasks);
+  assert.deepEqual(
+    saved.checkins.slice(0, before.checkins.length),
+    before.checkins,
+  );
+  assert.deepEqual(saved.tickets, before.tickets);
+  assert.deepEqual(saved.redemptions, before.redemptions);
+  for (const peer of before.groupPeers ?? []) {
+    const extended = saved.groupPeers!.find(
+      (entry) => entry.accountId === peer.accountId,
+    )!;
+    assert.deepEqual(
+      extended.operations.slice(0, peer.operations.length),
+      peer.operations,
+    );
+  }
+  const boards = peerBoards(saved);
+  const activity = getGroupActivity(saved, boards, previewAt);
+  assert.equal(activity.rankings.length, 5);
+  assert.ok(activity.rankings.some((member) => member.count === 0));
+  assert.ok(
+    activity.rankings.every((member) => !member.name.includes('已离开')),
+  );
+  assert.ok(activity.timeline.length > 30);
+  assert.ok(new Set(activity.timeline.map((entry) => entry.date)).size > 1);
+  assert.ok(
+    new Set(activity.timeline.map((entry) => entry.createdAt)).size > 3,
+  );
+  assert.ok(
+    activity.timeline.every(
+      (entry) => Date.parse(entry.createdAt) <= previewAt.getTime(),
+    ),
+  );
+  const lastWeek = new Date(2026, 9, 28, 12);
+  assert.ok(getGroupActivity(saved, boards, lastWeek).timeline.length > 0);
+  validateSync(saved);
+  const complete = copy(saved);
+  const previousWrites = writes;
+  assert.equal(
+    (
+      await populateDemoHistory(
+        store.run,
+        () => store.getSnapshot().state,
+        previewAt,
+      )
+    ).ok,
+    true,
+  );
+  assert.equal(writes, previousWrites);
+  assert.deepEqual(saved, complete);
+});
+
+test('小组动态演示保存失败原子保留，重试与新周凌晨追加不造未来记录', async () => {
+  let saved = initializeSync(createInitialState(NOW));
+  let reject = false;
+  const store = createAppStore({
+    load: async () => copy(saved),
+    save: async (state) => {
+      if (reject) throw new Error('演示动态保存失败');
+      saved = copy(state);
+    },
+  });
+  await store.initialize();
+  assert.equal(
+    (await populateDemoHistory(store.run, () => store.getSnapshot().state, NOW))
+      .ok,
+    true,
+  );
+  const before = copy(saved);
+  const monday = new Date(2026, 10, 2, 0);
+  reject = true;
+  assert.equal(
+    (
+      await populateDemoHistory(
+        store.run,
+        () => store.getSnapshot().state,
+        monday,
+      )
+    ).ok,
+    false,
+  );
+  assert.deepEqual(saved, before);
+  assert.deepEqual(store.getSnapshot().state, before);
+  reject = false;
+  assert.equal(
+    (
+      await populateDemoHistory(
+        store.run,
+        () => store.getSnapshot().state,
+        monday,
+      )
+    ).ok,
+    true,
+  );
+  assert.equal(getWeekStats(saved, monday).total, 4);
+  const activity = getGroupActivity(saved, peerBoards(saved), monday);
+  assert.ok(
+    activity.timeline.every(
+      (entry) => Date.parse(entry.createdAt) <= monday.getTime(),
+    ),
+  );
+  assert.ok(activity.timeline.every((entry) => entry.date <= dateKey(monday)));
+  validateSync(saved);
+});
+
+test('小组动态演示拒绝真实小组和演示ID碰撞，非法时钟不变异', () => {
+  for (const groupId of ['real-group-test', 'demo-group-0001']) {
+    const state = initializeSync(createInitialState(NOW));
+    assert.equal(
+      createGroup(state, '真实小组', { groupId, secret: 'real-secret-test' })
+        .ok,
+      true,
+    );
+    assert.equal(seedDemoHistory(state, NOW).ok, true);
+    const before = copy(state);
+    assert.equal(seedGroupActivityDemoHistory(state, NOW).ok, false);
+    assert.deepEqual(state, before);
+  }
+  const state = initializeSync(createInitialState(NOW));
+  assert.equal(seedDemoHistory(state, NOW).ok, true);
+  const before = copy(state);
+  assert.equal(seedGroupActivityDemoHistory(state, new Date(NaN)).ok, false);
+  assert.deepEqual(state, before);
 });

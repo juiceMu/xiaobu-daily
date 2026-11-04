@@ -155,3 +155,22 @@ LAN-014 由 `tests/lanListener.test.ts` 抽取执行真实 `startLanListener`，
 | P2     | 窄屏/横屏/大字号/读屏/安全区/软键盘以及长列表性能                                                     | 无实际渲染和性能基线；记录平台、尺寸与证据后验收                                   |
 
 缺少项目提供的 Web UI runtime 或原生设备时，相应用例记录 `BLOCKED` 或 `NOT_RUN` 并说明条件，不能将静态测试、资源导出或替身执行升级为 E2E/真机通过。自动化文件新增或覆盖层级变化后，同步更新本表与对应功能用例。
+
+# 今日小组动态覆盖
+
+- A11Y-004：`tests/uiTheme.test.ts` 检查禁用配色及共享按钮背景源码，实际五主题、按钮模式、图标和禁用交互仍需 UI 或设备验证。
+- A11Y-005：`tests/compactCalendar.test.ts` 检查今日页禁用样式及状态的源码结构，实际交互和视觉效果仍需 UI 或设备验证。
+
+- VIEW-002：`tests/groupActivityLayout.test.ts` 检查成员卡当前周与历史周兑换标签的源码分支，不代替页面切周交互验收。
+
+- VIEW-014：今日页只保留两个标签；成员详情入口偏好保存/失败分支需自动化及设备交互分别验证。REWARD-008 的禁用原因和视觉声明不等于真实视觉或兑换点击验收。
+
+- VIEW-013：`tests/groupActivity.test.ts` 覆盖日期分组及有效打卡序号，`tests/groupActivityLayout.test.ts` 覆盖打卡足迹标题、时间轴、标签及成员卡结构；这些不等同实际视觉、触控或读屏验收。
+
+- DEMO-005：演示数据模型及事务幂等、失败恢复由演示相关测试覆盖；开发 URL 导入后的真实显示仍需项目 UI runtime 或人工确认。
+
+- VIEW-009：`tests/groupActivity.test.ts` 检查所选周、并列名次、已离组成员、已删除任务、补卡及撤销后的有效记录；这是领域模型测试，不是双设备同步验收。
+- VIEW-008/010：`tests/groupActivityLayout.test.ts` 检查页面分区、原功能结构、切周、空态和分页的源码结构；不代表实际点击、视觉布局或读屏验证。
+- VIEW-011：`tests/groupActivityLayout.test.ts` 覆盖公共区域与标签内容的结构约束；实际切换、选日、兑换及滚动需 UI 验收。
+- VIEW-012：排行榜比例及结构以对应自动化测试为准；实际不同主题、长昵称与读屏仍需 UI 或设备验收。
+- 真机及 Web 实际操作、同步新旧副本、长列表、大字号和无障碍仍需独立设备或项目提供的 UI runtime 验证。

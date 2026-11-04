@@ -236,6 +236,24 @@ test('兑换按钮始终存在，保留禁用和确认逻辑，兑换行可换�
   assert.equal(label.text, '兑换一张奖券');
 });
 
+test('兑换及同行券不可用时展示锁定图标、不可用文字及具体原因', () => {
+  const text = source.getFullText();
+  for (const phrase of [
+    '兑换不可用',
+    '同行券不可用',
+    '正在保存，请稍候',
+    '历史周不开放兑换',
+    '历史周不可兑换',
+    '当前无可用打卡次数',
+  ])
+    assert.ok(text.includes(phrase), phrase);
+  for (const id of ['redeem-ticket-button', 'redeem-companion-button']) {
+    const button = byTestId(id);
+    assert.match(expression(button, 'icon').getText(source), /lock-outline/);
+    assert.ok(attribute(button, 'disabled'));
+  }
+});
+
 test('所有页面ActionButton不残留36以上视觉高度覆盖', () => {
   for (const file of [
     'TodayScreen',

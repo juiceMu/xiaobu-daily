@@ -88,10 +88,9 @@ test('日期前后按钮图标22、触控28并与选日期同行，保留键盘�
   assert.ok(text.includes('accessibilityLabel="查看上一周"'));
   assert.ok(text.includes('event.preventDefault()'));
   assert.ok(text.includes('changePickedDate'));
-  assert.ok(
-    text.includes(
-      "pressedAction === id ? colors.primaryContainer : 'transparent'",
-    ),
+  assert.match(
+    text,
+    /pressedAction === id\s*\? colors\.primaryContainer\s*: 'transparent'/,
   );
   assert.ok(
     text.includes('keyboardFocus.focusVisible && focusedAction === id'),
@@ -124,4 +123,12 @@ test('日期前后按钮图标22、触控28并与选日期同行，保留键盘�
   assert.ok(text.includes("calendarView === 'year'"));
   assert.equal(text.includes('日期（YYYY-MM-DD）'), false);
   assert.equal(text.includes('例如 2026-10-19'), false);
+});
+
+test('不可用日期及导航使用中性灰并保留禁用判断', () => {
+  assert.match(text, /disabled\s*\? '#E9EBE9'/);
+  assert.match(text, /busy \|\| calendar\.isFuture/);
+  assert.match(text, /busy \|\| key > todayKey/);
+  assert.match(text, /busy \|\| disabled/);
+  assert.match(text, /busy \|\| !count\s*\? '#E9EBE9'/);
 });

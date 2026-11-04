@@ -44,6 +44,7 @@ const COMPANION_DEMO_PEER = 'demo-companion-v1-peer';
 const COMPANION_DEMO_USE = 'demo-companion-v1-use';
 const DEMO_GROUP_ID = 'demo-group-0001';
 const DEMO_GROUP_SECRET = 'demo-group-secret';
+const ACTIVITY_DEMO_MARKER = 'demo-activity-v1';
 const DEMO_INVITE = JSON.stringify({
   version: 1,
   kind: 'sprout-group',
@@ -62,6 +63,109 @@ export function hasCompanionDemoHistory(state: AppState): boolean {
       (use) => use.id === COMPANION_DEMO_USE && use.stage === 'completed',
     ),
   );
+}
+
+export function hasGroupActivityDemoHistory(state: AppState, now = new Date()) {
+  return state.tasks.some(
+    (task) => task.id === `${ACTIVITY_DEMO_MARKER}-${weekKey(now)}-0`,
+  );
+}
+
+/** 只补充演示小组；周级标记允许旧演示存档在新的一周再次补齐。 */
+export function seedGroupActivityDemoHistory(
+  state: AppState,
+  now = new Date(),
+): ActionResult {
+  if (!Number.isFinite(now.getTime()))
+    return { ok: false, message: '当前日期无效，未添加演示数据' };
+  if (
+    !hasDemoHistory(state) ||
+    state.groupLink?.groupId !== DEMO_GROUP_ID ||
+    state.groupLink.secret !== DEMO_GROUP_SECRET
+  )
+    return { ok: false, message: '小组动态样例仅用于演示小组，原数据已保留' };
+  if (hasGroupActivityDemoHistory(state, now))
+    return { ok: false, message: '本周小组动态样例已就绪，不会重复添加' };
+  try {
+    const draft = migrateState(state);
+    const memberConfigs = [
+      { accountId: 'demo-peer-account', name: '演示成员', counts: [2, 2, 1] },
+      { accountId: 'demo-activity-anan', name: '演示·安安', counts: [1, 1, 1] },
+      { accountId: 'demo-activity-zhou', name: '演示·小周', counts: [1, 1, 0] },
+    ];
+    const peers = [...(draft.groupPeers ?? [])];
+    for (const [index, config] of memberConfigs.entries()) {
+      const existing = peers.find(
+        (peer) => peer.accountId === config.accountId,
+      );
+      const clock = peerClock(
+        now,
+        config.accountId,
+        `demo-activity-device-${index}`,
+      );
+      const previous = existing
+        ? journalState(existing)
+        : initializeSync(createInitialState(now), clock);
+      // 从既有日志继续提交，不重建或替换已保存的操作链。
+      const next = applyPeer(previous, clock, (member) => {
+        if (!existing) {
+          saveProfile(member, config.name, index === 2 ? 'moon' : 'sun');
+          requireSuccess(joinGroup(member, exportInvite(draft)));
+        }
+        addActivityRecords(member, now, config.counts, !existing);
+      });
+      const snapshot = asPeer(next, now);
+      if (existing) peers[peers.indexOf(existing)] = snapshot;
+      else peers.push(snapshot);
+    }
+    draft.groupPeers = peers;
+    addActivityRecords(draft, now, [2, 1, 1], false);
+    Object.assign(state, draft);
+    return {
+      ok: true,
+      message: '已补齐本周打卡、成员排行榜及时间轴演示，原数据已保留',
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `小组动态演示未添加：${error instanceof Error ? error.message : '构造失败'}`,
+    };
+  }
+}
+
+function addActivityRecords(
+  state: AppState,
+  now: Date,
+  counts: number[],
+  includeHistory: boolean,
+) {
+  const marker = `${ACTIVITY_DEMO_MARKER}-${weekKey(now)}`;
+  const names = ['演示·本周阅读', '演示·本周喝水', '演示·本周拉伸'];
+  const tasks = names.map((name, index) => {
+    requireSuccess(
+      addTask(state, {
+        name,
+        target: [3, 2, 1][index],
+        color: ['green', 'blue', 'peach'][index],
+      }),
+    );
+    const task = state.tasks[state.tasks.length - 1];
+    task.id = `${marker}-${index}`;
+    return task;
+  });
+  const monday = new Date(`${weekKey(now)}T00:00:00`);
+  const lastDay = (now.getDay() + 6) % 7;
+  for (let day = includeHistory ? -7 : 0; day <= lastDay; day += 1) {
+    for (const [taskIndex, task] of tasks.entries()) {
+      for (let entry = 0; entry < counts[taskIndex]; entry += 1) {
+        const at = dayAt(monday, day);
+        at.setHours(8 + taskIndex * 3, entry * 20, 0, 0);
+        // 凌晨预览也不能制造未来操作时间；所属日依旧是实际自然日。
+        const recordedAt = new Date(Math.min(at.getTime(), now.getTime()));
+        requireSuccess(checkIn(state, task.id, recordedAt));
+      }
+    }
+  }
 }
 
 /** 分两次真实事务保存确认及完成，演示数据也不能跳过联合使用的校验。 */

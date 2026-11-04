@@ -58,9 +58,8 @@ export function createAppTheme(colors: AppColors) {
       onTertiary: '#FFFFFF',
       tertiaryContainer: colors.purple,
       onTertiaryContainer: colors.ink,
-      surfaceDisabled:
-        colors === defaultColors ? '#F3EDE2' : colors.primaryContainer,
-      onSurfaceDisabled: colors === defaultColors ? '#8E8173' : colors.muted,
+      surfaceDisabled: '#E9EBE9',
+      onSurfaceDisabled: '#707570',
       onSurface: colors.ink,
       onBackground: colors.ink,
       onSurfaceVariant: colors.muted,

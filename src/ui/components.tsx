@@ -169,9 +169,7 @@ export const ActionButton = forwardRef<
     danger: { fill: colors.danger, text: '#FFFFFF' },
   };
   const fill = disabled
-    ? filled
-      ? buttonTheme.colors.surfaceDisabled
-      : 'transparent'
+    ? buttonTheme.colors.surfaceDisabled
     : (buttonColor ??
       (actionTone === 'neutral'
         ? 'transparent'

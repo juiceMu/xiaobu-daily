@@ -1,6 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { FlatList, Platform, Pressable, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Icon, IconButton, Menu, ProgressBar, Text } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
@@ -44,19 +50,34 @@ import {
   formatDate,
   useScreenStyles,
 } from './shared';
-import { GroupViewSwitch } from '../ui/GroupViewSwitch';
 import { useGroupView } from '../ui/GroupViewProvider';
 import { peerBoards } from '../domain/groupSync';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
+import { GroupActivityView } from './GroupActivityView';
+import { openMemberRecord } from '../ui/openMemberRecord';
 export function TodayScreen() {
   const { colors } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, busy, run } = useApp();
   const navigation = useNavigation();
-  const { mode, error: viewError, readFailed } = useGroupView();
-  const showGroup = mode === 'group' && !!state.groupLink;
-  const peers = showGroup ? peerBoards(state) : [];
+  const { setMode, busy: viewBusy } = useGroupView();
+  const [memberError, setMemberError] = useState('');
+  const memberIntent = useRef(0);
+  useFocusEffect(
+    useCallback(() => {
+      memberIntent.current += 1;
+      return () => {
+        memberIntent.current += 1;
+      };
+    }, []),
+  );
+  const peers = state.groupLink ? peerBoards(state) : [];
+  const memberContext = useRef({ groupId: state.groupLink?.groupId, peers });
+  useLayoutEffect(() => {
+    memberContext.current = { groupId: state.groupLink?.groupId, peers };
+  });
   const [pickedDate, setPickedDate] = useState<string | null>(null);
+  const [section, setSection] = useState<'mine' | 'activity'>('mine');
   const listRef = useRef<FlatList<Task>>(null);
   const scrollOffsetRef = useRef(0);
   const restoreScrollRef = useRef<number | null>(null);
@@ -194,7 +215,7 @@ export function TodayScreen() {
   const [focusedAction, setFocusedAction] = useState<string | null>(null);
   const [pressedAction, setPressedAction] = useState<string | null>(null);
   const keyboardFocus = useKeyboardFocus();
-  function dateNavigationProps(id: string) {
+  function dateNavigationProps(id: string, disabled: boolean) {
     return {
       onPressIn: () => setPressedAction(id),
       onPressOut: () =>
@@ -222,8 +243,11 @@ export function TodayScreen() {
           alignItems: 'center' as const,
           justifyContent: 'center' as const,
           opacity: 1,
-          backgroundColor:
-            pressedAction === id ? colors.primaryContainer : 'transparent',
+          backgroundColor: disabled
+            ? '#E9EBE9'
+            : pressedAction === id
+              ? colors.primaryContainer
+              : 'transparent',
           borderWidth:
             keyboardFocus.focusVisible && focusedAction === id ? 1 : 0,
           borderColor: colors.primary,
@@ -295,7 +319,7 @@ export function TodayScreen() {
         ref={listRef}
         testID="today-task-list"
         style={styles.listViewport}
-        data={tasks}
+        data={section === 'mine' ? tasks : []}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
@@ -342,14 +366,17 @@ export function TodayScreen() {
                     onPress={() =>
                       changePickedDate(shiftLocalDate(selectedDate, -7))
                     }
-                    {...dateNavigationProps('previous-week')}
+                    {...dateNavigationProps(
+                      'previous-week',
+                      busy || selectedDate === '0001-01-01',
+                    )}
                   >
                     <Icon
                       source="chevron-left"
                       size={dateNavigationIconSize}
                       color={
                         busy || selectedDate === '0001-01-01'
-                          ? colors.muted
+                          ? '#707570'
                           : colors.primary
                       }
                     />
@@ -376,13 +403,16 @@ export function TodayScreen() {
                         next > dateKey(now) ? dateKey(now) : next,
                       );
                     }}
-                    {...dateNavigationProps('next-week')}
+                    {...dateNavigationProps(
+                      'next-week',
+                      busy || !historicalWeek,
+                    )}
                   >
                     <Icon
                       source="chevron-right"
                       size={dateNavigationIconSize}
                       color={
-                        busy || !historicalWeek ? colors.muted : colors.primary
+                        busy || !historicalWeek ? '#707570' : colors.primary
                       }
                     />
                   </Pressable>
@@ -498,7 +528,6 @@ export function TodayScreen() {
                         paddingVertical: 6,
                         borderRadius: 12,
                         minHeight: 48,
-                        opacity: calendar.isFuture ? 0.4 : 1,
                         backgroundColor: 'transparent',
                       }}
                       accessible
@@ -511,7 +540,10 @@ export function TodayScreen() {
                             fontWeight: calendar.isToday ? '700' : '400',
                             fontSize: 12,
                             lineHeight: 18,
-                            color: colors.muted,
+                            color:
+                              busy || calendar.isFuture
+                                ? '#707570'
+                                : colors.muted,
                           },
                         ]}
                       >
@@ -526,9 +558,12 @@ export function TodayScreen() {
                           borderRadius: 999,
                           alignItems: 'center',
                           justifyContent: 'center',
-                          backgroundColor: calendar.isSelected
-                            ? colors.primaryContainer
-                            : 'transparent',
+                          backgroundColor:
+                            busy || calendar.isFuture
+                              ? '#E9EBE9'
+                              : calendar.isSelected
+                                ? colors.primaryContainer
+                                : 'transparent',
                         }}
                       >
                         <Text
@@ -536,7 +571,10 @@ export function TodayScreen() {
                             styles.body,
                             {
                               fontWeight: '700',
-                              color: colors.ink,
+                              color:
+                                busy || calendar.isFuture
+                                  ? '#707570'
+                                  : colors.ink,
                             },
                           ]}
                         >
@@ -606,11 +644,13 @@ export function TodayScreen() {
                     { flexGrow: 1, flexShrink: 1, minWidth: 120 },
                   ]}
                 >
-                  {historicalWeek
-                    ? '历史周不开放兑换'
-                    : stats.redeemable > 0
-                      ? `可兑换 ${stats.redeemable} 张`
-                      : `还差 ${state.settings.threshold - stats.available} 次`}
+                  {busy
+                    ? '正在保存，请稍候'
+                    : historicalWeek
+                      ? '历史周不开放兑换'
+                      : stats.redeemable > 0
+                        ? `可兑换 ${stats.redeemable} 张`
+                        : `还差 ${state.settings.threshold - stats.available} 次`}
                 </Text>
                 <ActionButton
                   testID="redeem-ticket-button"
@@ -618,12 +658,18 @@ export function TodayScreen() {
                   accessibilityLabel="兑换一张奖券"
                   mode="contained"
                   compact
-                  icon="ticket-outline"
+                  icon={
+                    busy || historicalWeek || stats.redeemable === 0
+                      ? 'lock-outline'
+                      : 'ticket-outline'
+                  }
                   disabled={busy || historicalWeek || stats.redeemable === 0}
                   onPress={() => ask('redeem')}
                   style={{ flexShrink: 0 }}
                 >
-                  兑换
+                  {busy || historicalWeek || stats.redeemable === 0
+                    ? '兑换不可用'
+                    : '兑换'}
                 </ActionButton>
               </View>
               <View
@@ -637,138 +683,209 @@ export function TodayScreen() {
               >
                 <Text style={[styles.muted, { flex: 1, minWidth: 160 }]}>
                   1 次打卡换 1 张同行券，仅能随另一人的奖券一起使用。
+                  {busy
+                    ? ' 正在保存，请稍候。'
+                    : historicalWeek
+                      ? ' 历史周不可兑换。'
+                      : stats.available < 1
+                        ? ' 当前无可用打卡次数。'
+                        : ''}
                 </Text>
                 <ActionButton
                   testID="redeem-companion-button"
                   tone="reward"
                   mode="contained-tonal"
                   accessibilityLabel="消耗一次打卡兑换同行券"
-                  icon="account-multiple-outline"
+                  icon={
+                    busy || historicalWeek || stats.available < 1
+                      ? 'lock-outline'
+                      : 'account-multiple-outline'
+                  }
                   disabled={busy || historicalWeek || stats.available < 1}
                   onPress={() => ask('companion')}
                 >
-                  换同行券
+                  {busy || historicalWeek || stats.available < 1
+                    ? '同行券不可用'
+                    : '换同行券'}
                 </ActionButton>
               </View>
             </Panel>
-            {!state.groupLink && readFailed ? (
-              <ErrorText message={viewError} />
-            ) : null}
-            <SectionTitle
-              title={isToday ? '今日小任务' : selectedDate + ' 的任务'}
-              action={
-                <ActionButton
-                  icon="plus"
-                  mode="text"
-                  disabled={busy}
-                  onPress={() => edit()}
+            <View
+              accessibilityRole="tablist"
+              style={{
+                flexDirection: 'row',
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                gap: 24,
+              }}
+            >
+              {(['mine', 'activity'] as const).map((item) => (
+                <Pressable
+                  key={item}
+                  testID={`today-section-${item}`}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: section === item }}
+                  onPress={() => {
+                    memberIntent.current += 1;
+                    setMemberError('');
+                    setSection(item);
+                  }}
+                  style={({ pressed }) => ({
+                    minHeight: 48,
+                    paddingHorizontal: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderBottomWidth: 2,
+                    borderBottomColor:
+                      section === item ? colors.primary : 'transparent',
+                    backgroundColor: pressed ? colors.field : 'transparent',
+                  })}
                 >
-                  新增
-                </ActionButton>
-              }
-            />
+                  <Text
+                    style={{
+                      color: section === item ? colors.primary : colors.ink,
+                      fontWeight: section === item ? '700' : '400',
+                    }}
+                  >
+                    {item === 'mine' ? '我的打卡' : '小组动态'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {section === 'activity' ? (
+              <GroupActivityView
+                key={weekKey(selectedNow)}
+                state={state}
+                selectedNow={selectedNow}
+                now={now}
+                historicalWeek={historicalWeek}
+              />
+            ) : null}
+            {section === 'mine' ? (
+              <SectionTitle
+                title={isToday ? '今日小任务' : selectedDate + ' 的任务'}
+                action={
+                  <ActionButton
+                    icon="plus"
+                    mode="text"
+                    disabled={busy}
+                    onPress={() => edit()}
+                  >
+                    新增
+                  </ActionButton>
+                }
+              />
+            ) : null}
           </View>
         }
         ListFooterComponent={
-          state.groupLink ? (
+          section === 'activity' && state.groupLink ? (
             <View style={[styles.column, { marginTop: 12 }]}>
-              <Text style={styles.muted}>
-                上方统计与任务仍属自己；选择看全组可浏览其他成员
-              </Text>
-              <GroupViewSwitch />
-              <ErrorText message={viewError} />
-              {showGroup ? (
-                peers.length ? (
-                  peers.map((peer) => {
-                    const peerTasks = peer.app.tasks.filter(
-                      (task) => !task.deleted && (!task.archived || !isToday),
-                    );
-                    const done = peerTasks.filter(
-                      (task) =>
-                        getTaskCount(
-                          peer.app,
-                          task.id,
-                          new Date(`${selectedDate}T12:00:00`),
-                        ) >= task.target,
-                    ).length;
-                    const available = peer.app.tickets.filter(
-                      (ticket) =>
-                        getTicketStatus(ticket, peer.app, now) === 'available',
-                    ).length;
-                    const used = peer.app.tickets.filter(
-                      (ticket) => ticket.usedAt,
-                    ).length;
-                    const redeemed = peer.app.redemptions.filter(
-                      (entry) => entry.week === weekKey(selectedNow),
-                    ).length;
-                    return (
-                      <Pressable
-                        key={peer.accountId}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${peer.name}的记录`}
-                        onPress={() => {
-                          (
-                            navigation.navigate as (
-                              name: string,
-                              params: object,
-                            ) => void
-                          )('more', {
-                            initial: false,
-                            screen: 'member',
-                            params: {
-                              accountId: peer.accountId,
-                              date: selectedDate,
-                            },
-                          });
-                        }}
-                      >
-                        <Panel style={styles.card}>
-                          <View style={styles.row}>
-                            <ProfileAvatar avatar={peer.avatar} size={36} />
-                            <View style={styles.grow}>
-                              <Text style={styles.heading}>
-                                {peer.name}
-                                {peer.left ? ' · 已离开' : ''}
-                              </Text>
-                              <Text style={styles.muted}>
-                                已同步 {formatDate(peer.syncedAt)} · 完成 {done}
-                                /{peerTasks.length}
-                              </Text>
-                              <Text style={styles.muted}>
-                                可用 {available} · 本周已兑 {redeemed} · 已使用{' '}
-                                {used}
-                              </Text>
-                            </View>
-                          </View>
-                          {peerTasks.map((task) => (
-                            <Text key={task.id} style={styles.muted}>
-                              {task.name}{' '}
-                              {getTaskCount(
-                                peer.app,
-                                task.id,
-                                new Date(`${selectedDate}T12:00:00`),
-                              )}
-                              /{task.target}
+              <Text style={styles.heading}>成员概览</Text>
+              <Text style={styles.muted}>点击成员查看最近同步的只读记录</Text>
+              <ErrorText message={memberError} />
+              {peers.length ? (
+                peers.map((peer) => {
+                  const peerTasks = peer.app.tasks.filter(
+                    (task) => !task.deleted && (!task.archived || !isToday),
+                  );
+                  const done = peerTasks.filter(
+                    (task) =>
+                      getTaskCount(
+                        peer.app,
+                        task.id,
+                        new Date(`${selectedDate}T12:00:00`),
+                      ) >= task.target,
+                  ).length;
+                  const available = peer.app.tickets.filter(
+                    (ticket) =>
+                      getTicketStatus(ticket, peer.app, now) === 'available',
+                  ).length;
+                  const used = peer.app.tickets.filter(
+                    (ticket) => ticket.usedAt,
+                  ).length;
+                  const redeemed = peer.app.redemptions.filter(
+                    (entry) => entry.week === weekKey(selectedNow),
+                  ).length;
+                  return (
+                    <Pressable
+                      key={peer.accountId}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${peer.name}的记录`}
+                      disabled={viewBusy}
+                      onPress={async () => {
+                        setMemberError('');
+                        const intent = ++memberIntent.current;
+                        const groupId = state.groupLink?.groupId;
+                        await openMemberRecord(
+                          () => setMode('group'),
+                          () =>
+                            memberIntent.current === intent &&
+                            !!groupId &&
+                            memberContext.current.groupId === groupId &&
+                            memberContext.current.peers.some(
+                              (current) => current.accountId === peer.accountId,
+                            ),
+                          () => {
+                            (
+                              navigation.navigate as (
+                                name: string,
+                                params: object,
+                              ) => void
+                            )('more', {
+                              initial: false,
+                              screen: 'member',
+                              params: {
+                                accountId: peer.accountId,
+                                date: selectedDate,
+                              },
+                            });
+                          },
+                          () =>
+                            setMemberError(
+                              '成员记录暂未打开，请稍后重试。查看方式未保存时不会跳转。',
+                            ),
+                        );
+                      }}
+                    >
+                      <Panel style={styles.card}>
+                        <View style={styles.row}>
+                          <ProfileAvatar avatar={peer.avatar} size={36} />
+                          <View style={styles.grow}>
+                            <Text style={styles.heading}>
+                              {peer.name}
+                              {peer.left ? ' · 已离开' : ''}
                             </Text>
-                          ))}
-                        </Panel>
-                      </Pressable>
-                    );
-                  })
-                ) : (
-                  <Text style={styles.muted}>
-                    同步后可以看到其他成员。打开应用不会自动同步。
-                  </Text>
-                )
-              ) : null}
+                            <Text style={styles.muted}>
+                              已同步 {formatDate(peer.syncedAt)} · 完成 {done}/
+                              {peerTasks.length}
+                            </Text>
+                            <Text style={styles.muted}>
+                              可用 {available} ·{' '}
+                              {historicalWeek ? '所选周已兑' : '本周已兑'}{' '}
+                              {redeemed} · 已使用 {used}
+                            </Text>
+                          </View>
+                        </View>
+                      </Panel>
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <Text style={styles.muted}>
+                  同步后可以看到其他成员。打开应用不会自动同步。
+                </Text>
+              )}
             </View>
           ) : null
         }
         ListEmptyComponent={
-          <Empty
-            title="从一个小任务开始"
-            description="点右上方新增，为今天安排一点喜欢的事。"
-          />
+          section === 'mine' ? (
+            <Empty
+              title="从一个小任务开始"
+              description="点右上方新增，为今天安排一点喜欢的事。"
+            />
+          ) : null
         }
         renderItem={({ item }) => {
           const count = getTaskCount(state, item.id, selectedNow);
@@ -873,7 +990,7 @@ export function TodayScreen() {
                           justifyContent: 'center',
                           backgroundColor:
                             busy || complete
-                              ? colors.border
+                              ? '#E9EBE9'
                               : pressedAction === item.id + '-checkin'
                                 ? colors.primary
                                 : colors.primaryContainer,
@@ -962,9 +1079,11 @@ export function TodayScreen() {
                       borderColor: colors.primary,
                       flexShrink: 0,
                       backgroundColor:
-                        pressedAction === item.id + '-undo'
-                          ? colors.primaryContainer
-                          : 'transparent',
+                        busy || !count
+                          ? '#E9EBE9'
+                          : pressedAction === item.id + '-undo'
+                            ? colors.primaryContainer
+                            : 'transparent',
                     }}
                     disabled={busy || !count}
                     onPress={() => ask('undo', item)}
@@ -1015,8 +1134,9 @@ export function TodayScreen() {
                               : 0,
                           borderColor: colors.primary,
                           flexShrink: 0,
-                          backgroundColor:
-                            pressedAction === item.id + '-more'
+                          backgroundColor: busy
+                            ? '#E9EBE9'
+                            : pressedAction === item.id + '-more'
                               ? colors.primaryContainer
                               : 'transparent',
                         }}
@@ -1099,6 +1219,12 @@ export function TodayScreen() {
                   : calendarView === 'month'
                     ? 'previous-year'
                     : 'previous-years',
+                busy ||
+                  (calendarView === 'day'
+                    ? calendarMonth === '0001-01-01'
+                    : calendarView === 'month'
+                      ? calendarYear <= 1
+                      : yearPageStart <= 0),
               )}
               accessibilityLabel={
                 calendarView === 'day'
@@ -1173,6 +1299,12 @@ export function TodayScreen() {
                   : calendarView === 'month'
                     ? 'next-year'
                     : 'next-years',
+                busy ||
+                  (calendarView === 'day'
+                    ? calendarMonth.slice(0, 7) >= todayKey.slice(0, 7)
+                    : calendarView === 'month'
+                      ? calendarYear >= todayYear
+                      : yearPageStart + 12 > todayYear),
               )}
               accessibilityLabel={
                 calendarView === 'day'
@@ -1244,7 +1376,7 @@ export function TodayScreen() {
                         accessibilityLabel={key}
                         accessibilityState={{
                           selected: key === dateInput,
-                          disabled: key > todayKey,
+                          disabled: busy || key > todayKey,
                         }}
                         disabled={busy || key > todayKey}
                         onPress={() => {
@@ -1257,7 +1389,6 @@ export function TodayScreen() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           backgroundColor: 'transparent',
-                          opacity: key > todayKey ? 0.35 : 1,
                         }}
                       >
                         <View
@@ -1270,12 +1401,21 @@ export function TodayScreen() {
                             alignItems: 'center',
                             justifyContent: 'center',
                             backgroundColor:
-                              key === dateInput
-                                ? colors.primaryContainer
-                                : 'transparent',
+                              busy || key > todayKey
+                                ? '#E9EBE9'
+                                : key === dateInput
+                                  ? colors.primaryContainer
+                                  : 'transparent',
                           }}
                         >
-                          <Text style={styles.body}>{day}</Text>
+                          <Text
+                            style={[
+                              styles.body,
+                              (busy || key > todayKey) && { color: '#707570' },
+                            ]}
+                          >
+                            {day}
+                          </Text>
                         </View>
                       </Pressable>
                     );
@@ -1309,7 +1449,10 @@ export function TodayScreen() {
                     }
                     accessibilityRole="button"
                     accessibilityLabel={label}
-                    accessibilityState={{ selected, disabled }}
+                    accessibilityState={{
+                      selected,
+                      disabled: busy || disabled,
+                    }}
                     disabled={busy || disabled}
                     onPress={() => {
                       if (isMonth) {
@@ -1340,7 +1483,6 @@ export function TodayScreen() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       backgroundColor: 'transparent',
-                      opacity: disabled ? 0.35 : 1,
                     }}
                   >
                     <View
@@ -1352,12 +1494,22 @@ export function TodayScreen() {
                         borderRadius: 999,
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor: selected
-                          ? colors.primaryContainer
-                          : 'transparent',
+                        backgroundColor:
+                          busy || disabled
+                            ? '#E9EBE9'
+                            : selected
+                              ? colors.primaryContainer
+                              : 'transparent',
                       }}
                     >
-                      <Text style={styles.body}>{label}</Text>
+                      <Text
+                        style={[
+                          styles.body,
+                          (busy || disabled) && { color: '#707570' },
+                        ]}
+                      >
+                        {label}
+                      </Text>
                     </View>
                   </Pressable>
                 );

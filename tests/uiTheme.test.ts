@@ -9,6 +9,19 @@ const themeText = readFileSync(
   new URL('../src/ui/theme.ts', import.meta.url),
   'utf8',
 );
+test('五套主题的禁用按钮使用统一中性灰背景与前景', () => {
+  const components = readFileSync(
+    new URL('../src/ui/components.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(themeText, /surfaceDisabled: '#E9EBE9'/);
+  assert.match(themeText, /onSurfaceDisabled: '#707570'/);
+  assert.match(
+    components,
+    /const fill = disabled\s*\? buttonTheme\.colors\.surfaceDisabled/,
+  );
+  assert.ok(contrast('#707570', '#E9EBE9') >= 3);
+});
 function luminance(hex: string) {
   const channels = [1, 3, 5].map((offset) => {
     const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;

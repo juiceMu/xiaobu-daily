@@ -17,6 +17,8 @@ export async function populateDemoHistory(
     seedDemoHistory,
     hasCompanionDemoHistory,
     seedCompanionDemoHistory,
+    hasGroupActivityDemoHistory,
+    seedGroupActivityDemoHistory,
   } = await import('../domain/demoData');
   const current = getState();
   if (!current) return { ok: false, message: '本地数据尚未就绪' };
@@ -29,6 +31,13 @@ export async function populateDemoHistory(
       ok: true,
       message: '已保留原有小组；完整同行券样例需在演示小组的独立存档查看',
     };
+  const activityState = getState();
+  if (activityState && !hasGroupActivityDemoHistory(activityState, now)) {
+    const result = await run((draft) =>
+      seedGroupActivityDemoHistory(draft, now),
+    );
+    if (!result.ok) return result;
+  }
   for (let round = 0; round < 2; round += 1) {
     const state = getState();
     if (state && hasCompanionDemoHistory(state))

@@ -589,13 +589,8 @@ test('奖券页使用本页意图、筛选与反馈，切换控件遵守覆盖�
     new URL('../src/screens/TodayScreen.tsx', import.meta.url),
     'utf8',
   );
-  assert.match(today, /error: viewError/);
-  assert.match(
-    today,
-    /!state\.groupLink && readFailed \? \(\s*<ErrorText message=\{viewError\} \/>/,
-  );
-  assert.match(
-    today,
-    /<GroupViewSwitch \/>\s*<ErrorText message=\{viewError\} \/>/,
-  );
+  // 今日页不再提供第二套分组开关；仅详情入口需保存全组查看方式。
+  assert.doesNotMatch(today, /<GroupViewSwitch/);
+  assert.match(today, /\(\) => setMode\('group'\)/);
+  assert.match(today, /<ErrorText message=\{memberError\} \/>/);
 });
