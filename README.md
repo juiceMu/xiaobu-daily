@@ -119,13 +119,13 @@ npm run export:android
 npm run export:ios
 ```
 
-旧版初始验证记录不代表当前质量状态。当前工作区的测试、类型、lint、格式及打包实际结果见 [测试执行记录](./docs/testing/runs/)；SQLite仓库替身不等于真机数据库验证，资源导出不等于安装启动。
+旧版初始验证记录不代表当前质量状态。验收执行记录只留在本机 `docs/testing/runs/`，不提交。SQLite仓库替身不等于真机数据库验证，资源导出不等于安装启动。
 
 Android内部测试包入口：`npm run build:apk`，只做预检：`npm run build:apk -- --check`。每次先按 [AGENTS.md](./AGENTS.md) 审查项目打包技能与 [CHANGELOG](./CHANGELOG.md)，按实际变更更新，再检查版本一致并构建；脚本不能替代内容审查。当前release沿用debug测试签名，产物位于被忽略的 `dist/`，不覆盖旧包，不自动安装或发布商店。
 
 用户明确要求推送代码及安装包时，推送与应用版本一致的 `v版本号` 标签会触发 [Android 内部预发布流程](./.github/workflows/android-prerelease.yml)。CI 从标签代码重新构建，核对 APK 版本、包名、签名及摘要，完整上传草稿附件后再公开预发布；不会将 APK 加进 Git 历史或覆盖已有 Release。每个版本需提供 `docs/releases/v版本号.md` 发布说明。此流程沿用调试签名，不代表商店发布或真机验收完成。
 
-1.0.33 首次标签推送未见 Actions 运行记录，实际安装包改由 [Git LFS 目录](./release-apks/v1.0.33/README.md)交付：普通 Git 只保存指针，不写入 APK 二进制。下载实际 APK 后按同目录摘要核对；当前不声称 GitHub Release 已发布。
+1.0.33 首次标签推送未见 Actions 运行记录。安装包不进入 Git 或 Git LFS；构建摘要见 [1.0.33 构建信息](./release-apks/v1.0.33/BUILD-INFO.txt)。调试签名文件 `android/app/debug.keystore` 只留在打包机，不提交。当前不声称 GitHub Release 已发布。
 
 **未完成**：当前同行功能双手机实测，以及375宽/横屏/大字号/读屏/软键盘及数据库重启验证。APK构建成功不证明安装启动成功；尚未配置商店正式发布签名或上架。应用标识com.smallsteps.checkin沿用既有包，安装覆盖前应确认身份及数据备份，不在本次打包擅自更换。
 

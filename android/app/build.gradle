@@ -100,6 +100,7 @@ android {
     }
     signingConfigs {
         debug {
+            // 调试签名只放在本机，仓库不跟踪该文件。
             storeFile file('debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
