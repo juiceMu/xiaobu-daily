@@ -58,6 +58,8 @@ function useThemeValue() {
   return {
     themeId,
     colors: option.colors,
+    quiet: option.quiet === true,
+    signal: option.signal ?? option.colors.primary,
     theme,
     selectTheme,
     themeBusy,

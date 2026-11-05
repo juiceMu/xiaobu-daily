@@ -93,7 +93,18 @@ export function Panel({
   style?: StyleProp<ViewStyle>;
 }) {
   const styles = useStyles();
-  return <View style={[styles.panel, style]}>{children}</View>;
+  const { colors, quiet } = useAppTheme();
+  return (
+    <View
+      style={[
+        styles.panel,
+        quiet && { borderWidth: 1, borderColor: colors.border },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 export function Empty({
   title,
@@ -146,7 +157,7 @@ export const ActionButton = forwardRef<
   },
   ref,
 ) {
-  const { colors } = useAppTheme();
+  const { colors, quiet } = useAppTheme();
   const styles = useStyles();
   const [hovered, setHovered] = useState(false);
   const keyboardFocus = useKeyboardFocus();
@@ -164,7 +175,9 @@ export const ActionButton = forwardRef<
     primary: { fill: colors.brandFill, text: colors.onBrand },
     neutral: { fill: 'transparent', text: colors.muted },
     save: { fill: colors.save, text: colors.onSave },
-    reward: { fill: colors.reward, text: colors.onReward },
+    reward: quiet
+      ? { fill: colors.brandFill, text: colors.onBrand }
+      : { fill: colors.reward, text: colors.onReward },
     archive: { fill: colors.archive, text: colors.onArchive },
     danger: { fill: colors.danger, text: '#FFFFFF' },
   };
@@ -419,8 +432,9 @@ function IconChoice({
             backgroundColor: selected
               ? colors.selectedIcon
               : hot
-                ? colors.primaryContainer
+                ? colors.brandFill
                 : colors.field,
+            transform: [{ scale: selected && hot ? 0.88 : 1 }],
           },
         ]}
       >
@@ -445,6 +459,8 @@ export function FormModal({
   children: ReactNode;
 }) {
   const styles = useStyles();
+  const { colors } = useAppTheme();
+  const [closePressed, setClosePressed] = useState(false);
   // 不可见时不挂 Modal，避免进页一次挂多个原生窗口。
   if (!visible) return null;
   return (
@@ -469,12 +485,14 @@ export function FormModal({
             size={16}
             hitSlop={0}
             rippleColor={'transparent'}
+            onPressIn={() => setClosePressed(true)}
+            onPressOut={() => setClosePressed(false)}
             style={{
               margin: 0,
-              width: Platform.OS === 'web' ? 32 : 44,
-              height: Platform.OS === 'web' ? 32 : 44,
-              borderRadius: Platform.OS === 'web' ? 16 : 22,
-              backgroundColor: 'transparent',
+              width: Platform.OS === 'web' ? 32 : 48,
+              height: Platform.OS === 'web' ? 32 : 48,
+              borderRadius: Platform.OS === 'web' ? 16 : 24,
+              backgroundColor: closePressed ? colors.brandFill : 'transparent',
             }}
             onPress={onDismiss}
           />

@@ -43,12 +43,16 @@ test('键盘模式延迟订阅DOM，指针和触摸取消焦点框，键盘恢�
   assert.equal(modality.getSnapshot(), false);
 });
 
-test('共享卡片图标和outlined按钮无常驻描边，图标无勾选并以名称和读屏表达选择', () => {
+test('旧主题共享卡片无常驻描边，新主题条件描边，图标以名称和读屏表达选择', () => {
   const source = readFileSync(
     new URL('../src/ui/components.tsx', import.meta.url),
     'utf8',
   );
-  assert.equal(source.includes('borderWidth: 1'), false);
+  assert.equal((source.match(/borderWidth: 1/g) ?? []).length, 1);
+  assert.match(
+    source,
+    /quiet && \{ borderWidth: 1, borderColor: colors\.border \}/,
+  );
   assert.equal(source.includes('outlined ? 1'), false);
   assert.ok(source.includes('filled || outlined'));
   assert.ok(source.includes('keyboardFocus.focusVisible'));
@@ -95,7 +99,7 @@ test('共享卡片图标和outlined按钮无常驻描边，图标无勾选并以
   );
   const colors = {
     selectedIcon: 'selected',
-    primaryContainer: 'hover',
+    brandFill: 'hover',
     field: 'idle',
   };
   for (const selected of [false, true]) {
@@ -106,13 +110,14 @@ test('共享卡片图标和outlined按钮无常驻描边，图标无勾选并以
           selected
             ? colors.selectedIcon
             : hovered || pressed
-              ? colors.primaryContainer
+              ? colors.brandFill
               : colors.field,
         );
       }
     }
   }
   assert.ok(source.includes('selected ? colors.surface : colors.primary'));
+  assert.match(source, /scale: selected && hot \? 0\.88 : 1/);
   const nativeTime = readFileSync(
     new URL('../src/ui/TimeField.tsx', import.meta.url),
     'utf8',

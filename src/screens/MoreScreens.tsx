@@ -675,7 +675,7 @@ function ThemeChoice({
         >
           {[
             option.colors.brandFill,
-            option.colors.primaryContainer,
+            option.signal ?? option.colors.primaryContainer,
             option.colors.primary,
           ].map((color, index) => (
             <View

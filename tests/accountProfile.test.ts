@@ -69,6 +69,20 @@ test('账户沿用旧赠券身份，旧无头像档案不补写，昵称更新�
   assert.deepEqual(migrateState(state), state);
 });
 
+test('预设头像选项保留原生触控高度和按压禁用反馈', () => {
+  const source = readFileSync(
+    new URL('../src/screens/AccountScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  const choice = source.slice(source.indexOf('function AvatarChoice('));
+  assert.match(choice, /minHeight: 48/);
+  assert.match(choice, /opacity: disabled \? 0\.5 : pressed \? 0\.72 : 1/);
+  assert.match(
+    choice,
+    /accessibilityState=\{\{ checked: selected, disabled \}\}/,
+  );
+});
+
 test('头像仅允许白名单预设或受限JPEG，拒绝临时远程SVG伪格式超大尺寸与损坏base64', () => {
   assert.equal(validProfileAvatar(image), true);
   for (const id of ['sprout', 'sun', 'moon', 'flower'])

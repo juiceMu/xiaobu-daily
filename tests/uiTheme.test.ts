@@ -50,6 +50,32 @@ function mix(background: string, foreground: string, strength: number) {
       .join('')
   );
 }
+test('新主题的进度填充与实际轨道有足够区分', () => {
+  const today = readFileSync(
+    new URL('../src/screens/TodayScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  const paperProgress = readFileSync(
+    new URL(
+      '../node_modules/react-native-paper/src/components/ProgressBar.tsx',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  assert.match(today, /color=\{quiet \? signal : undefined\}/);
+  assert.match(themeText, /surfaceVariant: colors\.field/);
+  assert.match(
+    paperProgress,
+    /trackTintColor = theme\.isV3\s*\? theme\.colors\.surfaceVariant/,
+  );
+  for (const option of themeOptions.filter((item) => item.quiet)) {
+    assert.ok(option.signal, `${option.id} 缺少进度颜色`);
+    assert.ok(
+      contrast(option.signal, option.colors.field) >= 3,
+      `${option.id}: 进度填充与轨道对比度不足`,
+    );
+  }
+});
 test('赠券发出及收到记录使用主题行间分隔且文字在五主题可读', () => {
   const gifts = readFileSync(
     new URL('../src/screens/GiftsScreen.tsx', import.meta.url),
@@ -96,6 +122,59 @@ test('五套主题的按钮悬停与按压实际混色后仍达正文对比度',
           id + '按钮混色' + strength,
         );
     }
+  }
+});
+test('任务操作按压背景与默认底色不同，图标保持可辨', () => {
+  for (const { id, colors } of themeOptions) {
+    assert.notEqual(colors.brandFill, colors.primaryContainer, id);
+    assert.ok(contrast(colors.primary, colors.brandFill) >= 3, id);
+    assert.ok(contrast(colors.primary, colors.primaryContainer) >= 3, id);
+  }
+  assert.ok(contrast('#707570', '#E9EBE9') >= 3);
+});
+test('奖励按钮在四套新主题跟随主题，旧主题保留奖励配色', () => {
+  const text = readFileSync(
+    new URL('../src/ui/components.tsx', import.meta.url),
+    'utf8',
+  );
+  const source = ts.createSourceFile(
+    'components.tsx',
+    text,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  let initializer: ts.Expression | undefined;
+  function visit(node: ts.Node) {
+    if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'tones')
+      initializer = node.initializer;
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.ok(initializer);
+  const getTones = new Function(
+    'colors',
+    'quiet',
+    'return (' + initializer.getText(source) + ')',
+  ) as (
+    colors: typeof defaultColors,
+    quiet: boolean,
+  ) => { reward: { fill: string; text: string } };
+  for (const option of themeOptions) {
+    const { colors } = option;
+    const tone = getTones(colors, option.quiet === true).reward;
+    assert.deepEqual(
+      tone,
+      option.quiet
+        ? { fill: colors.brandFill, text: colors.onBrand }
+        : { fill: colors.reward, text: colors.onReward },
+      option.id,
+    );
+    for (const strength of [0, 0.07, 0.12])
+      assert.ok(
+        contrast(tone.text, mix(tone.fill, tone.text, strength)) >= 4.5,
+        option.id,
+      );
   }
 });
 test('浅暖灰米品牌填充与独立前景保持真实消费对比度', () => {
@@ -280,9 +359,13 @@ test('图标与关闭控件视觉缩小但保留真实触控和固定文字选�
   assert.ok(
     text.includes("accessibilityState?.selected === false ? 'neutral'"),
   );
-  for (const semantic of ['save', 'reward', 'archive']) {
+  for (const semantic of ['save', 'archive']) {
     assert.ok(text.includes(`${semantic}: { fill: colors.${semantic}`));
   }
+  assert.match(
+    text,
+    /reward:\s*quiet\s*\?\s*\{ fill: colors\.brandFill, text: colors\.onBrand \}\s*:\s*\{ fill: colors\.reward, text: colors\.onReward \}/,
+  );
   assert.ok(
     text.includes("neutral: { fill: 'transparent', text: colors.muted }"),
   );
@@ -296,8 +379,10 @@ test('图标与关闭控件视觉缩小但保留真实触控和固定文字选�
   );
   assert.ok(close.includes('size={16}'));
   assert.ok(close.includes('hitSlop={0}'));
-  assert.ok(close.includes("Platform.OS === 'web' ? 32 : 44"));
-  assert.ok(close.includes("backgroundColor: 'transparent'"));
+  assert.ok(close.includes("Platform.OS === 'web' ? 32 : 48"));
+  assert.ok(close.includes("closePressed ? colors.brandFill : 'transparent'"));
+  assert.ok(close.includes('onPressIn={() => setClosePressed(true)}'));
+  assert.ok(close.includes('onPressOut={() => setClosePressed(false)}'));
   for (const level of [1, 2, 3, 4, 5])
     assert.ok(themeText.includes('level' + level + ':'));
   for (const oldColor of ['#64617C', '#EDF3F8', '#F2F6FA'])

@@ -1,5 +1,14 @@
 export const DEFAULT_THEME_ID = 'warm';
-export type ThemeId = 'warm' | 'mint' | 'lavender' | 'peach' | 'white';
+export type ThemeId =
+  | 'warm'
+  | 'mint'
+  | 'lavender'
+  | 'peach'
+  | 'white'
+  | 'apricot'
+  | 'forest'
+  | 'sea'
+  | 'iris';
 
 // 旧版默认值保持不变；任务色键及操作语义色不随装饰主题改变。
 export const defaultColors = {
@@ -37,6 +46,8 @@ export type ThemeOption = {
   name: string;
   description: string;
   colors: AppColors;
+  quiet?: boolean;
+  signal?: string;
 };
 export const themeOptions: readonly ThemeOption[] = [
   {
@@ -124,6 +135,94 @@ export const themeOptions: readonly ThemeOption[] = [
       primaryAccent: '#EFEAF6',
       border: '#E4DEEC',
       selectedIcon: '#65508A',
+    },
+  },
+  {
+    id: 'apricot',
+    name: '晨光暖杏',
+    description: '明亮杏黄，温暖轻快',
+    quiet: true,
+    signal: '#A87412',
+    colors: {
+      ...defaultColors,
+      background: '#FAFBFA',
+      surface: '#FFFFFF',
+      field: '#F4F5F4',
+      ink: '#3C362B',
+      muted: '#6D6454',
+      brandFill: '#FFF3D7',
+      onBrand: '#614C20',
+      primary: '#79591D',
+      primaryContainer: '#F5F6F5',
+      primaryAccent: '#FFF3D7',
+      border: '#DADFDA',
+      selectedIcon: '#79591D',
+    },
+  },
+  {
+    id: 'forest',
+    name: '森林漫步',
+    description: '鲜活叶绿，自然而明亮',
+    quiet: true,
+    signal: '#398653',
+    colors: {
+      ...defaultColors,
+      background: '#FAFBFA',
+      surface: '#FFFFFF',
+      field: '#F4F5F4',
+      ink: '#2D3C33',
+      muted: '#53665A',
+      brandFill: '#E5F4E8',
+      onBrand: '#284E36',
+      primary: '#365E46',
+      primaryContainer: '#F5F6F5',
+      primaryAccent: '#E5F4E8',
+      border: '#DADFDA',
+      selectedIcon: '#365E46',
+    },
+  },
+  {
+    id: 'sea',
+    name: '晴空海盐',
+    description: '清爽晴空蓝，轻盈明快',
+    quiet: true,
+    signal: '#287D9F',
+    colors: {
+      ...defaultColors,
+      background: '#FAFBFA',
+      surface: '#FFFFFF',
+      field: '#F4F5F4',
+      ink: '#283B44',
+      muted: '#526773',
+      brandFill: '#E3F2F8',
+      onBrand: '#284D5E',
+      primary: '#315C70',
+      primaryContainer: '#F5F6F5',
+      primaryAccent: '#E3F2F8',
+      border: '#DADFDA',
+      selectedIcon: '#315C70',
+    },
+  },
+  {
+    id: 'iris',
+    name: '暮色鸢尾',
+    description: '柔和花瓣紫，轻盈灵动',
+    quiet: true,
+    signal: '#8060B5',
+    colors: {
+      ...defaultColors,
+      background: '#FAFBFA',
+      surface: '#FFFFFF',
+      field: '#F4F5F4',
+      ink: '#393343',
+      muted: '#665E70',
+      brandFill: '#F0EAFA',
+      onBrand: '#514163',
+      primary: '#665078',
+      primaryContainer: '#F5F6F5',
+      primaryAccent: '#F0EAFA',
+      border: '#DADFDA',
+      selectedIcon: '#665078',
     },
   },
 ];

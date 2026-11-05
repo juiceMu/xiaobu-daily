@@ -64,7 +64,7 @@ function MilestoneTab({
   disabled: boolean;
   onPress: () => void;
 }) {
-  const { colors } = useAppTheme();
+  const { colors, quiet } = useAppTheme();
   const keyboardFocus = useKeyboardFocus();
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
@@ -86,6 +86,7 @@ function MilestoneTab({
       onBlur={keyboardFocus.onBlur}
       accessibilityRole="tab"
       accessibilityState={{ selected, disabled }}
+      aria-selected={selected}
       accessibilityLabel={
         item.name +
         (item.archived ? '，已归档' : item.enabled ? '，进行中' : '，已暂停')
@@ -108,6 +109,8 @@ function MilestoneTab({
             borderRadius: 16,
             paddingHorizontal: 10,
             paddingVertical: 6,
+            borderWidth: quiet ? 1 : 0,
+            borderColor: selected && quiet ? colors.primary : 'transparent',
             backgroundColor: selected
               ? colors.primaryContainer
               : hot
@@ -189,7 +192,7 @@ function RewardRow({ value, goal }: { value: number; goal: MilestoneGoal }) {
   );
 }
 export function MilestonesScreen() {
-  const { colors } = useAppTheme();
+  const { colors, quiet } = useAppTheme();
   const styles = useScreenStyles();
   const navigation = useNavigation<
     NavigationProp<{
@@ -493,7 +496,14 @@ export function MilestonesScreen() {
                 </Text>
                 <Text style={styles.muted}>单位：{goal.unit}</Text>
               </View>
-              <View style={[styles.stat, { backgroundColor: colors.purple }]}>
+              <View
+                style={[
+                  styles.stat,
+                  quiet
+                    ? { borderLeftWidth: 1, borderLeftColor: colors.border }
+                    : { backgroundColor: colors.purple },
+                ]}
+              >
                 <Text style={styles.muted}>累计解锁</Text>
                 <Text style={styles.number}>
                   {goal.unlockedMilestones.length}

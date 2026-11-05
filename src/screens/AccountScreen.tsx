@@ -298,16 +298,16 @@ function AvatarChoice({
       accessibilityRole="radio"
       accessibilityLabel={label}
       accessibilityState={{ checked: selected, disabled }}
-      style={{
+      style={({ pressed }) => ({
         borderRadius: 18,
         overflow: 'hidden',
-        minHeight: 40,
+        minHeight: 48,
         paddingHorizontal: 12,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
         backgroundColor: fill,
-        opacity: disabled ? 0.5 : 1,
+        opacity: disabled ? 0.5 : pressed ? 0.72 : 1,
         ...(Platform.OS === 'web'
           ? {
               outlineWidth: focus.focusVisible ? 2 : 0,
@@ -316,7 +316,7 @@ function AvatarChoice({
               outlineOffset: -2,
             }
           : null),
-      }}
+      })}
     >
       <Icon source={icon} size={18} color={color} />
       <Text style={{ fontSize: 12, lineHeight: 18, color }}>{label}</Text>

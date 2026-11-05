@@ -52,6 +52,30 @@ function byId(id: string) {
   return matches[0];
 }
 
+test('成员筛选保留选中语义，新主题选中边界明确且触控高度48', () => {
+  const radios = elements().filter(
+    (node) =>
+      attribute(node, 'accessibilityRole')?.initializer?.getText(source) ===
+      '"radio"',
+  );
+  const member = radios.find((node) =>
+    node.getText(source).includes('focus.focusVisible'),
+  );
+  assert.ok(member);
+  const text = member.getText(source);
+  assert.ok(text.includes('accessibilityState={{ checked: selected }}'));
+  assert.ok(text.includes('aria-checked={selected}'));
+  assert.ok(text.includes('minHeight: 48'));
+  assert.ok(text.includes('minWidth: 48'));
+  assert.ok(text.includes('minHeight: 30'));
+  assert.match(text, /pressed\s*\? colors\.brandFill/);
+  assert.ok(text.includes('onFocus={focus.onFocus}'));
+  assert.ok(text.includes('borderWidth: quiet ? 1 : 0'));
+  assert.ok(
+    text.includes("selected && quiet ? colors.primary : 'transparent'"),
+  );
+});
+
 test('奖券图标文字使用按钮同一横行，紧凑卡片不设固定高度', () => {
   const row = byId('ticket-main-row');
   assert.ok(ts.isJsxElement(row));

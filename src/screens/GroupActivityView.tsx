@@ -28,7 +28,7 @@ export function GroupActivityView({
   historicalWeek: boolean;
 }) {
   const styles = useScreenStyles();
-  const { colors } = useAppTheme();
+  const { colors, quiet } = useAppTheme();
   const [visibleCount, setVisibleCount] = useState(30);
   const activity: Activity = getGroupActivity(
     state,
@@ -123,19 +123,45 @@ export function GroupActivityView({
             const isBackfill = validTime && dateKey(recordedAt) !== entry.date;
             const startsDay =
               index === 0 || activity.timeline[index - 1].date !== entry.date;
+            const continuesDay =
+              index + 1 < visibleCount &&
+              activity.timeline[index + 1]?.date === entry.date;
             return (
               <View key={`${entry.accountId}:${entry.id}`}>
                 {startsDay ? (
-                  <Text
-                    testID="timeline-date-heading"
-                    accessibilityRole="header"
-                    style={[
-                      styles.muted,
-                      { marginTop: index === 0 ? 8 : 16, marginBottom: 16 },
-                    ]}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginTop: index === 0 ? 8 : 16,
+                      marginBottom: 16,
+                    }}
                   >
-                    {timelineDateLabel(entry.date, now)}
-                  </Text>
+                    <Text
+                      testID="timeline-date-heading"
+                      accessibilityRole="header"
+                      style={[
+                        styles.muted,
+                        quiet && { color: colors.ink, fontWeight: '600' },
+                      ]}
+                    >
+                      {timelineDateLabel(entry.date, now)}
+                    </Text>
+                    {quiet ? (
+                      <View
+                        testID="timeline-date-divider"
+                        accessible={false}
+                        accessibilityElementsHidden
+                        importantForAccessibility="no-hide-descendants"
+                        style={{
+                          flex: 1,
+                          height: 1,
+                          marginLeft: 10,
+                          backgroundColor: colors.border,
+                        }}
+                      />
+                    ) : null}
+                  </View>
                 ) : null}
                 <View style={{ flexDirection: 'row', gap: 16 }}>
                   <View
@@ -144,22 +170,34 @@ export function GroupActivityView({
                     importantForAccessibility="no-hide-descendants"
                     style={{ width: 24, alignItems: 'center' }}
                   >
+                    {!quiet || continuesDay ? (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: 9,
+                          bottom: 0,
+                          width: quiet ? 1 : 2,
+                          backgroundColor: quiet
+                            ? '#B7C0B8'
+                            : colors.primaryContainer,
+                        }}
+                      />
+                    ) : null}
                     <View
                       style={{
-                        position: 'absolute',
-                        top: 9,
-                        bottom: 0,
-                        width: 2,
-                        backgroundColor: colors.primaryContainer,
-                      }}
-                    />
-                    <View
-                      style={{
-                        width: 12,
-                        height: 12,
+                        width: quiet ? 11 : 12,
+                        height: quiet ? 11 : 12,
                         marginTop: 4,
-                        borderRadius: 6,
-                        backgroundColor: colors.primary,
+                        borderRadius: quiet ? 5.5 : 6,
+                        backgroundColor: quiet
+                          ? colors.background
+                          : colors.primary,
+                        ...(quiet
+                          ? {
+                              borderWidth: 2,
+                              borderColor: colors.primary,
+                            }
+                          : {}),
                       }}
                     />
                   </View>

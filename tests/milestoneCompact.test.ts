@@ -37,12 +37,19 @@ test('目标胶囊Web透明ripple去悬停铺底，原生反馈和独立键盘�
     'minHeight: 48',
     'accessibilityRole="tab"',
     'accessibilityState={{ selected, disabled }}',
+    'aria-selected={selected}',
     'disabled={disabled}',
     'onPress={onPress}',
   ])
     assert.ok(tab.includes(value), value);
   assert.ok(
     tab.replace(/\s+/g, '').includes('selected?colors.primaryContainer'),
+  );
+  assert.ok(tab.includes('borderWidth: quiet ? 1 : 0'));
+  assert.ok(
+    tab.includes(
+      "borderColor: selected && quiet ? colors.primary : 'transparent'",
+    ),
   );
   assert.ok(milestoneText.includes('<MilestoneTab'));
 });

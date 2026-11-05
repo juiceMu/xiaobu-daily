@@ -136,6 +136,8 @@ test('兑换进度语义按实际次数提供，不把可见进度误报为忙�
     'ProgressBar',
     'state',
     'stats',
+    'quiet',
+    'signal',
     `${compiled}\nreturn element;`,
   ) as (
     react: typeof React,
@@ -143,20 +145,24 @@ test('兑换进度语义按实际次数提供，不把可见进度误报为忙�
     progressBar: typeof simulatedPaper,
     state: { settings: { threshold: number } },
     stats: { remainder: number },
+    quiet: boolean,
+    signal: string,
   ) => React.ReactElement;
 
-  for (const [remainder, threshold] of [
-    [0, 3],
-    [1, 3],
-    [998, 999],
-    [0, 1],
-  ]) {
+  for (const [remainder, threshold, quiet] of [
+    [0, 3, false],
+    [1, 3, true],
+    [998, 999, false],
+    [0, 1, true],
+  ] as const) {
     const element = render(
       React,
       view,
       simulatedPaper,
       { settings: { threshold } },
       { remainder },
+      quiet,
+      '#123456',
     );
     const props = element.props as Record<string, unknown>;
     assert.equal(props.accessibilityRole, 'progressbar');
@@ -180,6 +186,10 @@ test('兑换进度语义按实际次数提供，不把可见进度误报为忙�
     assert.equal(
       (paper.props as { progress: number }).progress,
       remainder / threshold,
+    );
+    assert.equal(
+      (paper.props as { color?: string }).color,
+      quiet ? '#123456' : undefined,
     );
 
     // RN Web 0.21 不转发 accessibilityValue 对象，检验真实 View 服务端映射。

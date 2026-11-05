@@ -76,11 +76,11 @@ QA28 双机实际连接镜头后显式关闭、系统Back和深链离页/返回�
 | [syncModel.test.ts](../../tests/syncModel.test.ts)                                                               | 业务、状态层替身集成                                         | 同步数据：owner/device、实体版本/事务/墓碑、outbox/ACK 连续整组/幂等、防篡改、保存失败、时钟回拨与附件                                                                                              | 不代表联网、服务器、LAN 传输或云端 ACK 已集成                                         |
 | [taskNavigation.test.ts](../../tests/taskNavigation.test.ts)                                                     | 源码约束、抽取回调、真实深链解析/StackRouter 和 beforeRemove | 任务/导航：按钮语义/布局，更多 tab 退栈、取消 tabPress；NAV-008 成员入口参数、冷链父部分状态与水合子栈分离、非总览根栈回总览、路由移除拦截/重试；NAV-009 Android 原生页头标题间距及原生返回控件保留 | 实际冷/热启动、tab 点击、返回手势与页头真实 dp 测量；库调用和替身事件不是页面 E2E     |
 | [deepLink.test.ts](../../tests/deepLink.test.ts)                                                                 | 真实配置抽取、官方导航库解析、原生配置约束                   | NAV-003：正式/QA/开发前缀，账户/成长/赠券/小组与更多初始返回入口，底栏及成员参数，非法协议/路径拒绝，Manifest协议隔离                                                                               | 新APK系统派发、冷热启动、返回键、页面成员授权；路由状态不是页面E2E                    |
-| [themePreference.test.ts](../../tests/themePreference.test.ts)                                                   | 主题目录/纯模型、存储替身集成                                | 五主题：完整色键、默认/非法回退、独立 key、往返、读写失败/重试、非法主题不写入                                                                                                                      | 真实平台偏好存储、重启后颜色与业务存档隔离                                            |
+| [themePreference.test.ts](../../tests/themePreference.test.ts)                                                   | 主题目录/纯模型、存储替身集成                                | 九主题：旧五套色值快照、完整色键、默认/非法回退、独立 key、往返、读写失败/重试、非法主题不写入                                                                                                      | 真实平台偏好存储、重启后颜色与业务存档隔离                                            |
 | [themeProvider.test.ts](../../tests/themeProvider.test.ts)                                                       | 抽取回调执行 + 状态/仓库替身、源码约束                       | 主题状态：加载前禁选、保存后发布、防连点、失败保留、卸载不发布；导航不随颜色重建与消费者订阅声明                                                                                                    | 实际 React 生命周期、全部页面刷新、表单草稿和导航保留                                 |
 | [ticketLayout.test.ts](../../tests/ticketLayout.test.ts)                                                         | 标签纯函数、源码约束                                         | 奖券：具体里程碑来源名、安全回退、卡片/状态角标/备注/用券入口、他人券按钮隐藏分支声明                                                                                                               | 真实筛选/分组、同 ID 跨成员隔离、长备注、大字和操作权限                               |
 | [todayLayout.test.ts](../../tests/todayLayout.test.ts)                                                           | 源码约束、JSX抽取及RN Web View服务端渲染                     | 首页：进度容器6dp、兑换行/按钮声明；A11Y-003不同进度语义与隐藏替身进度节点、Web View属性映射                                                                                                        | 原生/浏览器无障碍树和读屏、真实Paper渲染、布局、滚动与兑换确认/取消                   |
-| [uiTheme.test.ts](../../tests/uiTheme.test.ts)                                                                   | 颜色数学、源码约束                                           | 界面主题：五套颜色混合后对比度、字号间距、安全区/底栏/触控声明、焦点及悬停实现                                                                                                                      | 实际绘制颜色、系统缩放/安全区、横屏、读屏与交互                                       |
+| [uiTheme.test.ts](../../tests/uiTheme.test.ts)                                                                   | 颜色数学、源码约束                                           | 界面主题：九套颜色混合后对比度、新主题进度与轨道对比、字号间距、安全区/底栏/触控声明、焦点及悬停实现                                                                                                | 实际绘制颜色、系统缩放/安全区、横屏、读屏与交互                                       |
 | [webRepository.test.ts](../../tests/webRepository.test.ts)                                                       | Map 存储替身集成                                             | Web 存档：懒访问、独立 key、旧 key 保留、完整重载、损坏/异常不覆盖、无 window 可导入                                                                                                                | 浏览器真实 localStorage 权限/配额、刷新/关闭重启与标签页竞争                          |
 | [weekStrip.test.ts](../../tests/weekStrip.test.ts)                                                               | 日期模型、源码约束                                           | 周日期条：跨月年、本地今天与 UTC 错位防护、选中声明、保留进度约束                                                                                                                                   | 实际点选/跳周、今天与历史选中视觉区分                                                 |
 
@@ -107,7 +107,7 @@ BUILD-003 的隔离QA包通过真实 `assembleQa` 与APK元数据核验覆盖构
 | 账户昵称/头像                          | `accountProfile`、`gift`、`syncModel`、`store`                                                                                                                                                      | 身份不变、旧赠券/回执快照、相册处理/取消/失败、成员头像及重启                                                               |
 | 小组邀请/成员/日志合并/LAN             | `groupSync`、`syncModel`、`store`、`lanProtocol`、`lanTransport`                                                                                                                                    | 成员独立签名/在线吊销、连接竞争、真实 mDNS/TCP、双手机权限与重试；已有自动化不足以关闭设备验收                              |
 | 同行券兑换/联合使用/状态恢复           | `companion`、`companionStore`、`companionUi`、`facade`、`engine`、`store`、`syncModel`、`groupSync`、`lanProtocol`、`lanTransport`、`ticketLayout`、`todayLayout`、`homeStats`                      | COMP-001至016；与CHECK-004、REWARD-001/003/006、TICKET-002/004/007、GROUP-006、LAN-005/009、STORE-004、SYNC-001/002一起回归 |
-| 主题/设备偏好                          | `themePreference`、`themeProvider`、`uiTheme`；共享控件变更追加相关源码约束                                                                                                                         | 五主题、读写失败、保存后发布、重启、保留导航/草稿、小组查看偏好独立                                                         |
+| 主题/设备偏好                          | `themePreference`、`themeProvider`、`uiTheme`；共享控件变更追加相关源码约束                                                                                                                         | 九主题、旧配色兼容、读写失败、保存后发布、重启、保留导航/草稿、小组查看偏好独立                                             |
 | 存储/schema/同步提交层                 | `store`、`repository`、`webRepository`、`syncModel`、`engine`、`accountProfile`、`groupSync`、`gift`、`demoData`                                                                                    | 初始化/旧空间隔离/损坏不覆盖、失败原子性、完整重载、所有写操作与设备生命周期                                                |
 | 通用布局/输入/弹窗/导航                | `borderlessScreens`、`compactInputs`、`numericInputModel`、`keyboardFocus`、`confirmationDialog`、`taskNavigation`、`uiTheme`、`todayLayout`、`milestoneCompact`、`ticketLayout`、`compactCalendar` | 375/390 窄屏、横屏、大字、软键盘、焦点、读屏、取消/返回；源码断言不能替代                                                   |
 | 演示预览/应用装配/资源                 | `demoData`、`appIcon`、`facade`；涉及启动/依赖执行适用平台导出                                                                                                                                      | 开发与正式构建差异、参数入口、图标安装效果、无自动填充或覆盖用户数据                                                        |
@@ -150,13 +150,22 @@ LAN-014 由 `tests/lanListener.test.ts` 抽取执行真实 `startLanListener`，
 | P1     | 邀请协议/字段/名称边界、重复创建/加入、创建者改名/成员拒绝、扩展/相同/较短/分叉日志链、离开成员与转发 | 群组测试仅覆盖部分主路径；需要按函数边界补参数化拒绝与不变异断言                   |
 | P1     | LAN 同组播域双设备同步，口令错误/端口占用/超时断连/畸形消息/分包，服务释放后可重试；Web 明确不支持    | `lanProtocol.test.ts`、`lanTransport.test.ts`；真实 TCP、mDNS 与设备权限需原生环境 |
 | P1     | 历史日历周/月/年导航、回今天、选中与今天分离、归档任务过去补卡、确认取消                              | 业务日期测试已有；真实界面仍待 runtime/设备                                        |
-| P1     | 五主题实际应用、导航与表单草稿保留；奖券筛选、成员分组、历史周头、备注长内容                          | 现有主要为模型、抽取回调与源码约束，不能当作界面验收                               |
+| P1     | 九主题实际应用、导航与表单草稿保留；奖券筛选、成员分组、历史周头、备注长内容                          | 现有主要为模型、抽取回调与源码约束，不能当作界面验收                               |
 | P1     | SQLite 真机提交/重启、localStorage 实际刷新、相册/相机权限与后台恢复                                  | 现有介质与平台 API 使用替身；二维码矩阵往返不覆盖摄像头                            |
 | P2     | 窄屏/横屏/大字号/读屏/安全区/软键盘以及长列表性能                                                     | 无实际渲染和性能基线；记录平台、尺寸与证据后验收                                   |
 
 缺少项目提供的 Web UI runtime 或原生设备时，相应用例记录 `BLOCKED` 或 `NOT_RUN` 并说明条件，不能将静态测试、资源导出或替身执行升级为 E2E/真机通过。自动化文件新增或覆盖层级变化后，同步更新本表与对应功能用例。
 
 # 今日小组动态覆盖
+
+- ATT-001：`tests/attachmentPreview.test.ts` 在隔离上下文执行独立脚本回调，覆盖缺失地址及普通文件、PNG 路径；不代表真实附件平台集成验证。
+
+- THEME-005：共享奖励按钮与今日任务操作的主题色和尺寸由针对性源码与颜色测试覆盖；实际渲染、触控、焦点和设备视觉仍需 UI/设备验证。
+- THEME-006：里程碑、奖券成员、头像与共享控件选中、触控及状态由针对性测试覆盖；实际设备触控、系统字号、读屏和原生时间控件仍需 UI/设备验证。
+- THEME-007：今日任务操作的图标尺寸与状态结构由针对性测试覆盖；不同字形的视觉重量仍需浏览器和设备实际对比。
+- THEME-008：`tests/homeStats.test.ts` 覆盖新主题统计区透明背景、独立短分隔线及旧主题色块声明；实际排版和设备视觉需另行验证。
+- THEME-009：`tests/taskNavigation.test.ts` 检查新主题任务操作无常驻底色、按压和旧主题色值声明；实际交互及设备视觉需另行验证。
+- THEME-010：`tests/groupActivityLayout.test.ts` 检查新主题日期分隔线、时间轴线色、节点及同日分页连接声明；真实界面和设备视觉需另行验证。
 
 - A11Y-004：`tests/uiTheme.test.ts` 检查禁用配色及共享按钮背景源码，实际五主题、按钮模式、图标和禁用交互仍需 UI 或设备验证。
 - A11Y-005：`tests/compactCalendar.test.ts` 检查今日页禁用样式及状态的源码结构，实际交互和视觉效果仍需 UI 或设备验证。

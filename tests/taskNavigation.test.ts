@@ -79,6 +79,16 @@ test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与
     assert.ok(prop(button, 'onBlur')?.includes('keyboardFocus.onBlur()'));
     assert.ok(style?.includes('borderColor: colors.primary'));
     assert.ok(prop(button, 'accessibilityLabel')?.includes('item.name'));
+    const icon = prop(button, 'icon');
+    assert.ok(icon?.includes('width: 28'));
+    assert.ok(icon?.includes('height: 28'));
+    assert.ok(icon?.includes('borderRadius: 14'));
+    assert.ok(icon?.includes('colors.brandFill'));
+    assert.ok(icon?.includes('colors.primaryContainer'));
+    assert.ok(icon?.includes("'#E9EBE9'"));
+    assert.ok(icon?.includes('quiet &&'));
+    assert.ok(icon?.includes("? 'transparent'"));
+    assert.ok(icon?.includes('pressedAction !=='));
   }
   assert.ok(
     today.text.includes(
@@ -87,6 +97,7 @@ test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与
   );
   const icon = prop(checkin, 'icon');
   assert.ok(icon?.includes("'check-circle'"));
+  assert.match(icon ?? '', /quiet\s*\?\s*'check-all'\s*:\s*'check-circle'/);
   assert.ok(icon?.includes("'checkbox-marked-circle-outline'"));
   assert.equal(icon?.includes("'plus'"), false);
   assert.ok(icon?.includes('width: 28'));
@@ -102,7 +113,8 @@ test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与
       'checkIn(draft, item.id, new Date(), selectedDate)',
     ),
   );
-  assert.equal(prop(undo, 'icon'), '"undo-variant"');
+  assert.ok(prop(undo, 'icon')?.includes('source="undo-variant"'));
+  assert.ok(prop(undo, 'icon')?.includes('size={16}'));
   assert.equal(prop(undo, 'disabled'), 'busy || !count');
   assert.equal(prop(undo, 'onPress'), "() => ask('undo', item)");
   assert.ok(prop(undo, 'accessibilityLabel')?.includes('最近一次打卡'));

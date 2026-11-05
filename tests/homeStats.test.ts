@@ -125,6 +125,29 @@ test('首页三统计卡共享可收缩零最小宽布局，保留现有周统�
       node.attributes.getText(parsed).includes('summaryCardStyle'),
   );
   assert.equal(summaryViews.length, 3);
+  const summarySection = today.slice(
+    today.indexOf("{historicalWeek ? '所选周打卡' : '本周打卡'}"),
+    today.indexOf('<Text style={styles.muted}>可用奖券</Text>'),
+  );
+  assert.equal((summarySection.match(/height: 40/g) ?? []).length, 2);
+  assert.equal((summarySection.match(/\{quiet && \(/g) ?? []).length, 2);
+  assert.equal((summarySection.match(/alignSelf: 'center'/g) ?? []).length, 2);
+  assert.equal(
+    (summarySection.match(/backgroundColor: colors\.border/g) ?? []).length,
+    2,
+  );
+  for (const [view, oldColor] of [
+    [summaryViews[1], 'colors.peach'],
+    [summaryViews[2], 'colors.blue'],
+  ] as const) {
+    const style = view.attributes.getText(parsed);
+    assert.match(
+      style,
+      /quiet\s*\?\s*\{\s*backgroundColor:\s*'transparent'\s*\}/,
+    );
+    assert.ok(style.includes(oldColor));
+    assert.doesNotMatch(style, /borderLeft|borderRight/);
+  }
   assert.ok(today.includes('可用奖券'));
   assert.ok(today.includes("historicalWeek ? '所选周打卡' : '本周打卡'"));
   assert.ok(today.includes("historicalWeek ? '历史已兑换' : '可兑换'"));

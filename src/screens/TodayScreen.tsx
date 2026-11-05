@@ -56,7 +56,7 @@ import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { GroupActivityView } from './GroupActivityView';
 import { openMemberRecord } from '../ui/openMemberRecord';
 export function TodayScreen() {
-  const { colors } = useAppTheme();
+  const { colors, quiet, signal } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, busy, run } = useApp();
   const navigation = useNavigation();
@@ -452,11 +452,24 @@ export function TodayScreen() {
                     <Text style={styles.body}> 次</Text>
                   </Text>
                 </View>
+                {quiet && (
+                  <View
+                    accessible={false}
+                    style={{
+                      width: 1,
+                      height: 40,
+                      alignSelf: 'center',
+                      backgroundColor: colors.border,
+                    }}
+                  />
+                )}
                 <View
                   style={[
                     styles.stat,
                     summaryCardStyle,
-                    { backgroundColor: colors.peach },
+                    quiet
+                      ? { backgroundColor: 'transparent' }
+                      : { backgroundColor: colors.peach },
                   ]}
                 >
                   <Text style={styles.muted}>
@@ -471,11 +484,24 @@ export function TodayScreen() {
                     <Text style={styles.body}> 张</Text>
                   </Text>
                 </View>
+                {quiet && (
+                  <View
+                    accessible={false}
+                    style={{
+                      width: 1,
+                      height: 40,
+                      alignSelf: 'center',
+                      backgroundColor: colors.border,
+                    }}
+                  />
+                )}
                 <View
                   style={[
                     styles.stat,
                     summaryCardStyle,
-                    { backgroundColor: colors.blue },
+                    quiet
+                      ? { backgroundColor: 'transparent' }
+                      : { backgroundColor: colors.blue },
                   ]}
                 >
                   <Text style={styles.muted}>可用奖券</Text>
@@ -624,6 +650,7 @@ export function TodayScreen() {
                 >
                   <ProgressBar
                     progress={stats.remainder / state.settings.threshold}
+                    color={quiet ? signal : undefined}
                     style={{ height: 6, borderRadius: 3 }}
                   />
                 </View>
@@ -989,17 +1016,24 @@ export function TodayScreen() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           backgroundColor:
-                            busy || complete
-                              ? '#E9EBE9'
-                              : pressedAction === item.id + '-checkin'
-                                ? colors.primary
-                                : colors.primaryContainer,
+                            quiet &&
+                            (busy ||
+                              complete ||
+                              pressedAction !== item.id + '-checkin')
+                              ? 'transparent'
+                              : busy || complete
+                                ? '#E9EBE9'
+                                : pressedAction === item.id + '-checkin'
+                                  ? colors.brandFill
+                                  : colors.primaryContainer,
                         }}
                       >
                         <Icon
                           source={
                             complete
-                              ? 'check-circle'
+                              ? quiet
+                                ? 'check-all'
+                                : 'check-circle'
                               : 'checkbox-marked-circle-outline'
                           }
                           size={18}
@@ -1060,7 +1094,30 @@ export function TodayScreen() {
                       );
                     }}
                     hitSlop={0}
-                    icon="undo-variant"
+                    icon={({ color }) => (
+                      <View
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 14,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor:
+                            quiet &&
+                            (busy ||
+                              !count ||
+                              pressedAction !== item.id + '-undo')
+                              ? 'transparent'
+                              : busy || !count
+                                ? '#E9EBE9'
+                                : pressedAction === item.id + '-undo'
+                                  ? colors.brandFill
+                                  : colors.primaryContainer,
+                        }}
+                      >
+                        <Icon source="undo-variant" size={16} color={color} />
+                      </View>
+                    )}
                     iconColor={colors.primary}
                     size={18}
                     accessibilityLabel={
@@ -1078,12 +1135,7 @@ export function TodayScreen() {
                           : 0,
                       borderColor: colors.primary,
                       flexShrink: 0,
-                      backgroundColor:
-                        busy || !count
-                          ? '#E9EBE9'
-                          : pressedAction === item.id + '-undo'
-                            ? colors.primaryContainer
-                            : 'transparent',
+                      backgroundColor: 'transparent',
                     }}
                     disabled={busy || !count}
                     onPress={() => ask('undo', item)}
@@ -1118,7 +1170,33 @@ export function TodayScreen() {
                           );
                         }}
                         hitSlop={0}
-                        icon="dots-horizontal"
+                        icon={({ color }) => (
+                          <View
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: 14,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor:
+                                quiet &&
+                                (busy || pressedAction !== item.id + '-more')
+                                  ? 'transparent'
+                                  : busy
+                                    ? '#E9EBE9'
+                                    : pressedAction === item.id + '-more'
+                                      ? colors.brandFill
+                                      : colors.primaryContainer,
+                            }}
+                          >
+                            <Icon
+                              source="dots-horizontal"
+                              size={18}
+                              color={color}
+                            />
+                          </View>
+                        )}
+                        iconColor={colors.primary}
                         size={18}
                         accessibilityLabel={item.name + '，更多操作'}
                         disabled={busy}
@@ -1134,11 +1212,7 @@ export function TodayScreen() {
                               : 0,
                           borderColor: colors.primary,
                           flexShrink: 0,
-                          backgroundColor: busy
-                            ? '#E9EBE9'
-                            : pressedAction === item.id + '-more'
-                              ? colors.primaryContainer
-                              : 'transparent',
+                          backgroundColor: 'transparent',
                         }}
                         onPress={() => setMenuId(item.id)}
                       />

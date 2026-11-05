@@ -102,7 +102,7 @@ export function Confirm({
     </ConfirmationDialog>
   );
 }
-const createStyles = (colors: AppColors) =>
+const createStyles = (colors: AppColors, quiet: boolean) =>
   StyleSheet.create({
     body: { fontSize: 14, lineHeight: 20, color: colors.ink },
     muted: { fontSize: 12, lineHeight: 18, color: colors.muted },
@@ -140,7 +140,7 @@ const createStyles = (colors: AppColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: 10,
-      backgroundColor: colors.primaryContainer,
+      backgroundColor: quiet ? colors.primaryAccent : colors.primaryContainer,
     },
     stat: {
       flexBasis: 0,
@@ -150,12 +150,12 @@ const createStyles = (colors: AppColors) =>
       padding: 10,
       gap: 4,
       borderRadius: 16,
-      backgroundColor: colors.primaryContainer,
+      backgroundColor: quiet ? 'transparent' : colors.primaryContainer,
     },
     separator: { height: 8 },
   });
 
 export function useScreenStyles() {
-  const { colors } = useAppTheme();
-  return useMemo(() => createStyles(colors), [colors]);
+  const { colors, quiet } = useAppTheme();
+  return useMemo(() => createStyles(colors, quiet), [colors, quiet]);
 }

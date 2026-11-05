@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { FlatList, Platform, Pressable, View } from 'react-native';
 import {
   useIsFocused,
   useRoute,
@@ -8,7 +8,11 @@ import {
 import { Icon, Text } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { getTicketStatus, useTicket as consumeTicket } from '../domain/engine';
-import type { Ticket, TicketStatus } from '../domain/types';
+import type {
+  ProfileAvatar as AvatarValue,
+  Ticket,
+  TicketStatus,
+} from '../domain/types';
 import { useApp } from '../state/AppProvider';
 import { ActionButton, Empty, Page, Panel } from '../ui/components';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
@@ -28,6 +32,81 @@ import { CompanionInvitations } from '../ui/CompanionInvitations';
 import { CompanionUseDialog } from '../ui/CompanionUseDialog';
 import { CompanionHistory } from '../ui/CompanionHistory';
 import { companionStageLabel } from '../ui/companionUi';
+import { useKeyboardFocus } from '../ui/useKeyboardFocus';
+
+function MemberFilter({
+  name,
+  avatar,
+  showAvatar,
+  selected,
+  onPress,
+}: {
+  name: string;
+  avatar?: AvatarValue;
+  showAvatar: boolean;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const { colors, quiet } = useAppTheme();
+  const focus = useKeyboardFocus();
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={name}
+      accessibilityState={{ checked: selected }}
+      aria-checked={selected}
+      onPress={onPress}
+      onFocus={focus.onFocus}
+      onBlur={focus.onBlur}
+      style={{
+        borderRadius: 18,
+        minHeight: 48,
+        minWidth: 48,
+        justifyContent: 'center',
+      }}
+    >
+      {({ pressed }) => (
+        <View
+          style={{
+            minHeight: 30,
+            paddingHorizontal: 8,
+            borderRadius: 18,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            borderWidth: quiet ? 1 : 0,
+            borderColor: selected && quiet ? colors.primary : 'transparent',
+            backgroundColor: pressed
+              ? colors.brandFill
+              : selected
+                ? colors.primaryContainer
+                : 'transparent',
+            ...(Platform.OS === 'web'
+              ? {
+                  outlineWidth: focus.focusVisible ? 2 : 0,
+                  outlineStyle: 'solid' as const,
+                  outlineColor: colors.primary,
+                  outlineOffset: -2,
+                }
+              : null),
+          }}
+        >
+          {showAvatar ? <ProfileAvatar avatar={avatar} size={20} /> : null}
+          <Text
+            style={{
+              fontSize: 12,
+              lineHeight: 18,
+              fontWeight: selected ? '600' : '400',
+              color: colors.ink,
+            }}
+          >
+            {name}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
 
 export function TicketsScreen() {
   const { colors } = useAppTheme();
@@ -249,47 +328,14 @@ export function TicketsScreen() {
                 ].map((option) => {
                   const selected = memberId === option.id;
                   return (
-                    <Pressable
+                    <MemberFilter
                       key={option.id}
-                      accessibilityRole="radio"
-                      accessibilityLabel={option.name}
-                      accessibilityState={{ selected }}
+                      name={option.name}
+                      avatar={'avatar' in option ? option.avatar : undefined}
+                      showAvatar={option.showAvatar}
+                      selected={selected}
                       onPress={() => setMemberId(option.id)}
-                      style={{ borderRadius: 18 }}
-                    >
-                      <View
-                        style={{
-                          minHeight: 30,
-                          paddingHorizontal: 8,
-                          borderRadius: 18,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 6,
-                          backgroundColor: selected
-                            ? colors.primaryContainer
-                            : 'transparent',
-                        }}
-                      >
-                        {option.showAvatar ? (
-                          <ProfileAvatar
-                            avatar={
-                              'avatar' in option ? option.avatar : undefined
-                            }
-                            size={20}
-                          />
-                        ) : null}
-                        <Text
-                          style={{
-                            fontSize: 12,
-                            lineHeight: 18,
-                            fontWeight: selected ? '600' : '400',
-                            color: colors.ink,
-                          }}
-                        >
-                          {option.name}
-                        </Text>
-                      </View>
-                    </Pressable>
+                    />
                   );
                 })}
               </View>

@@ -75,6 +75,20 @@ test('小组动态说明同步、空态和打卡日期与操作时间', () => {
 
 test('时间轴按日分组用节点连线，标签下划线且成员卡不重复任务清单', () => {
   assert.match(activity, /testID="timeline-date-heading"/);
+  assert.match(activity, /quiet\s*\? '#B7C0B8'\s*:\s*colors\.primaryContainer/);
+  assert.match(activity, /testID="timeline-date-divider"/);
+  assert.match(activity, /!quiet \|\| continuesDay/);
+  assert.match(
+    activity,
+    /activity\.timeline\[index \+ 1\]\?\.date === entry\.date/,
+  );
+  assert.match(activity, /index \+ 1 < visibleCount/);
+  assert.match(activity, /width: quiet \? 1 : 2/);
+  assert.match(activity, /borderColor: colors\.primary/);
+  assert.match(
+    activity,
+    /backgroundColor:\s*quiet\s*\? colors\.background\s*:\s*colors\.primary/,
+  );
   assert.match(activity, /第 \{entry.sequence\} 次/);
   assert.match(activity, /打卡了「/);
   assert.match(today, /borderBottomColor:/);
