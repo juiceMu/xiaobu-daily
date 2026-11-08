@@ -130,5 +130,6 @@ test('不可用日期及导航使用中性灰并保留禁用判断', () => {
   assert.match(text, /busy \|\| calendar\.isFuture/);
   assert.match(text, /busy \|\| key > todayKey/);
   assert.match(text, /busy \|\| disabled/);
-  assert.match(text, /busy \|\| !count\s*\? '#E9EBE9'/);
+  // 任务操作按九主题无底契约显示，仍保留没有记录时不可撤销的业务禁用条件。
+  assert.match(text, /disabled=\{busy \|\| !count\}/);
 });

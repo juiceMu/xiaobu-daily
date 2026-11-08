@@ -61,6 +61,12 @@ description: >-
 
 ## 交互与视觉踩雷
 
+2026-11-07 三星场景包旧主题的任务打卡、撤销、更多内层背景实际呈方形，源码虽有borderRadius14也不能据此认定圆形。用户要求九主题三操作统一无底色（包括禁用），按压反馈使用图标透明度；检查默认/禁用/完成/按压原图，保留原业务动作与触控范围。其他控件的圆角渲染机制未证实，不以本问题为由全局改主题或依赖，也不把有底色直接等同业务误改。
+
+2026-11-06 三星隔离包实测小组视图切换项约30dp高，目标48dp范围内的节点外点击无效。扩大实际触控布局时保留内层胶囊外观、相邻区域不重叠，并在奖券及小组动态分别验证边缘命中；结构断言不代替新包真机复测。
+
+2026-11-06 OPPO 夹具1.0.41暖灰米实测打卡足迹同日圆点之间有空隙：圆点marginTop=4，而上段连接仅quiet新主题绘制，旧主题前条下段到行底后断在后条圆点前。非日期首的上段必须覆盖所有主题，并沿用各主题线宽/颜色；日期首不向上串组。源码结构通过不等于像素连续，修复新包须分别查旧/新主题、单条日期、分页和大字号原始截图。
+
 | 问题                                                  | 规则                                                                                               |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | hover/按压面积大于胶囊                                | 反馈底色画在内层 `contentStyle`；外层触控区透明；`rippleColor="transparent"`（Web 与需对齐的原生） |
@@ -110,6 +116,13 @@ QA32 三星曾出现 Expo 选图启动器未注册；具体生命周期时序尚
 
 ### QA深链双层配置（2026-10-29 真机复现）
 
+- 已有成员含券保护用 `--peer-protection` 专用variant/entry，目标仍为现存 `.fixtureqa`，不是新空包。与普通 `--fixture` 定义分离：仅该入口开启原设置演示许可，禁LAN，不自动导入；严格校验既有夹具组及10副本后显式确认只追加合法新peer，不重造旧日志链或清档。覆盖前记录签名/版本/业务与主题；同ID协议/标签变化不隔离存档。首次个人演示与重启重复分别核原成员和本机业务，快照/接口观察不能扩大为私有数据库审计。此为验收准备流程，实际构建/设备验证结果另记。
+
+- 旧版保留偏好升级使用 `--isolated-upgrade` 专用入口，目标是已有 `.isolatedqa` 而非新空包。覆盖前逐机核旧版本、证书、当前主题及任务/券/里程碑；新APK必须同ID同签名且更高code，只允许install-r，不带降级参数，失败时不卸载、清档、迁移复制或更换签名。专用入口为production bundle、禁备份、`lanEnabled=false`，无故障/自动导入；独立协议与导航前缀同时回归。两机两个旧偏好样本不代表五种旧偏好均独立升级，空集合不代表非空数据保留。此为验收流程，不是已通过证据。
+
+- 排行边界夹具使用 `--fixture`，新包 `.fixtureqa` /「小步夹具」/ `sprout-fixtureqa`，与 QA/acceptance 互斥、禁备份、独立 production bundle。只在专用入口通过默认开启的 `lanEnabled` 参数显式关闭监听及手动交换，不改系统网络、不放松业务、不伪造同步成功；夹具控制和合法日志构造不进入其他入口依赖图。准备空组和追加排行须分别显式操作，脏业务/非专用组拒绝，无重置或通用导入；重复安装仍保留该包原存档。Node验证不代替真机多位名次、系统字号、跨年补卡及新APK元数据验收。
+
+- 此规则同样适用于专用验收包：2026-11-06 OPPO 已接收 `sprout-acceptanceqa://more/settings` 但未导航，JS 前缀遗漏验收协议。每次新增隔离 variant 都须同时核对原生占位符和导航前缀，并回归设置等目标页、相似非法协议拒绝及更多总览返回入口；不要将协议补进正式 Manifest。
 - QA1.0.15已由系统接收 `sprout-qa://more/account`，冷热启动仍停原页/今日；正式 `sprout://` 可进入账户、成长、赠券、小组。Expo `Linking.createURL` 从Expo配置解析协议，不会自动读取Gradle QA的 `appScheme` 占位。导航 `prefixes` 必须显式兼容QA协议，同时保留开发和正式前缀；不要改全局Expo scheme或给正式Manifest额外注册QA协议。官方导航库路径解析回归不代替新APK冷热启动与返回键真机验证。
 
 ### 冷启动深链退栈（2026-10-31 真机复现）
@@ -129,9 +142,15 @@ QA32 三星曾出现 Expo 选图启动器未注册；具体生命周期时序尚
 - **每次打安装包都先检查本技能与 `CHANGELOG.md` 是否需要更新**：对照上次包之后的实际代码、故障证据和用户要求；有新增原生风险、打包步骤、默认动作或用户可见变更就更新对应内容。无需修改时在验收记录注明检查结果，不为凑更新杜撰规则，也不擅自在线升级外部技能。
 - 此技能位于项目 `.cursor/skills/android-native-crash-avoidance/SKILL.md`，不是仅Cursor可用；Codex等执行者按根 `AGENTS.md` 默认读取。维护技能时保持已证实真机规则，不把Node替身或资源导出说成设备证据。
 - 升 `app.json` `version`、`android.versionCode`、`android/app/build.gradle` 的 `versionName`/`versionCode`、`package.json` 及 `package-lock.json` 两个根 `version`，不改依赖版本来凑一致。
+- 验收专用保存控制仅对下一次业务写入生效；注入失败不能称为真实 SQLite 故障，条件挂载的原生模态与处理状态仍需新包真机验证。
 - 默认入口：`npm run build:apk`；只验证元数据时用 `npm run build:apk -- --check`。脚本检查版本一致、当前更新日志及技能文件存在，**不能自动判断技能与更新日志的内容是否完整**，上面的人工/代理审查仍必做。
 - 已交付APK存放在 `dist/`；执行Expo资源导出时显式指定独立输出目录，不能让默认输出目录覆盖或清理现有交付物。资源导出仍不等于设备验收。
 - 同机写操作回归使用 `npm run build:apk -- --qa`：独立包名 `com.smallsteps.checkin.qa`、应用名「小步日常测试」、深链 `sprout-qa`、独立存储且禁止系统备份；不导入真实存档/邀请码。QA沿用release业务和测试签名，交付物带 `-QA`，不能拿常规应用做新增/删除/消费测试；QA构建成功仍需实际核对APK及独立安装启动。
+- 已有 QA 存档需保留、需要全新存档或受控失败时，专用入口为 `npm run build:apk -- --acceptance`：新包名 `com.smallsteps.checkin.acceptanceqa`、标签「小步验收」、协议 `sprout-acceptanceqa`、禁备份，产物带 `-ACCEPTANCE`，与 `--qa` 互斥。仅该 variant 使用 `acceptance/index.tsx`，内嵌 production bundle（`devEnabled=false`），不加入 `debuggableVariants`、不把测试入口引入普通包。演示许可由验收入口在根组件注册前显式开启、设置渲染时读取，普通入口默认关闭；实际产物和无 Metro 冷启动须另验，不把配置当实测。故障控制只让下一次 group 偏好保存受控抛错，取消或重启失效，不能描述成 SQLite 真故障；演示仍须在原设置入口显式确认，不自动导入或清空。完整步骤见 `docs/testing/README.md`。
+- 已有验收存档需保留时，可使用 `--fresh-acceptance` 独立包进行首次导入测试；独立入口关闭局域网监听及手动同步，不改变原验收包。安装前确认 `.freshacceptanceqa` 未占用，核验标签、协议、禁备份、生产 bundle 和设备实际网络隔离。重装不产生空存档，不能清空或卸载已有存档；不得将构建成功当成安装或真机验收通过。
+- 既有 fresh 存档已使用时，`--scenario-acceptance` 提供独立 `.scenarioacceptanceqa`、独立协议和标签，复用禁 LAN 的验收入口；安装前核对包名未占用。上周导入及第 N 次保存失败只供受控测试，不修改系统时间；失败前可能已有业务事务成功，实际步骤与保留数据须真机核验。
+- 场景包独立入口可观察本进程业务仓储 save 接口调用及成功失败次数；需初始化完成后开始和结束，不能跨越进行中保存。计数不显示业务内容，不代表其他路径或原生层零写入，故障注入前失败仍计接口失败；新包须真机验证。
+- 2026-11-06 三星专用验收包冷启动两次报告 `Cannot create devtools websocket connections in embedded environments.` 后 SIGABRT。已安装 Expo 的 `src/async-require/messageSocket.native.ts` 在 `__DEV__` 且 `bundleLoadedFromServer=false` 时直接抛此错误，开发 bundle 虽能打包并不代表可嵌入运行；不得用 `devEnabled=true` 暴露演示面板，不改 node_modules 或吞异常掩盖。改用 production bundle 与专用入口许可后，必须新 APK 验证冷启动，旧包保留作失败证据。
 - 本地构建：`JAVA_HOME`=OpenJDK 17，`ANDROID_HOME`=commandlinetools；国内网络用  
   `./android/gradlew -p android assembleRelease --no-daemon -I "$PWD/android/init.aliyun.gradle"`，再拷到 `dist/小步日常-{version}-{YYYYMMDD}.apk`。
 - 默认 Homebrew 路径只适用于原构建机；目录不存在时不得复制旧 APK 冒充新构建。当前 Mac 已实证可用 Android Studio 自带 JBR（`/Applications/Android Studio.app/Contents/jbr/Contents/Home`）及 SDK（`/Users/mac/Library/Android/sdk`），用命令级 `JAVA_HOME`/`ANDROID_HOME` 覆盖即可，不改用户全局配置；每次仍须核对实际 Java 版本及 Gradle 成功结果。

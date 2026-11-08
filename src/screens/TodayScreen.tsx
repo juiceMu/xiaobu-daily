@@ -5,9 +5,9 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { FlatList, Platform, Pressable, View } from 'react-native';
+import { BackHandler, FlatList, Platform, Pressable, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Icon, IconButton, Menu, ProgressBar, Text } from 'react-native-paper';
+import { Icon, IconButton, Menu, Text } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
 import {
@@ -56,7 +56,7 @@ import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { GroupActivityView } from './GroupActivityView';
 import { openMemberRecord } from '../ui/openMemberRecord';
 export function TodayScreen() {
-  const { colors, quiet, signal } = useAppTheme();
+  const { colors, quiet, signal, theme } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, busy, run } = useApp();
   const navigation = useNavigation();
@@ -212,6 +212,26 @@ export function TodayScreen() {
   } | null>(null);
   const [error, setError] = useState('');
   const [menuId, setMenuId] = useState<string | null>(null);
+  const menuIdRef = useRef(menuId);
+  useLayoutEffect(() => {
+    menuIdRef.current = menuId;
+  });
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return;
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          if (menuIdRef.current === null) return false;
+          // Paper 的菜单监听只触发关闭，不消费返回；这里阻止同次事件退出应用。
+          menuIdRef.current = null;
+          setMenuId(null);
+          return true;
+        },
+      );
+      return () => subscription.remove();
+    }, []),
+  );
   const [focusedAction, setFocusedAction] = useState<string | null>(null);
   const [pressedAction, setPressedAction] = useState<string | null>(null);
   const keyboardFocus = useKeyboardFocus();
@@ -647,11 +667,19 @@ export function TodayScreen() {
                   aria-hidden
                   accessibilityElementsHidden
                   importantForAccessibility="no-hide-descendants"
+                  style={{
+                    height: 6,
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    backgroundColor: theme.colors.surfaceVariant,
+                  }}
                 >
-                  <ProgressBar
-                    progress={stats.remainder / state.settings.threshold}
-                    color={quiet ? signal : undefined}
-                    style={{ height: 6, borderRadius: 3 }}
+                  <View
+                    style={{
+                      height: 6,
+                      width: `${(stats.remainder / state.settings.threshold) * 100}%`,
+                      backgroundColor: quiet ? signal : theme.colors.primary,
+                    }}
                   />
                 </View>
               </View>
@@ -1015,17 +1043,13 @@ export function TodayScreen() {
                           borderRadius: 14,
                           alignItems: 'center',
                           justifyContent: 'center',
-                          backgroundColor:
-                            quiet &&
-                            (busy ||
-                              complete ||
-                              pressedAction !== item.id + '-checkin')
-                              ? 'transparent'
-                              : busy || complete
-                                ? '#E9EBE9'
-                                : pressedAction === item.id + '-checkin'
-                                  ? colors.brandFill
-                                  : colors.primaryContainer,
+                          backgroundColor: 'transparent',
+                          opacity:
+                            !busy &&
+                            !complete &&
+                            pressedAction === item.id + '-checkin'
+                              ? 0.65
+                              : 1,
                         }}
                       >
                         <Icon
@@ -1102,17 +1126,13 @@ export function TodayScreen() {
                           borderRadius: 14,
                           alignItems: 'center',
                           justifyContent: 'center',
-                          backgroundColor:
-                            quiet &&
-                            (busy ||
-                              !count ||
-                              pressedAction !== item.id + '-undo')
-                              ? 'transparent'
-                              : busy || !count
-                                ? '#E9EBE9'
-                                : pressedAction === item.id + '-undo'
-                                  ? colors.brandFill
-                                  : colors.primaryContainer,
+                          backgroundColor: 'transparent',
+                          opacity:
+                            !busy &&
+                            !!count &&
+                            pressedAction === item.id + '-undo'
+                              ? 0.65
+                              : 1,
                         }}
                       >
                         <Icon source="undo-variant" size={16} color={color} />
@@ -1178,15 +1198,11 @@ export function TodayScreen() {
                               borderRadius: 14,
                               alignItems: 'center',
                               justifyContent: 'center',
-                              backgroundColor:
-                                quiet &&
-                                (busy || pressedAction !== item.id + '-more')
-                                  ? 'transparent'
-                                  : busy
-                                    ? '#E9EBE9'
-                                    : pressedAction === item.id + '-more'
-                                      ? colors.brandFill
-                                      : colors.primaryContainer,
+                              backgroundColor: 'transparent',
+                              opacity:
+                                !busy && pressedAction === item.id + '-more'
+                                  ? 0.65
+                                  : 1,
                             }}
                           >
                             <Icon

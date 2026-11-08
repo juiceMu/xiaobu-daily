@@ -83,7 +83,7 @@ test('进度条由独立6dp不收缩容器约束，兑换行紧随其后且同�
   assert.ok(ts.isJsxElement(visual[0]));
   const progress = jsxChildren(visual[0]);
   assert.equal(progress.length, 1);
-  assert.equal(opening(progress[0]).tagName.getText(source), 'ProgressBar');
+  assert.equal(opening(progress[0]).tagName.getText(source), 'View');
   assert.equal(styleProperties(progress[0]).get('height'), '6');
   assert.ok(attribute(track, 'accessibilityLabel'));
   const panel = track.parent;
@@ -124,29 +124,23 @@ test('兑换进度语义按实际次数提供，不把可见进度误报为忙�
     },
   ).outputText;
   const view = require('react-native-web/dist/cjs/exports/View');
-  const simulatedPaper = ({ progress }: { progress: number }) =>
-    React.createElement(view, {
-      accessibilityRole: 'progressbar',
-      'aria-busy': true,
-      'aria-valuenow': Math.round(progress * 100),
-    });
   const render = new Function(
     'React',
     'View',
-    'ProgressBar',
     'state',
     'stats',
     'quiet',
     'signal',
+    'theme',
     `${compiled}\nreturn element;`,
   ) as (
     react: typeof React,
     view: unknown,
-    progressBar: typeof simulatedPaper,
     state: { settings: { threshold: number } },
     stats: { remainder: number },
     quiet: boolean,
     signal: string,
+    theme: { colors: { surfaceVariant: string; primary: string } },
   ) => React.ReactElement;
 
   for (const [remainder, threshold, quiet] of [
@@ -158,11 +152,11 @@ test('兑换进度语义按实际次数提供，不把可见进度误报为忙�
     const element = render(
       React,
       view,
-      simulatedPaper,
       { settings: { threshold } },
       { remainder },
       quiet,
       '#123456',
+      { colors: { surfaceVariant: '#eeeeee', primary: '#654321' } },
     );
     const props = element.props as Record<string, unknown>;
     assert.equal(props.accessibilityRole, 'progressbar');
@@ -182,18 +176,29 @@ test('兑换进度语义按实际次数提供，不把可见进度误报为忙�
     assert.equal(visualProps['aria-hidden'], true);
     assert.equal(visualProps.accessibilityElementsHidden, true);
     assert.equal(visualProps.importantForAccessibility, 'no-hide-descendants');
-    const paper = visualProps.children as React.ReactElement;
+    const fill = visualProps.children as React.ReactElement;
     assert.equal(
-      (paper.props as { progress: number }).progress,
-      remainder / threshold,
+      (fill.props as { style: { width: string } }).style.width,
+      `${(remainder / threshold) * 100}%`,
     );
     assert.equal(
-      (paper.props as { color?: string }).color,
-      quiet ? '#123456' : undefined,
+      (fill.props as { style: { backgroundColor: string } }).style
+        .backgroundColor,
+      quiet ? '#123456' : '#654321',
+    );
+    assert.equal(
+      (visualProps.style as { backgroundColor: string }).backgroundColor,
+      '#eeeeee',
+    );
+    // 视觉子树只保留原生 View，不引入会硬编码 busy 的 Paper 进度节点。
+    assert.equal(fill.type, view);
+    assert.doesNotMatch(
+      track.getText(source),
+      /ProgressBar|accessibilityState/,
     );
 
     // RN Web 0.21 不转发 accessibilityValue 对象，检验真实 View 服务端映射。
-    // Paper 以替身模拟，不能视为浏览器或原生读屏实测。
+    // 服务端映射不等于浏览器或原生读屏实测。
     const html = renderToStaticMarkup(element);
     const root = html.slice(0, html.indexOf('>') + 1);
     assert.match(root, /role="progressbar"/);
@@ -205,7 +210,7 @@ test('兑换进度语义按实际次数提供，不把可见进度误报为忙�
         `aria-valuetext="已积累 ${remainder} 次，共需 ${threshold} 次"`,
       ),
     );
-    assert.doesNotMatch(root, /aria-busy/);
+    assert.doesNotMatch(html, /aria-busy/);
     assert.match(html, /aria-hidden="true"/);
   }
 });

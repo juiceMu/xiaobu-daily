@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { themeOptions } from '../src/ui/themeCatalog';
 import { getStateFromPath } from '../node_modules/@react-navigation/core/src/getStateFromPath';
 import {
   CommonActions,
@@ -83,12 +84,9 @@ test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与
     assert.ok(icon?.includes('width: 28'));
     assert.ok(icon?.includes('height: 28'));
     assert.ok(icon?.includes('borderRadius: 14'));
-    assert.ok(icon?.includes('colors.brandFill'));
-    assert.ok(icon?.includes('colors.primaryContainer'));
-    assert.ok(icon?.includes("'#E9EBE9'"));
-    assert.ok(icon?.includes('quiet &&'));
-    assert.ok(icon?.includes("? 'transparent'"));
-    assert.ok(icon?.includes('pressedAction !=='));
+    assert.ok(prop(button, 'onPressIn')?.includes('setPressedAction'));
+    assert.ok(prop(button, 'onPressOut')?.includes('? null : current'));
+    assert.ok(prop(button, 'onBlur')?.includes('setPressedAction'));
   }
   assert.ok(
     today.text.includes(
@@ -104,7 +102,6 @@ test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与
   assert.ok(icon?.includes('height: 28'));
   assert.ok(icon?.includes('size={18}'));
   assert.ok(icon?.includes('color={color}'));
-  assert.ok(icon?.includes('busy || complete'));
   assert.equal(prop(checkin, 'disabled'), 'busy || complete');
   assert.ok(prop(checkin, 'accessibilityLabel')?.includes('当天已完成'));
   assert.ok(prop(checkin, 'accessibilityLabel')?.includes('，打卡'));
@@ -118,6 +115,112 @@ test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与
   assert.equal(prop(undo, 'disabled'), 'busy || !count');
   assert.equal(prop(undo, 'onPress'), "() => ask('undo', item)");
   assert.ok(prop(undo, 'accessibilityLabel')?.includes('最近一次打卡'));
+});
+
+test('九主题任务三操作实际图标回调在空闲、禁用、完成及按压时透明，仅可用按压降低透明度', () => {
+  // 执行真实 JSX 回调表达式，替身只承接元素；不模拟原生渲染或业务存储。
+  const React = {
+    createElement: (
+      type: unknown,
+      props: Record<string, unknown>,
+      ...children: unknown[]
+    ) => ({ type, props, children }),
+  };
+  for (const option of themeOptions) {
+    for (const action of ['checkin', 'undo', 'more']) {
+      const button = taskButton('task-' + action + '-button');
+      const expression = prop(button, 'icon');
+      assert.ok(expression);
+      const compiled = ts.transpileModule(
+        'const render = ' + expression + ';',
+        {
+          compilerOptions: {
+            jsx: ts.JsxEmit.React,
+            target: ts.ScriptTarget.ES2022,
+          },
+        },
+      ).outputText;
+      for (const busy of [false, true]) {
+        for (const complete of [false, true]) {
+          for (const count of [0, 1]) {
+            for (const pressed of [false, true]) {
+              const disabled =
+                busy ||
+                (action === 'checkin'
+                  ? complete
+                  : action === 'undo'
+                    ? !count
+                    : false);
+              const render = new Function(
+                'React',
+                'View',
+                'Icon',
+                'quiet',
+                'colors',
+                'busy',
+                'complete',
+                'count',
+                'pressedAction',
+                'item',
+                compiled + '\nreturn render;',
+              )(
+                React,
+                'View',
+                'Icon',
+                !!option.quiet,
+                option.colors,
+                busy,
+                complete,
+                count,
+                pressed ? 'sample-' + action : 'another-action',
+                { id: 'sample' },
+              );
+              const element = render({
+                color: disabled ? '#707570' : option.colors.primary,
+              });
+              const label = `${option.id}/${action}/busy=${busy}/complete=${complete}/count=${count}/pressed=${pressed}`;
+              assert.equal(
+                element.props.style.backgroundColor,
+                'transparent',
+                label,
+              );
+              assert.equal(
+                element.props.style.opacity,
+                pressed && !disabled ? 0.65 : 1,
+                label,
+              );
+              assert.equal(element.props.style.width, 28, label);
+              assert.equal(element.props.style.height, 28, label);
+              const icon = element.children[0];
+              assert.equal(
+                icon.props.color,
+                disabled ? '#707570' : option.colors.primary,
+                label,
+              );
+              assert.equal(icon.props.size, action === 'undo' ? 16 : 18, label);
+              assert.equal(
+                icon.props.source,
+                action === 'checkin'
+                  ? complete
+                    ? option.quiet
+                      ? 'check-all'
+                      : 'check-circle'
+                    : 'checkbox-marked-circle-outline'
+                  : action === 'undo'
+                    ? 'undo-variant'
+                    : 'dots-horizontal',
+                label,
+              );
+            }
+          }
+        }
+      }
+      if (action === 'more') {
+        assert.equal(prop(button, 'disabled'), 'busy');
+        assert.equal(prop(button, 'onPress'), '() => setMenuId(item.id)');
+      }
+    }
+  }
 });
 
 test('任务名称进度与三个操作保持同一nowrap横行，不单独创建操作行', () => {

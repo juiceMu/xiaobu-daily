@@ -10,6 +10,8 @@ import {
   getTicketStatus,
   getWeekStats,
   migrateState,
+  redeemTicket,
+  updateTask,
   weekKey,
   type PersistedAppState,
 } from '../src/domain/engine';
@@ -21,10 +23,19 @@ import {
   hasGroupActivityDemoHistory,
   seedGroupActivityDemoHistory,
 } from '../src/domain/demoData';
-import { initializeSync, validateSync } from '../src/domain/syncModel';
+import {
+  exportAccountJournal,
+  initializeSync,
+  validateSync,
+} from '../src/domain/syncModel';
 import { createAppStore } from '../src/state/store';
 import { populateDemoHistory } from '../src/state/demoHistory';
-import { createGroup, peerBoards } from '../src/domain/groupSync';
+import {
+  createGroup,
+  exportInvite,
+  joinGroup,
+  peerBoards,
+} from '../src/domain/groupSync';
 import { getGroupActivity } from '../src/domain/groupActivity';
 
 const NOW = new Date(2026, 9, 20, 12);
@@ -359,6 +370,189 @@ test('预览入口为已有演示补齐同行券，重复调用不写入；真�
     assert.deepEqual(saved, before);
     validateSync(saved);
   }
+});
+
+test('非演示组已有合法成员副本时，首次个人演示保留组和副本，重载后重复无保存或新outbox', async () => {
+  function harness(prefix: string) {
+    let nextId = 0;
+    let writes = 0;
+    const clock = {
+      now: () => NOW,
+      id: () => `${prefix}-${++nextId}`,
+    };
+    let saved = initializeSync(createInitialState(NOW), clock);
+    const repository = {
+      load: async () => copy(saved),
+      save: async (next: PersistedAppState) => {
+        validateSync(next);
+        writes += 1;
+        saved = copy(next);
+      },
+    };
+    return {
+      store: createAppStore(repository, clock),
+      reload: () => createAppStore(repository, clock),
+      get saved() {
+        return saved;
+      },
+      get writes() {
+        return writes;
+      },
+    };
+  }
+  const local = harness('demo-protected-local');
+  const remote = harness('demo-protected-member');
+  await local.store.initialize();
+  await remote.store.initialize();
+  assert.equal(
+    (
+      await local.store.run((draft) =>
+        ensureGiftProfile(draft, {
+          id: draft.sync!.accountId,
+          name: '已有本机资料',
+        }),
+      )
+    ).ok,
+    true,
+  );
+  assert.equal(
+    (
+      await local.store.run((draft) =>
+        createGroup(draft, '已有成员的测试小组', {
+          groupId: 'demo-protection-nondemo-group',
+          secret: 'demo-protection-test-only-secret',
+        }),
+      )
+    ).ok,
+    true,
+  );
+  assert.equal(
+    (await local.store.run((draft) => checkIn(draft, 'task-1', NOW))).ok,
+    true,
+  );
+  assert.equal(
+    (
+      await local.store.run((draft) =>
+        addMilestoneGoal(draft, {
+          name: '已有本机目标',
+          unit: '页',
+          direction: 'increase',
+          startWeight: 0,
+          step: 10,
+        }),
+      )
+    ).ok,
+    true,
+  );
+  assert.equal(
+    (
+      await remote.store.run((draft) =>
+        joinGroup(draft, exportInvite(local.saved)),
+      )
+    ).ok,
+    true,
+  );
+  assert.equal(
+    (
+      await remote.store.run((draft) =>
+        ensureGiftProfile(draft, {
+          id: draft.sync!.accountId,
+          name: '已有真实成员',
+        }),
+      )
+    ).ok,
+    true,
+  );
+  assert.equal(
+    (
+      await remote.store.run((draft) =>
+        updateTask(draft, 'task-1', { name: '已有成员任务', target: 3 }),
+      )
+    ).ok,
+    true,
+  );
+  for (let index = 0; index < 3; index += 1)
+    assert.equal(
+      (await remote.store.run((draft) => checkIn(draft, 'task-1', NOW))).ok,
+      true,
+    );
+  assert.equal(
+    (await remote.store.run((draft) => redeemTicket(draft, NOW))).ok,
+    true,
+  );
+  const applied = await local.store.applyGroupJournals(
+    [exportAccountJournal(remote.saved)],
+    NOW.toISOString(),
+  );
+  assert.equal(applied.ok, true, applied.message);
+  assert.equal(applied.persisted, true);
+  const before = copy(local.saved);
+  const peersBefore = JSON.stringify(before.groupPeers);
+  assert.equal(before.groupPeers?.length, 1);
+  const boardBefore = peerBoards(before)[0];
+  assert.equal(boardBefore.name, '已有真实成员');
+  assert.equal(boardBefore.app.checkins.length, 3);
+  assert.equal(boardBefore.app.tickets.length, 1);
+  assert.equal(hasDemoHistory(before), false);
+  const writesBefore = local.writes;
+  const first = await populateDemoHistory(
+    local.store.run,
+    () => local.store.getSnapshot().state,
+    NOW,
+  );
+  assert.equal(first.ok, true, first.message);
+  assert.match(first.message, /已保留原有小组/);
+  assert.equal(local.writes - writesBefore, 1);
+  assert.equal(hasDemoHistory(local.saved), true);
+  assert.equal(hasCompanionDemoHistory(local.saved), false);
+  assert.equal(local.saved.sync.accountId, before.sync.accountId);
+  assert.equal(local.saved.sync.deviceId, before.sync.deviceId);
+  assert.deepEqual(local.saved.groupLink, before.groupLink);
+  assert.deepEqual(local.saved.groupOwned, before.groupOwned);
+  assert.deepEqual(
+    local.saved.pendingGroupDeparture,
+    before.pendingGroupDeparture,
+  );
+  assert.equal(JSON.stringify(local.saved.groupPeers), peersBefore);
+  assert.deepEqual(peerBoards(local.saved), peerBoards(before));
+  assert.deepEqual(
+    local.saved.tasks.slice(0, before.tasks.length),
+    before.tasks,
+  );
+  assert.deepEqual(
+    local.saved.checkins.slice(0, before.checkins.length),
+    before.checkins,
+  );
+  assert.deepEqual(
+    local.saved.tickets.slice(0, before.tickets.length),
+    before.tickets,
+  );
+  assert.deepEqual(local.saved.settings, before.settings);
+  assert.deepEqual(local.saved.weight, before.weight);
+  assert.deepEqual(
+    local.saved.milestoneGoals.slice(0, before.milestoneGoals.length),
+    before.milestoneGoals,
+  );
+  assert.deepEqual(local.saved.giftState?.profile, before.giftState?.profile);
+  // 首次添加允许产生自己的演示事务，不能误称整个存档或outbox不变。
+  assert.ok(local.saved.sync.outbox.length > before.sync.outbox.length);
+  const after = copy(local.saved);
+  const writesAfter = local.writes;
+  const reloaded = local.reload();
+  await reloaded.initialize();
+  assert.deepEqual(reloaded.getSnapshot().state, after);
+  for (let index = 0; index < 2; index += 1) {
+    const repeated = await populateDemoHistory(
+      reloaded.run,
+      () => reloaded.getSnapshot().state,
+      NOW,
+    );
+    assert.equal(repeated.ok, true, repeated.message);
+    assert.equal(local.writes, writesAfter);
+    assert.deepEqual(local.saved.sync.outbox, after.sync.outbox);
+    assert.deepEqual(local.saved, after);
+  }
+  validateSync(local.saved);
 });
 
 test('旧演示跨周补齐本人任务与多人排行，延长成员日志且重复无写入', async () => {

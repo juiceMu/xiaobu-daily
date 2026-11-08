@@ -41,7 +41,13 @@ export function GroupViewSwitch({
             onPress={() => {
               void (onChangeMode ?? setMode)(value);
             }}
-            style={{ borderRadius: 18 }}
+            style={{
+              minWidth: 48,
+              minHeight: 48,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 18,
+            }}
           >
             <View
               style={{

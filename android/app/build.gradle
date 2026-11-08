@@ -92,8 +92,8 @@ android {
         applicationId 'com.smallsteps.checkin'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 34
-        versionName "1.0.33"
+        versionCode 52
+        versionName "1.0.51"
         manifestPlaceholders = [appScheme: "sprout"]
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
@@ -129,6 +129,49 @@ android {
             matchingFallbacks = ['release']
             manifestPlaceholders = [appScheme: "sprout-qa"]
         }
+        acceptance {
+            // 专用验收入口与故障控制只进入此独立安装包。
+            initWith release
+            debuggable false
+            applicationIdSuffix ".acceptanceqa"
+            matchingFallbacks = ['release']
+            manifestPlaceholders = [appScheme: "sprout-acceptanceqa"]
+        }
+        freshAcceptance {
+            // 保留已有验收存档，首次导入测试使用独立安装空间。
+            initWith acceptance
+            applicationIdSuffix ".freshacceptanceqa"
+            manifestPlaceholders = [appScheme: "sprout-freshacceptanceqa"]
+        }
+        scenarioAcceptance {
+            initWith freshAcceptance
+            applicationIdSuffix ".scenarioacceptanceqa"
+            manifestPlaceholders = [appScheme: "sprout-scenarioacceptanceqa"]
+        }
+        fixture {
+            // 只供显式夹具验收，独立存档且不开放局域网。
+            initWith release
+            debuggable false
+            applicationIdSuffix ".fixtureqa"
+            matchingFallbacks = ['release']
+            manifestPlaceholders = [appScheme: "sprout-fixtureqa"]
+        }
+        peerProtection {
+            // 专用同包名覆盖验收；普通fixture入口定义不变，不清除已有存档。
+            initWith release
+            debuggable false
+            applicationIdSuffix ".fixtureqa"
+            matchingFallbacks = ['release']
+            manifestPlaceholders = [appScheme: "sprout-peerprotectionqa"]
+        }
+        isolatedUpgrade {
+            // 同包名保留旧验收存档升级，不启用故障控制或局域网。
+            initWith release
+            debuggable false
+            applicationIdSuffix ".isolatedqa"
+            matchingFallbacks = ['release']
+            manifestPlaceholders = [appScheme: "sprout-isolatedqa"]
+        }
     }
     packagingOptions {
         jniLibs {
@@ -138,6 +181,46 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}
+
+// 保留内嵌 bundle；不能加入 debuggableVariants，否则会依赖 Metro。
+androidComponents.onVariants(androidComponents.selector().withBuildType("acceptance")) { variant ->
+    tasks.named("createBundleAcceptanceJsAndAssets").configure {
+        entryFile.set(file("../../acceptance/index.tsx"))
+        devEnabled.set(false)
+    }
+}
+androidComponents.onVariants(androidComponents.selector().withBuildType("freshAcceptance")) { variant ->
+    tasks.named("createBundleFreshAcceptanceJsAndAssets").configure {
+        entryFile.set(file("../../acceptance/fresh.tsx"))
+        devEnabled.set(false)
+    }
+}
+androidComponents.onVariants(androidComponents.selector().withBuildType("scenarioAcceptance")) { variant ->
+    tasks.named("createBundleScenarioAcceptanceJsAndAssets").configure {
+        entryFile.set(file("../../acceptance/scenario.tsx"))
+        devEnabled.set(false)
+    }
+}
+androidComponents.onVariants(androidComponents.selector().withBuildType("fixture")) { variant ->
+    tasks.named("createBundleFixtureJsAndAssets").configure {
+        entryFile.set(file("../../fixture/index.tsx"))
+        devEnabled.set(false)
+    }
+}
+
+androidComponents.onVariants(androidComponents.selector().withBuildType("peerProtection")) { variant ->
+    tasks.named("createBundlePeerProtectionJsAndAssets").configure {
+        entryFile.set(file("../../peerProtection/index.tsx"))
+        devEnabled.set(false)
+    }
+}
+
+androidComponents.onVariants(androidComponents.selector().withBuildType("isolatedUpgrade")) { variant ->
+    tasks.named("createBundleIsolatedUpgradeJsAndAssets").configure {
+        entryFile.set(file("../../upgrade/index.tsx"))
+        devEnabled.set(false)
     }
 }
 

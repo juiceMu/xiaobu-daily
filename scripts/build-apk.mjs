@@ -81,17 +81,117 @@ export async function checkReleasePrerequisites(projectRoot = PROJECT_ROOT) {
   };
 }
 
+export function resolveBuildOptions(args) {
+  if (
+    args.some(
+      (arg) =>
+        ![
+          '--check',
+          '--qa',
+          '--acceptance',
+          '--fresh-acceptance',
+          '--scenario-acceptance',
+          '--fixture',
+          '--isolated-upgrade',
+          '--peer-protection',
+        ].includes(arg),
+    )
+  ) {
+    throw new Error(
+      '仅支持 --check、--qa、--acceptance、--fresh-acceptance、--scenario-acceptance、--fixture、--isolated-upgrade 和 --peer-protection',
+    );
+  }
+  if (
+    [
+      '--qa',
+      '--acceptance',
+      '--fresh-acceptance',
+      '--scenario-acceptance',
+      '--fixture',
+      '--isolated-upgrade',
+      '--peer-protection',
+    ].filter((flag) => args.includes(flag)).length > 1
+  ) {
+    throw new Error('隔离构建选项不能同时使用');
+  }
+  if (args.includes('--peer-protection')) {
+    return {
+      buildType: 'peerProtection',
+      gradleTask: 'assemblePeerProtection',
+      suffix: '-PEER-PROTECTION',
+      applicationId: 'com.smallsteps.checkin.fixtureqa',
+      label: '小步副本验收',
+      checkOnly: args.includes('--check'),
+    };
+  }
+  if (args.includes('--isolated-upgrade')) {
+    return {
+      buildType: 'isolatedUpgrade',
+      gradleTask: 'assembleIsolatedUpgrade',
+      suffix: '-ISOLATED-UPGRADE',
+      applicationId: 'com.smallsteps.checkin.isolatedqa',
+      label: '小步升级验收',
+      checkOnly: args.includes('--check'),
+    };
+  }
+  if (args.includes('--scenario-acceptance')) {
+    return {
+      buildType: 'scenarioAcceptance',
+      gradleTask: 'assembleScenarioAcceptance',
+      suffix: '-SCENARIO-ACCEPTANCE',
+      applicationId: 'com.smallsteps.checkin.scenarioacceptanceqa',
+      label: '小步场景验收',
+      checkOnly: args.includes('--check'),
+    };
+  }
+  if (args.includes('--fresh-acceptance')) {
+    return {
+      buildType: 'freshAcceptance',
+      gradleTask: 'assembleFreshAcceptance',
+      suffix: '-FRESH-ACCEPTANCE',
+      applicationId: 'com.smallsteps.checkin.freshacceptanceqa',
+      label: '小步新验收',
+      checkOnly: args.includes('--check'),
+    };
+  }
+  if (args.includes('--fixture')) {
+    return {
+      buildType: 'fixture',
+      gradleTask: 'assembleFixture',
+      suffix: '-FIXTURE',
+      applicationId: 'com.smallsteps.checkin.fixtureqa',
+      label: '小步夹具',
+      checkOnly: args.includes('--check'),
+    };
+  }
+  if (args.includes('--acceptance')) {
+    return {
+      buildType: 'acceptance',
+      gradleTask: 'assembleAcceptance',
+      suffix: '-ACCEPTANCE',
+      applicationId: 'com.smallsteps.checkin.acceptanceqa',
+      label: '小步验收',
+      checkOnly: args.includes('--check'),
+    };
+  }
+  const isQa = args.includes('--qa');
+  return {
+    buildType: isQa ? 'qa' : 'release',
+    gradleTask: isQa ? 'assembleQa' : 'assembleRelease',
+    suffix: isQa ? '-QA' : '',
+    applicationId: `com.smallsteps.checkin${isQa ? '.qa' : ''}`,
+    label: isQa ? '小步日常测试' : '小步日常',
+    checkOnly: args.includes('--check'),
+  };
+}
+
 async function main() {
   if (Number(process.versions.node.split('.')[0]) !== 24) {
     throw new Error('打包要求 Node 24，请先切换 Node 版本');
   }
   const args = process.argv.slice(2);
-  if (args.some((arg) => !['--check', '--qa'].includes(arg))) {
-    throw new Error('仅支持 --check（只读预检）和 --qa（隔离测试包）');
-  }
-  const isQa = args.includes('--qa');
-  const buildType = isQa ? 'qa' : 'release';
-  const gradleTask = isQa ? 'assembleQa' : 'assembleRelease';
+  const options = resolveBuildOptions(args);
+  const { buildType, gradleTask } = options;
   console.log(
     '打包前必须审查项目技能和 CHANGELOG.md，需要时及时更新；预检不代替内容审查。',
   );
@@ -101,16 +201,22 @@ async function main() {
   );
   console.log(`技能：${release.skillPath}`);
   console.log(
-    isQa
-      ? '隔离测试包：com.smallsteps.checkin.qa，小步日常测试，独立存档；不替换用户应用。'
-      : '常规安装包：com.smallsteps.checkin。',
+    `安装包：${options.applicationId}，${options.label}${
+      buildType === 'peerProtection'
+        ? '，覆盖升级既有 fixtureqa，保留其存档；不卸载、不清数据。'
+        : buildType === 'isolatedUpgrade'
+          ? '，覆盖升级既有 isolatedqa，保留其存档；不卸载、不清数据。'
+          : buildType === 'release'
+            ? '。'
+            : '，独立存档；不替换用户应用。'
+    }`,
   );
   console.log(
     release.signingConfig === 'debug'
       ? '签名配置：debug 测试签名，仅适合内部安装测试，不是商店正式签名。'
       : `签名配置：${release.signingConfig}（证书性质须在产物验证阶段确认）`,
   );
-  if (args.includes('--check')) return;
+  if (options.checkOnly) return;
 
   await patchInstalledTcpSocket();
   await patchInstalledExpoActivityResult();
@@ -120,6 +226,8 @@ async function main() {
   await Promise.all([stat(gradlew), stat(initScript)]);
   const env = {
     ...process.env,
+    // 入口由各 variant 明确指定，避免宿主变量把验收入口带进普通包。
+    ENTRY_FILE: undefined,
     JAVA_HOME:
       process.env.JAVA_HOME ||
       '/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home',
@@ -154,7 +262,7 @@ async function main() {
   const destination = join(
     PROJECT_ROOT,
     'dist',
-    `小步日常${isQa ? '-QA' : ''}-${release.version}-${date}.apk`,
+    `小步日常${options.suffix}-${release.version}-${date}.apk`,
   );
   await mkdir(dirname(destination), { recursive: true });
   // 排他创建，不覆盖已交付的同名 APK，也不清理历史产物。

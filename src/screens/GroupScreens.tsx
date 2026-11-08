@@ -334,7 +334,7 @@ export function MemberScreen({
       <Panel>
         <View style={styles.row}>
           <ProfileAvatar avatar={peer.avatar} size={40} />
-          <Text style={styles.body}>
+          <Text style={[styles.body, styles.grow]}>
             {date} · 可用 {available} · 本周已兑 {redeemed} · 已使用 {used}
           </Text>
         </View>

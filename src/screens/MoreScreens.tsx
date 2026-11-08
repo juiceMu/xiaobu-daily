@@ -36,6 +36,7 @@ import { useKeyboardFocus } from '../ui/useKeyboardFocus';
 import { TimeField } from '../ui/TimeField';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { DemoHistoryPanel } from '../ui/DemoHistoryPanel';
+import { isAcceptanceDemoPreviewAllowed } from '../ui/demoPreviewAccess';
 import { useAndroidMountReady } from '../ui/useAndroidMountReady';
 import { Confirm, confirmDiscard, ErrorText, useScreenStyles } from './shared';
 
@@ -618,7 +619,9 @@ export function SettingsScreen() {
                 </ActionButton>
               </View>
             </Panel>
-            {__DEV__ && <DemoHistoryPanel />}
+            {(__DEV__ || isAcceptanceDemoPreviewAllowed()) && (
+              <DemoHistoryPanel />
+            )}
           </>
         )}
       </Page>

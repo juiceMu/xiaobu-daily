@@ -55,19 +55,12 @@ test('新主题的进度填充与实际轨道有足够区分', () => {
     new URL('../src/screens/TodayScreen.tsx', import.meta.url),
     'utf8',
   );
-  const paperProgress = readFileSync(
-    new URL(
-      '../node_modules/react-native-paper/src/components/ProgressBar.tsx',
-      import.meta.url,
-    ),
-    'utf8',
-  );
-  assert.match(today, /color=\{quiet \? signal : undefined\}/);
-  assert.match(themeText, /surfaceVariant: colors\.field/);
   assert.match(
-    paperProgress,
-    /trackTintColor = theme\.isV3\s*\? theme\.colors\.surfaceVariant/,
+    today,
+    /backgroundColor: quiet \? signal : theme\.colors\.primary/,
   );
+  assert.match(themeText, /surfaceVariant: colors\.field/);
+  assert.match(today, /backgroundColor: theme\.colors\.surfaceVariant/);
   for (const option of themeOptions.filter((item) => item.quiet)) {
     assert.ok(option.signal, `${option.id} 缺少进度颜色`);
     assert.ok(
@@ -124,7 +117,7 @@ test('五套主题的按钮悬停与按压实际混色后仍达正文对比度',
     }
   }
 });
-test('任务操作按压背景与默认底色不同，图标保持可辨', () => {
+test('共享主题填充色彼此区分，主题及禁用前景保持可辨', () => {
   for (const { id, colors } of themeOptions) {
     assert.notEqual(colors.brandFill, colors.primaryContainer, id);
     assert.ok(contrast(colors.primary, colors.brandFill) >= 3, id);

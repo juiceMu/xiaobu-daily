@@ -54,9 +54,18 @@ function parse(url: string) {
     : getStateFromPath(path, linking.config);
 }
 
-for (const prefix of ['sprout://', 'sprout-qa://', developmentPrefix]) {
-  test(`${prefix}解析账户/成长/赠券/小组并保留更多总览返回入口`, () => {
-    for (const page of ['account', 'growth', 'gifts', 'group']) {
+for (const prefix of [
+  'sprout://',
+  'sprout-qa://',
+  'sprout-acceptanceqa://',
+  'sprout-freshacceptanceqa://',
+  'sprout-fixtureqa://',
+  'sprout-isolatedqa://',
+  'sprout-peerprotectionqa://',
+  developmentPrefix,
+]) {
+  test(`${prefix}解析账户/成长/赠券/小组/设置并保留更多总览返回入口`, () => {
+    for (const page of ['account', 'growth', 'gifts', 'group', 'settings']) {
       const state = parse(`${prefix}more/${page}`);
       assert.ok(state, page);
       assert.equal(state.routes.at(-1)?.name, 'more');
@@ -81,7 +90,20 @@ for (const prefix of ['sprout://', 'sprout-qa://', developmentPrefix]) {
 test('拒绝未知协议、相似协议、非法页面与缺失成员参数', () => {
   for (const url of [
     'unknown://more/account',
+    'sprout-peerprotectionqa-other://more/settings',
+    'sprout-peerprotectionqa://more/member',
+    'sprout-peerprotectionqa://more/not-a-page',
+    'sprout-isolatedqa-other://more/settings',
+    'sprout-isolatedqa://more/member',
+    'sprout-isolatedqa://more/not-a-page',
     'sprout-qa-other://more/account',
+    'sprout-acceptanceqa-other://more/settings',
+    'sprout-freshacceptanceqa-other://more/settings',
+    'sprout-acceptance://more/settings',
+    'sprout-acceptanceqa://more/not-a-page',
+    'sprout-acceptanceqa://more/member',
+    'sprout-fixtureqa-other://more/settings',
+    'sprout-fixtureqa://more/member',
     'sprout://more/not-a-page',
     'sprout-qa://more/member',
   ]) {
@@ -89,7 +111,7 @@ test('拒绝未知协议、相似协议、非法页面与缺失成员参数', ()
   }
 });
 
-test('正式与QA原生协议各自注册，JS兼容前缀不扩大系统注册范围', () => {
+test('正式、QA与验收原生协议各自注册，JS兼容前缀不扩大系统注册范围', () => {
   const gradle = readFileSync(
     new URL('../android/app/build.gradle', import.meta.url),
     'utf8',
@@ -107,6 +129,33 @@ test('正式与QA原生协议各自注册，JS兼容前缀不扩大系统注册�
     gradle,
     /qa\s*\{[\s\S]*?applicationIdSuffix\s+"\.qa"[\s\S]*?manifestPlaceholders\s*=\s*\[appScheme:\s*"sprout-qa"\]/,
   );
+  assert.match(
+    gradle,
+    /acceptance\s*\{[\s\S]*?applicationIdSuffix\s+"\.acceptanceqa"[\s\S]*?manifestPlaceholders\s*=\s*\[appScheme:\s*"sprout-acceptanceqa"\]/,
+  );
   assert.match(manifest, /android:scheme="\$\{appScheme\}"/);
-  assert.doesNotMatch(manifest, /android:scheme="sprout(?:-qa)?"/);
+  assert.match(
+    gradle,
+    /freshAcceptance\s*\{[\s\S]*?initWith acceptance[\s\S]*?applicationIdSuffix\s+"\.freshacceptanceqa"[\s\S]*?manifestPlaceholders\s*=\s*\[appScheme:\s*"sprout-freshacceptanceqa"\]/,
+  );
+  const freshManifest = readFileSync(
+    new URL(
+      '../android/app/src/freshAcceptance/AndroidManifest.xml',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  assert.match(freshManifest, /android:allowBackup="false"/);
+  assert.match(
+    gradle,
+    /createBundleFreshAcceptanceJsAndAssets[\s\S]*?acceptance\/fresh\.tsx[\s\S]*?devEnabled\.set\(false\)/,
+  );
+  assert.match(
+    gradle,
+    /fixture\s*\{[\s\S]*?applicationIdSuffix\s+"\.fixtureqa"[\s\S]*?manifestPlaceholders\s*=\s*\[appScheme:\s*"sprout-fixtureqa"\]/,
+  );
+  assert.doesNotMatch(
+    manifest,
+    /android:scheme="sprout(?:-qa|-acceptanceqa|-fixtureqa)?"/,
+  );
 });

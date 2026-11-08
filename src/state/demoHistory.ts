@@ -2,8 +2,11 @@ import type { AppStore } from './store';
 import type { ActionResult } from '../domain/types';
 
 // 只由显式的开发预览操作调用，保存仍经过统一事务层。
-export async function loadDemoHistory(store: AppStore): Promise<ActionResult> {
-  return populateDemoHistory(store.run, () => store.getSnapshot().state);
+export async function loadDemoHistory(
+  store: AppStore,
+  now?: Date,
+): Promise<ActionResult> {
+  return populateDemoHistory(store.run, () => store.getSnapshot().state, now);
 }
 
 // 设置入口与开发URL共用流程；每一步单独保存，失败后再次添加可继续。

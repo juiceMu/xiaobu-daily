@@ -60,10 +60,12 @@ export function GroupActivityView({
             key={member.accountId}
             style={[styles.row, { minHeight: 54, gap: 10 }]}
           >
-            <Text style={[styles.body, { width: 28, color: colors.primary }]}>
-              {member.rank}
-            </Text>
-            <ProfileAvatar avatar={member.avatar} size={32} />
+            <View style={[styles.row, { gap: 12 }]}>
+              <Text style={[styles.body, { color: colors.primary }]}>
+                {member.rank}
+              </Text>
+              <ProfileAvatar avatar={member.avatar} size={32} />
+            </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.body}>
                 {member.name}
@@ -170,6 +172,19 @@ export function GroupActivityView({
                     importantForAccessibility="no-hide-descendants"
                     style={{ width: 24, alignItems: 'center' }}
                   >
+                    {!startsDay ? (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          height: 9,
+                          width: quiet ? 1 : 2,
+                          backgroundColor: quiet
+                            ? '#B7C0B8'
+                            : colors.primaryContainer,
+                        }}
+                      />
+                    ) : null}
                     {!quiet || continuesDay ? (
                       <View
                         style={{

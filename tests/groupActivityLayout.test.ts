@@ -73,11 +73,31 @@ test('小组动态说明同步、空态和打卡日期与操作时间', () => {
   assert.match(activity, /其他成员数据以最近同步结果为准/);
 });
 
+test('排行榜名次与头像间隔12dp且名次按内容伸展', () => {
+  assert.match(
+    activity,
+    /style=\{\[styles\.row, \{ gap: 12 \}\]\}[\s\S]*?\{member\.rank\}[\s\S]*?<ProfileAvatar avatar=\{member\.avatar\} size=\{32\} \/>/,
+  );
+  assert.doesNotMatch(
+    activity,
+    /(?:minWidth|width): (?:16|28), color: colors\.primary/,
+  );
+});
+
 test('时间轴按日分组用节点连线，标签下划线且成员卡不重复任务清单', () => {
   assert.match(activity, /testID="timeline-date-heading"/);
   assert.match(activity, /quiet\s*\? '#B7C0B8'\s*:\s*colors\.primaryContainer/);
   assert.match(activity, /testID="timeline-date-divider"/);
   assert.match(activity, /!quiet \|\| continuesDay/);
+  assert.match(
+    activity,
+    /\{!startsDay \? \([\s\S]*?top: 0,[\s\S]*?height: 9,[\s\S]*?width: quiet \? 1 : 2,[\s\S]*?backgroundColor: quiet\s*\? '#B7C0B8'\s*:\s*colors\.primaryContainer/,
+  );
+  assert.doesNotMatch(activity, /quiet && !startsDay/);
+  assert.match(
+    activity,
+    /index === 0 \|\| activity\.timeline\[index - 1\]\.date !== entry\.date/,
+  );
   assert.match(
     activity,
     /activity\.timeline\[index \+ 1\]\?\.date === entry\.date/,

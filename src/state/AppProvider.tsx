@@ -50,9 +50,13 @@ const defaultStore = createAppStore(nativeRepository, {
 export function AppProvider({
   children,
   store = defaultStore,
+  lanEnabled = true,
+  demoHistoryLoader = loadDemoHistory,
 }: {
   children: React.ReactNode;
   store?: AppStore;
+  lanEnabled?: boolean;
+  demoHistoryLoader?: typeof loadDemoHistory;
 }) {
   const snapshot = useSyncExternalStore(
     store.subscribe,
@@ -132,11 +136,11 @@ export function AppProvider({
   );
   const clearMessage = useCallback(() => setMessage(''), []);
   const previewDemoHistory = useCallback(async () => {
-    const result = await loadDemoHistory(store);
+    const result = await demoHistoryLoader(store);
     setMessage(result.message);
     setNow(new Date());
     return result;
-  }, [store]);
+  }, [store, demoHistoryLoader]);
   const receiveGroupJournals = useCallback(
     async (journals: import('../domain/syncModel').AccountJournal[]) => {
       const state = store.getSnapshot().state;
@@ -211,6 +215,7 @@ export function AppProvider({
   useEffect(() => {
     const state = store.getSnapshot().state;
     if (
+      !lanEnabled ||
       Platform.OS === 'web' ||
       !appActive ||
       (!state?.groupLink && !state?.pendingGroupDeparture)
@@ -236,9 +241,13 @@ export function AppProvider({
       },
     });
     return stop;
-  }, [appActive, listenerGroupId, sessionOptions, store]);
+  }, [appActive, listenerGroupId, sessionOptions, store, lanEnabled]);
 
   const syncGroup = useCallback(async () => {
+    if (!lanEnabled) {
+      setMessage('此独立夹具入口已禁用局域网，不会同步记录');
+      return;
+    }
     const current = store.getSnapshot();
     if (
       !current.state ||
@@ -295,7 +304,7 @@ export function AppProvider({
       manualSyncActive.current = false;
       setSyncing(false);
     }
-  }, [sessionOptions, store]);
+  }, [sessionOptions, store, lanEnabled]);
 
   if (!snapshot.state) {
     return (

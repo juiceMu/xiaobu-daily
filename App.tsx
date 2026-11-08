@@ -77,7 +77,17 @@ const tabLabels: Record<string, string> = {
   more: '更多',
 };
 const linking: LinkingOptions<TabsParams> = {
-  prefixes: [Linking.createURL('/'), 'sprout://', 'sprout-qa://'],
+  prefixes: [
+    Linking.createURL('/'),
+    'sprout://',
+    'sprout-qa://',
+    'sprout-acceptanceqa://',
+    'sprout-freshacceptanceqa://',
+    'sprout-scenarioacceptanceqa://',
+    'sprout-fixtureqa://',
+    'sprout-isolatedqa://',
+    'sprout-peerprotectionqa://',
+  ],
   config: {
     screens: {
       today: 'today',
@@ -317,7 +327,12 @@ function Navigation() {
     </View>
   );
 }
-function ThemedApp() {
+type AppProps = {
+  lanEnabled?: boolean;
+  demoHistoryLoader?: typeof import('./src/state/demoHistory').loadDemoHistory;
+  children?: React.ReactNode;
+};
+function ThemedApp({ lanEnabled, demoHistoryLoader, children }: AppProps) {
   const { theme } = useAppTheme();
   const [reducedMotion, setReducedMotion] = useState(true);
   useEffect(() => {
@@ -351,9 +366,13 @@ function ThemedApp() {
         }}
       >
         <StatusBar style="dark" />
-        <AppProvider>
+        <AppProvider
+          lanEnabled={lanEnabled}
+          demoHistoryLoader={demoHistoryLoader}
+        >
           <GroupViewProvider>
             <Navigation />
+            {children}
           </GroupViewProvider>
         </AppProvider>
       </PaperProvider>
@@ -361,10 +380,10 @@ function ThemedApp() {
   );
 }
 
-export default function App() {
+export default function App(props: AppProps) {
   return (
     <ThemeProvider>
-      <ThemedApp />
+      <ThemedApp {...props} />
     </ThemeProvider>
   );
 }

@@ -4,7 +4,119 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 // 脚本保留为 Node 可直接执行的模块；此处测试公开预检行为。
-import { checkReleasePrerequisites } from '../scripts/build-apk.mjs';
+import {
+  checkReleasePrerequisites,
+  resolveBuildOptions,
+} from '../scripts/build-apk.mjs';
+
+test('旧存档升级路由固定同包名且所有隔离构建选项两两互斥', () => {
+  assert.deepEqual(resolveBuildOptions(['--isolated-upgrade', '--check']), {
+    buildType: 'isolatedUpgrade',
+    gradleTask: 'assembleIsolatedUpgrade',
+    suffix: '-ISOLATED-UPGRADE',
+    applicationId: 'com.smallsteps.checkin.isolatedqa',
+    label: '小步升级验收',
+    checkOnly: true,
+  });
+  assert.equal(resolveBuildOptions(['--isolated-upgrade']).checkOnly, false);
+  const flags = [
+    '--qa',
+    '--acceptance',
+    '--fresh-acceptance',
+    '--scenario-acceptance',
+    '--fixture',
+    '--isolated-upgrade',
+    '--peer-protection',
+  ];
+  for (const first of flags)
+    for (const second of flags)
+      if (first !== second)
+        assert.throws(
+          () => resolveBuildOptions([first, second]),
+          /隔离构建选项不能同时使用/,
+        );
+});
+
+test('副本保护专用入口沿用夹具ID但产物标签与文件后缀独立', () => {
+  assert.deepEqual(resolveBuildOptions(['--peer-protection', '--check']), {
+    buildType: 'peerProtection',
+    gradleTask: 'assemblePeerProtection',
+    suffix: '-PEER-PROTECTION',
+    applicationId: 'com.smallsteps.checkin.fixtureqa',
+    label: '小步副本验收',
+    checkOnly: true,
+  });
+  assert.equal(resolveBuildOptions(['--peer-protection']).checkOnly, false);
+});
+
+test('场景验收产物包名及文件后缀隔离且与其他入口互斥', () => {
+  const scenario = resolveBuildOptions(['--scenario-acceptance', '--check']);
+  assert.equal(
+    scenario.applicationId,
+    'com.smallsteps.checkin.scenarioacceptanceqa',
+  );
+  assert.equal(scenario.gradleTask, 'assembleScenarioAcceptance');
+  assert.equal(scenario.suffix, '-SCENARIO-ACCEPTANCE');
+  assert.equal(scenario.checkOnly, true);
+  for (const other of [
+    '--qa',
+    '--acceptance',
+    '--fresh-acceptance',
+    '--fixture',
+  ]) {
+    assert.throws(() => resolveBuildOptions(['--scenario-acceptance', other]));
+  }
+});
+
+test('APK 构建选项隔离常规、QA 和验收产物，验收不能与QA混用', () => {
+  const regular = resolveBuildOptions([]);
+  const qa = resolveBuildOptions(['--qa']);
+  const acceptance = resolveBuildOptions(['--acceptance', '--check']);
+  const fresh = resolveBuildOptions(['--fresh-acceptance', '--check']);
+  const fixture = resolveBuildOptions(['--fixture', '--check']);
+  assert.deepEqual(
+    [regular, qa, acceptance, fresh, fixture].map(
+      ({ applicationId }) => applicationId,
+    ),
+    [
+      'com.smallsteps.checkin',
+      'com.smallsteps.checkin.qa',
+      'com.smallsteps.checkin.acceptanceqa',
+      'com.smallsteps.checkin.freshacceptanceqa',
+      'com.smallsteps.checkin.fixtureqa',
+    ],
+  );
+  assert.deepEqual(
+    [regular, qa, acceptance, fresh, fixture].map(
+      ({ gradleTask }) => gradleTask,
+    ),
+    [
+      'assembleRelease',
+      'assembleQa',
+      'assembleAcceptance',
+      'assembleFreshAcceptance',
+      'assembleFixture',
+    ],
+  );
+  assert.deepEqual(
+    [regular, qa, acceptance, fresh, fixture].map(({ suffix }) => suffix),
+    ['', '-QA', '-ACCEPTANCE', '-FRESH-ACCEPTANCE', '-FIXTURE'],
+  );
+  assert.equal(acceptance.checkOnly, true);
+  assert.equal(regular.checkOnly, false);
+  assert.throws(() => resolveBuildOptions(['--qa', '--acceptance']));
+  assert.throws(() => resolveBuildOptions(['--qa', '--fixture']));
+  assert.throws(() => resolveBuildOptions(['--acceptance', '--fixture']));
+  assert.throws(() =>
+    resolveBuildOptions(['--qa', '--acceptance', '--fixture']),
+  );
+  assert.equal(fixture.label, '小步夹具');
+  assert.equal(fresh.label, '小步新验收');
+  for (const other of ['--qa', '--acceptance', '--fixture']) {
+    assert.throws(() => resolveBuildOptions(['--fresh-acceptance', other]));
+  }
+  assert.throws(() => resolveBuildOptions(['--unknown']));
+});
 
 type FixtureOptions = {
   packageVersion?: string;
