@@ -139,7 +139,9 @@ PROFILE-008 的 `tests/accountProfile.test.ts` 检查账户页及“更多”入
 
 2026-11-01补充原生预览暂停指令替身：background事件无需等待下一次渲染即发送pausePreview，未挂镜头不发送，显式关闭/卸载时暂停成功、拒绝或同步抛错均继续清理。此层不能证明Activity恢复时没有短暂重连；真机须同时核对事件日志，基线见[三星QA24生命周期](./runs/2026-11-01-samsung-camera-qa24.md)，新包双机有限参数见[QA25主动暂停验收](./runs/2026-11-01-camera-pause-1.0.25.md)，不升级为全例通过。
 
-COPY-001/002由 `tests/copyCode.test.ts` 的纯helper/writer替身、真实回调/effect抽取与源码约束覆盖完整输入与等待、空值不写、false/异常、忙碌防重复和重试、卸载清理、码变化隔离旧结果及三入口/Android不可选约束。API使用SDK57兼容 `expo-clipboard ~57.0.2`。该执行不挂载React，入口声明检查不代表按钮实际可点；系统剪贴板和真实粘贴完整码、Android不再依赖长按、iOS/Web权限与交互仍需平台证据，结果见[复制验收](./runs/2026-10-29-copy-code.md)。
+COPY-001/002由 `tests/copyCode.test.ts` 的纯helper/writer替身、真实回调/effect抽取与源码约束覆盖完整输入与等待、空值不写、false/异常、忙碌防重复和重试、卸载清理、码变化隔离旧结果及三个复制入口。Android 不可选文本约束适用于仍展示原文的赠券及回执。API使用SDK57兼容 `expo-clipboard ~57.0.2`。该执行不挂载React，入口声明检查不代表按钮实际可点；系统剪贴板和真实粘贴完整码、Android不再依赖长按、iOS/Web权限与交互仍需平台证据，结果见[复制验收](./runs/2026-10-29-copy-code.md)。
+
+COPY-003 / GROUP-003 由 `tests/copyCode.test.ts` 检查小组页的复制和二维码仍接收完整邀请、页面不直接渲染凭证，以及二维码失败文案和读屏名称的传递。剪贴板替身覆盖成功、失败和重试，`tests/groupSync.test.ts` 覆盖合成凭证解析及加入路径。按钮实际高度、系统剪贴板、扫码和粘贴加入需独立设备或项目 UI runtime 验证。
 
 CHECK-009 的 `tests/dateScroll.test.ts` 抽取执行真实changePickedDate、恢复effect及onScroll，以状态与timer替身覆盖同日、null/today、正常480ms恢复、快切取消旧timer、同批A→B→A及恢复窗口内重选后不再回拉。它不是React挂载或原生UI测试；同日重选、重复回今天、快切日期及正常换日保位置仍须真实可滚动页面验证，结果见[日期滚动验收](./runs/2026-10-29-date-scroll.md)。
 
@@ -175,7 +177,8 @@ LAN-014 由 `tests/lanListener.test.ts` 抽取执行真实 `startLanListener`，
 - THEME-010：`tests/groupActivityLayout.test.ts` 检查新主题日期分隔线、时间轴线色、节点、同日后续节点顶部连接段及分页连接声明；属于源码结构断言，不能证明像素连续或实际渲染，真实界面和设备视觉需另行验证。
 
 - A11Y-004：`tests/uiTheme.test.ts` 检查禁用配色及共享按钮背景源码，实际五主题、按钮模式、图标和禁用交互仍需 UI 或设备验证。
-- A11Y-005：`tests/compactCalendar.test.ts` 检查今日页禁用样式及状态的源码结构，实际交互和视觉效果仍需 UI 或设备验证。
+- A11Y-005：`tests/compactCalendar.test.ts` 检查边界日期导航的隐藏条件、读屏属性及周日期条的未来日期字重和禁用条件。`tests/weekStrip.test.ts` 覆盖日号、本地今天标记及周日期条源码约束。实际对比度、触控、视觉和读屏按平台分开验收。Android 模拟器的有限参数结果另记。
+- A11Y-006：`tests/uiTheme.test.ts`、`tests/keyboardFocus.test.ts`、`tests/compactInputs.test.ts`、`tests/compactCalendar.test.ts` 和 `tests/ticketLayout.test.ts` 覆盖共享按钮、图标选择、日期及奖券筛选的样式与键盘契约。Android 资源编译及按住期间的模拟器截图按实际平台和样本记录。
 
 - VIEW-002：`tests/groupActivityLayout.test.ts` 检查成员卡当前周与历史周兑换标签的源码分支，不代替页面切周交互验收。
 
@@ -186,7 +189,7 @@ LAN-014 由 `tests/lanListener.test.ts` 抽取执行真实 `startLanListener`，
 - BUILD-006：`tests/buildApk.test.ts` 检查新验收构建选项及互斥，`tests/deepLink.test.ts` 检查独立协议及禁备份，`tests/fixtureLan.test.ts` 检查独立入口参数与禁用监听、手动同步的替身行为；不证明实际 APK、存档隔离、首次启动、真实网络状态或真机功能。
 - `tests/acceptancePreviewAccess.test.ts` 执行普通/验收入口的真实模块初始化（React及原生边界替身），验证普通默认许可关闭、验收在根组件注册前开启、独立模块环境不泄露许可；另执行设置页实际门控表达式，确认 production 模式按渲染时许可显示。它不证明完整 React 页面、Expo 启动或打包产物；开发 bundle 启动失败必须以新 production bundle APK 真机复验。
 
-- VIEW-013：`tests/groupActivity.test.ts` 覆盖日期分组及有效打卡序号，`tests/groupActivityLayout.test.ts` 覆盖打卡足迹标题、时间轴、标签及成员卡结构；这些不等同实际视觉、触控或读屏验收。
+- VIEW-013：`tests/groupActivity.test.ts` 覆盖日期分组、按成员与任务区分的有效打卡序号和单次与多次的边界，`tests/groupActivityLayout.test.ts` 覆盖打卡足迹标题、时间轴、标签及成员卡结构。这些不等同实际视觉、触控或读屏验收。
 
 - BUILD-004 / NAV-003 深链：`tests/deepLink.test.ts` 扩展正式、QA、验收、开发四类前缀，执行官方导航库解析设置等目标页及更多总览返回入口；检查验收原生占位符隔离，拒绝相似验收协议、非法路径和缺失成员参数。该解析回归不代表 APK 系统分发、冷热启动或实际返回键已验收。
 - DEMO-005：演示数据模型及事务幂等、失败恢复由演示相关测试覆盖；开发 URL 导入后的真实显示仍需项目 UI runtime 或人工确认。

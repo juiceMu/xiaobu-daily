@@ -109,7 +109,10 @@ test('时间轴按日分组用节点连线，标签下划线且成员卡不重�
     activity,
     /backgroundColor:\s*quiet\s*\? colors\.background\s*:\s*colors\.primary/,
   );
-  assert.match(activity, /第 \{entry.sequence\} 次/);
+  assert.match(
+    activity,
+    /entry\.dailyTaskCount > 1\s*\? ` · 当天第 \$\{entry\.sequence\} 次`\s*: ''/,
+  );
   assert.match(activity, /打卡了「/);
   assert.match(today, /borderBottomColor:/);
   assert.match(today, /minHeight: 48/);

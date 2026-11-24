@@ -147,21 +147,15 @@ export const ActionButton = forwardRef<
     disabled,
     compact = true,
     theme: themeOverrides,
-    onPointerEnter,
-    onPointerLeave,
     onFocus,
     onBlur,
-    onPressIn,
-    onPressOut,
     ...props
   },
   ref,
 ) {
   const { colors, quiet } = useAppTheme();
   const styles = useStyles();
-  const [hovered, setHovered] = useState(false);
   const keyboardFocus = useKeyboardFocus();
-  const [pressed, setPressed] = useState(false);
   const isWeb = Platform.OS === 'web';
   const buttonTheme = useTheme<MD3Theme>(
     themeOverrides as Parameters<typeof useTheme<MD3Theme>>[0],
@@ -194,26 +188,6 @@ export const ActionButton = forwardRef<
     (buttonColor === colors.danger
       ? buttonTheme.colors.onError
       : tones[actionTone].text);
-  // 已选中只保留选中底色；悬停只在网页，避免触摸 pointer 残留导致筛选切换闪烁。
-  const selected = accessibilityState?.selected === true;
-  const active = !disabled && !selected && ((isWeb && hovered) || pressed);
-  const base = fill === 'transparent' ? colors.surface : fill;
-  const strength = pressed ? 0.12 : 0.07;
-  // 按压和悬停仅叠加底色，轮廓只用于键盘焦点。
-  const feedbackFill =
-    /^#[0-9a-f]{6}$/i.test(base) && /^#[0-9a-f]{6}$/i.test(foreground)
-      ? '#' +
-        [1, 3, 5]
-          .map((offset) =>
-            Math.round(
-              parseInt(base.slice(offset, offset + 2), 16) * (1 - strength) +
-                parseInt(foreground.slice(offset, offset + 2), 16) * strength,
-            )
-              .toString(16)
-              .padStart(2, '0'),
-          )
-          .join('')
-      : fill;
   // 外层保留原生48dp/web40dp触控，内层只绘制30dp视觉。
   return (
     <Button
@@ -226,31 +200,13 @@ export const ActionButton = forwardRef<
       buttonColor="transparent"
       textColor={foreground}
       rippleColor={'transparent'}
-      onPointerEnter={(event) => {
-        if (isWeb && !disabled) setHovered(true);
-        onPointerEnter?.(event);
-      }}
-      onPointerLeave={(event) => {
-        setHovered(false);
-        setPressed(false);
-        onPointerLeave?.(event);
-      }}
       onFocus={(event) => {
         keyboardFocus.onFocus();
         onFocus?.(event);
       }}
       onBlur={(event) => {
         keyboardFocus.onBlur();
-        setPressed(false);
         onBlur?.(event);
-      }}
-      onPressIn={(event) => {
-        if (!disabled) setPressed(true);
-        onPressIn?.(event);
-      }}
-      onPressOut={(event) => {
-        setPressed(false);
-        onPressOut?.(event);
       }}
       accessibilityState={accessibilityState}
       accessibilityLabel={
@@ -286,12 +242,11 @@ export const ActionButton = forwardRef<
           marginVertical: isWeb ? 5 : 9,
           flexShrink: 0,
           borderRadius: 10,
-          backgroundColor: fill,
           borderWidth: 0,
         },
         contentStyle,
         {
-          backgroundColor: active ? feedbackFill : fill,
+          backgroundColor: fill,
           ...(isWeb ? ({ transitionDuration: '0ms' } as ViewStyle) : null),
         },
         isWeb && {
@@ -393,20 +348,10 @@ function IconChoice({
   const { colors } = useAppTheme();
   const styles = useStyles();
   const keyboardFocus = useKeyboardFocus();
-  const [hovered, setHovered] = useState(false);
-  const [pressed, setPressed] = useState(false);
-  const hot = hovered || pressed;
   return (
     <TouchableRipple
       onPress={onPress}
       rippleColor={'transparent'}
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => {
-        setHovered(false);
-        setPressed(false);
-      }}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
       onFocus={keyboardFocus.onFocus}
       onBlur={keyboardFocus.onBlur}
       accessibilityRole="radio"
@@ -429,12 +374,7 @@ function IconChoice({
         style={[
           styles.iconContent,
           {
-            backgroundColor: selected
-              ? colors.selectedIcon
-              : hot
-                ? colors.brandFill
-                : colors.field,
-            transform: [{ scale: selected && hot ? 0.88 : 1 }],
+            backgroundColor: selected ? colors.selectedIcon : colors.field,
           },
         ]}
       >
@@ -459,8 +399,6 @@ export function FormModal({
   children: ReactNode;
 }) {
   const styles = useStyles();
-  const { colors } = useAppTheme();
-  const [closePressed, setClosePressed] = useState(false);
   // 不可见时不挂 Modal，避免进页一次挂多个原生窗口。
   if (!visible) return null;
   return (
@@ -485,14 +423,12 @@ export function FormModal({
             size={16}
             hitSlop={0}
             rippleColor={'transparent'}
-            onPressIn={() => setClosePressed(true)}
-            onPressOut={() => setClosePressed(false)}
             style={{
               margin: 0,
               width: Platform.OS === 'web' ? 32 : 48,
               height: Platform.OS === 'web' ? 32 : 48,
               borderRadius: Platform.OS === 'web' ? 16 : 24,
-              backgroundColor: closePressed ? colors.brandFill : 'transparent',
+              backgroundColor: 'transparent',
             }}
             onPress={onDismiss}
           />

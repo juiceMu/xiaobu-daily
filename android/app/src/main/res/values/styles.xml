@@ -2,8 +2,16 @@
   <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
     <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
     <item name="colorPrimary">@color/colorPrimary</item>
+    <item name="toolbarNavigationButtonStyle">@style/SproutToolbarNavigationButton</item>
+    <item name="switchStyle">@style/SproutSwitch</item>
     <item name="android:statusBarColor">@android:color/transparent</item>
     <item name="android:navigationBarColor">@android:color/transparent</item>
+  </style>
+  <style name="SproutToolbarNavigationButton" parent="Widget.AppCompat.Toolbar.Button.Navigation">
+    <item name="android:background">@drawable/control_focus_background</item>
+  </style>
+  <style name="SproutSwitch" parent="Widget.AppCompat.CompoundButton.Switch">
+    <item name="android:background">@drawable/control_focus_background</item>
   </style>
   <style name="Theme.App.SplashScreen" parent="AppTheme">
     <item name="android:windowBackground">@drawable/splashscreen_logo</item>

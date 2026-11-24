@@ -3,14 +3,26 @@ import { View, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import QRCode from 'react-native-qrcode-svg';
 
+export type GiftQrCodeProps = {
+  value: string;
+  accessibilityLabel?: string;
+  errorMessage?: string;
+};
+
 // 扫码区固定黑白与留白，不使用浅色主题降低二维码辨识度。
-export function GiftQrCode({ value }: { value: string }) {
+export function GiftQrCode({
+  value,
+  accessibilityLabel = '赠券二维码，请让对方扫码',
+  errorMessage = '二维码暂时无法显示，请使用下方完整券码。',
+}: GiftQrCodeProps) {
   const [error, setError] = useState(false);
   const { width } = useWindowDimensions();
   const [availableWidth, setAvailableWidth] = useState(width - 64);
   return (
     <View
-      accessibilityLabel="赠券二维码，请让对方扫码"
+      accessible={!error}
+      accessibilityRole={error ? undefined : 'image'}
+      accessibilityLabel={error ? undefined : accessibilityLabel}
       onLayout={(event) => setAvailableWidth(event.nativeEvent.layout.width)}
       style={{
         alignSelf: 'center',
@@ -23,8 +35,11 @@ export function GiftQrCode({ value }: { value: string }) {
       }}
     >
       {error ? (
-        <Text style={{ color: '#A3373C', fontSize: 12, lineHeight: 18 }}>
-          二维码暂时无法显示，请使用下方完整券码。
+        <Text
+          accessibilityLiveRegion="polite"
+          style={{ color: '#A3373C', fontSize: 12, lineHeight: 18 }}
+        >
+          {errorMessage}
         </Text>
       ) : (
         <QRCode

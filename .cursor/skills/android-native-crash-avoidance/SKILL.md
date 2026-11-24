@@ -67,12 +67,12 @@ description: >-
 
 2026-11-06 OPPO 夹具1.0.41暖灰米实测打卡足迹同日圆点之间有空隙：圆点marginTop=4，而上段连接仅quiet新主题绘制，旧主题前条下段到行底后断在后条圆点前。非日期首的上段必须覆盖所有主题，并沿用各主题线宽/颜色；日期首不向上串组。源码结构通过不等于像素连续，修复新包须分别查旧/新主题、单条日期、分页和大字号原始截图。
 
-| 问题                                                  | 规则                                                                                               |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| hover/按压面积大于胶囊                                | 反馈底色画在内层 `contentStyle`；外层触控区透明；`rippleColor="transparent"`（Web 与需对齐的原生） |
-| 筛选来回点闪烁                                        | 已选中不再叠悬停底色；悬停仅 Web；`transitionDuration: '0ms'`                                      |
-| Paper `Button` 或进页一排 `TouchableRipple` + `radio` | 账户头像用 RN `Pressable`；主题选择可用 `TouchableRipple`                                          |
-| 列表滚动条                                            | `showsVerticalScrollIndicator={false}` 且 `showsHorizontalScrollIndicator={false}`                 |
+| 问题                                                  | 规则                                                                                       |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 按钮和筛选项按下闪现背景                              | 保留静态选中和禁用样式。Paper 全局关闭 ripple，应用组件不按 pressed 或 hover 切换底色。    |
+| 原生页头返回与设置开关                                | AppCompat 控件用独立样式，仅绘制键盘焦点轮廓。改动后分别核对按住时的画面、触控和返回行为。 |
+| Paper `Button` 或进页一排 `TouchableRipple` + `radio` | 账户头像用 RN `Pressable`；主题选择可用 `TouchableRipple`                                  |
+| 列表滚动条                                            | `showsVerticalScrollIndicator={false}` 且 `showsHorizontalScrollIndicator={false}`         |
 
 重型原生能力（相机 `GiftScanner`、二维码 `GiftQrCode`）**用到时再 `import()`**。
 `AccountScreen` 的 `expo-image-picker` / `expo-image-manipulator` 保持静态 import：`pickAvatar` 的源码测试依赖这些绑定，且 1.0.7 未改 import 即已止住进页闪退。不要为“延后加载”改成动态 import。

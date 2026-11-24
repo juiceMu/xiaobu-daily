@@ -643,14 +643,11 @@ function ThemeChoice({
   const { colors } = useAppTheme();
   const styles = useScreenStyles();
   const focus = useKeyboardFocus();
-  const [hovered, setHovered] = useState(false);
   return (
     <TouchableRipple
       onPress={onPress}
       disabled={disabled}
       rippleColor="transparent"
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
       onFocus={focus.onFocus}
       onBlur={focus.onBlur}
       accessibilityRole="radio"
@@ -661,8 +658,7 @@ function ThemeChoice({
         overflow: 'hidden',
         minHeight: 48,
         borderWidth: 0,
-        backgroundColor:
-          selected || hovered ? colors.primaryContainer : colors.field,
+        backgroundColor: selected ? colors.primaryContainer : colors.field,
         opacity: disabled ? 0.6 : 1,
         outlineWidth: focus.focusVisible ? 2 : 0,
         outlineStyle: 'solid',

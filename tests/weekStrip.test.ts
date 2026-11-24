@@ -57,8 +57,11 @@ test('日期条展示日号和今天而非每日次数，原进度条6dp约束�
   );
   assert.ok(
     normalized.includes(
-      "calendar.isSelected?colors.primaryContainer:'transparent'",
+      'showSelection=calendar.isSelected&&!calendar.isFuture',
     ),
+  );
+  assert.ok(
+    normalized.includes("showSelection?colors.primaryContainer:'transparent'"),
   );
   assert.ok(strip.includes('week-date-circle'));
   assert.ok(strip.includes('minWidth: 32'));

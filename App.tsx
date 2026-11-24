@@ -348,6 +348,7 @@ function ThemedApp({ lanEnabled, demoHistoryLoader, children }: AppProps) {
       <PaperProvider
         theme={{ ...theme, animation: { scale: reducedMotion ? 0 : 1 } }}
         settings={{
+          rippleEffectEnabled: false,
           icon: ({ name, color, size, testID }) => (
             <MaterialCommunityIcons
               name={

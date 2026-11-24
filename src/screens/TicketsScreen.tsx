@@ -65,45 +65,39 @@ function MemberFilter({
         justifyContent: 'center',
       }}
     >
-      {({ pressed }) => (
-        <View
+      <View
+        style={{
+          minHeight: 30,
+          paddingHorizontal: 8,
+          borderRadius: 18,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          borderWidth: quiet ? 1 : 0,
+          borderColor: selected && quiet ? colors.primary : 'transparent',
+          backgroundColor: selected ? colors.primaryContainer : 'transparent',
+          ...(Platform.OS === 'web'
+            ? {
+                outlineWidth: focus.focusVisible ? 2 : 0,
+                outlineStyle: 'solid' as const,
+                outlineColor: colors.primary,
+                outlineOffset: -2,
+              }
+            : null),
+        }}
+      >
+        {showAvatar ? <ProfileAvatar avatar={avatar} size={20} /> : null}
+        <Text
           style={{
-            minHeight: 30,
-            paddingHorizontal: 8,
-            borderRadius: 18,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            borderWidth: quiet ? 1 : 0,
-            borderColor: selected && quiet ? colors.primary : 'transparent',
-            backgroundColor: pressed
-              ? colors.brandFill
-              : selected
-                ? colors.primaryContainer
-                : 'transparent',
-            ...(Platform.OS === 'web'
-              ? {
-                  outlineWidth: focus.focusVisible ? 2 : 0,
-                  outlineStyle: 'solid' as const,
-                  outlineColor: colors.primary,
-                  outlineOffset: -2,
-                }
-              : null),
+            fontSize: 12,
+            lineHeight: 18,
+            fontWeight: selected ? '600' : '400',
+            color: colors.ink,
           }}
         >
-          {showAvatar ? <ProfileAvatar avatar={avatar} size={20} /> : null}
-          <Text
-            style={{
-              fontSize: 12,
-              lineHeight: 18,
-              fontWeight: selected ? '600' : '400',
-              color: colors.ink,
-            }}
-          >
-            {name}
-          </Text>
-        </View>
-      )}
+          {name}
+        </Text>
+      </View>
     </Pressable>
   );
 }

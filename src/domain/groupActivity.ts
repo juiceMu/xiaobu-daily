@@ -68,8 +68,8 @@ export function getGroupActivity(
   });
   const timeline = members
     .flatMap(({ app, syncedAt: _syncedAt, ...member }) => {
-      const sequences = new Map<string, number>();
-      return app.checkins
+      const dailyTasks = new Map<string, { count: number }>();
+      const entries = app.checkins
         .filter((entry) => entry.week === week)
         .sort(
           (a, b) =>
@@ -77,19 +77,24 @@ export function getGroupActivity(
         )
         .map((entry) => {
           const key = JSON.stringify([entry.date, entry.taskId]);
-          const sequence = (sequences.get(key) ?? 0) + 1;
-          sequences.set(key, sequence);
-          return {
-            ...member,
-            id: entry.id,
-            date: entry.date,
-            createdAt: entry.createdAt,
-            sequence,
-            taskName:
-              app.tasks.find((task) => task.id === entry.taskId)?.name ??
-              '已删除任务',
-          };
+          let dailyTask = dailyTasks.get(key);
+          if (!dailyTask) {
+            dailyTask = { count: 0 };
+            dailyTasks.set(key, dailyTask);
+          }
+          return { entry, dailyTask, sequence: ++dailyTask.count };
         });
+      return entries.map(({ entry, dailyTask, sequence }) => ({
+        ...member,
+        id: entry.id,
+        date: entry.date,
+        createdAt: entry.createdAt,
+        sequence,
+        dailyTaskCount: dailyTask.count,
+        taskName:
+          app.tasks.find((task) => task.id === entry.taskId)?.name ??
+          '已删除任务',
+      }));
     })
     .sort(
       (a, b) =>

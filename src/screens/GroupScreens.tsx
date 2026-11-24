@@ -1,5 +1,5 @@
 import React, { useState, type ComponentType } from 'react';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { Text } from 'react-native-paper';
 import * as Crypto from 'expo-crypto';
 import {
@@ -30,12 +30,15 @@ import { AppTextInput } from '../ui/AppTextInput';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { GroupViewSwitch } from '../ui/GroupViewSwitch';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
+import type { GiftQrCodeProps } from '../ui/GiftQrCode';
 import type { GiftScannerProps } from '../ui/GiftScanner';
 import { useAndroidMountReady } from '../ui/useAndroidMountReady';
 import { CopyCodeButton } from '../ui/CopyCodeButton';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { useGroupView } from '../ui/GroupViewProvider';
 import { formatDate, useScreenStyles } from './shared';
+
+const INVITE_QR_ERROR = '二维码暂时无法显示，请点击「复制邀请码」。';
 
 function memberTasks(app: AppState, date: string, today: string) {
   const isToday = date === today;
@@ -55,10 +58,11 @@ export function GroupScreen() {
   const [leaving, setLeaving] = useState(false);
   const [ScannerView, setScannerView] =
     useState<ComponentType<GiftScannerProps> | null>(null);
-  const [QrView, setQrView] = useState<ComponentType<{ value: string }> | null>(
+  const [QrView, setQrView] = useState<ComponentType<GiftQrCodeProps> | null>(
     null,
   );
   const peers = state.groupLink ? peerBoards(state) : [];
+  const inviteCode = state.groupLink ? exportInvite(state) : '';
   async function create() {
     if (busy) return;
     const result = await run((draft) =>
@@ -81,7 +85,7 @@ export function GroupScreen() {
   function showInvite() {
     void import('../ui/GiftQrCode')
       .then((module) => setQrView(() => module.GiftQrCode))
-      .catch(() => setError('二维码暂时无法显示，请使用下方邀请码。'));
+      .catch(() => setError(INVITE_QR_ERROR));
   }
   return (
     <Page title="小组" subtitle="每个人记自己的账，点同步才交换。">
@@ -155,13 +159,14 @@ export function GroupScreen() {
               <ActionButton mode="contained-tonal" onPress={showInvite}>
                 显示邀请二维码
               </ActionButton>
-              {QrView && state.groupLink ? (
-                <QrView value={exportInvite(state)} />
+              {QrView ? (
+                <QrView
+                  value={inviteCode}
+                  accessibilityLabel="小组邀请二维码，请让对方扫码"
+                  errorMessage={INVITE_QR_ERROR}
+                />
               ) : null}
-              <CopyCodeButton value={exportInvite(state)} label="邀请码" />
-              <Text selectable={Platform.OS !== 'android'} style={styles.muted}>
-                {exportInvite(state)}
-              </Text>
+              <CopyCodeButton value={inviteCode} label="邀请码" compactHeight />
               <ActionButton
                 mode="text"
                 tone="danger"

@@ -222,7 +222,10 @@ export function GroupActivityView({
                       {entry.isSelf ? '（我）' : ''} 打卡了「{entry.taskName}」
                     </Text>
                     <Text style={[styles.muted, { marginTop: 6 }]}>
-                      {recordedLabel} · 第 {entry.sequence} 次
+                      {recordedLabel}
+                      {entry.dailyTaskCount > 1
+                        ? ` · 当天第 ${entry.sequence} 次`
+                        : ''}
                     </Text>
                     {isBackfill ? (
                       <Text style={styles.muted}>

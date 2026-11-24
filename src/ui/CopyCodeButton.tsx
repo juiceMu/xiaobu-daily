@@ -6,18 +6,18 @@ import { ActionButton } from './components';
 import { copyCode } from './copyCode';
 import { useAppTheme } from './ThemeProvider';
 
-export function CopyCodeButton({
-  value,
-  label,
-}: {
+type CopyCodeButtonProps = {
   value: string;
   label: string;
-}) {
+  compactHeight?: boolean;
+};
+
+export function CopyCodeButton(props: CopyCodeButtonProps) {
   // 凭证变更时重建局部状态，避免用effect同步更新状态。
-  return <CopyCodeAction key={value} value={value} label={label} />;
+  return <CopyCodeAction key={props.value} {...props} />;
 }
 
-function CopyCodeAction({ value, label }: { value: string; label: string }) {
+function CopyCodeAction({ value, label, compactHeight }: CopyCodeButtonProps) {
   const { colors } = useAppTheme();
   const [copying, setCopying] = useState(false);
   const [message, setMessage] = useState('');
@@ -57,7 +57,7 @@ function CopyCodeAction({ value, label }: { value: string; label: string }) {
         accessibilityLabel={`复制${label}`}
         disabled={copying || !value.trim()}
         loading={copying}
-        contentStyle={{ minHeight: 48 }}
+        contentStyle={compactHeight ? undefined : { minHeight: 48 }}
         onPress={() => {
           void handleCopy();
         }}

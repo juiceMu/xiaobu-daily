@@ -88,10 +88,12 @@ test('日期前后按钮图标22、触控28并与选日期同行，保留键盘�
   assert.ok(text.includes('accessibilityLabel="查看上一周"'));
   assert.ok(text.includes('event.preventDefault()'));
   assert.ok(text.includes('changePickedDate'));
-  assert.match(
-    text,
-    /pressedAction === id\s*\? colors\.primaryContainer\s*: 'transparent'/,
+  const controls = text.slice(
+    text.indexOf('function dateNavigationProps'),
+    text.indexOf('const taskActionSize'),
   );
+  assert.match(controls, /backgroundColor: 'transparent'/);
+  assert.doesNotMatch(controls, /pressedAction|onPressIn|onPressOut/);
   assert.ok(
     text.includes('keyboardFocus.focusVisible && focusedAction === id'),
   );
@@ -125,11 +127,35 @@ test('日期前后按钮图标22、触控28并与选日期同行，保留键盘�
   assert.equal(text.includes('例如 2026-10-19'), false);
 });
 
-test('不可用日期及导航使用中性灰并保留禁用判断', () => {
-  assert.match(text, /disabled\s*\? '#E9EBE9'/);
-  assert.match(text, /busy \|\| calendar\.isFuture/);
-  assert.match(text, /busy \|\| key > todayKey/);
-  assert.match(text, /busy \|\| disabled/);
+test('不可用翻页箭头和今天的回今天控件占位隐藏，未来日期和已选日期仍可区分', () => {
+  assert.ok(!text.includes('#E9EBE9'));
+  assert.ok(text.includes('theme.colors.onSurfaceDisabled'));
+  assert.match(text, /\.\.\.hiddenDateActionProps\(disabled\)/);
+  assert.match(text, /opacity: disabled \? 0 : 1/);
+  assert.match(text, /'aria-hidden': hidden/);
+  assert.match(text, /accessibilityElementsHidden: hidden/);
+  assert.match(text, /'no-hide-descendants'/);
+  assert.match(text, /surfaceDisabled: 'transparent'/);
+  assert.match(text, /fontWeight: calendar\.isFuture \? '400' : '700'/);
+  assert.match(text, /theme=\{DATE_ACTION_THEME\}\s+disabled=\{busy\}/);
+  assert.match(
+    text,
+    /mode="text"\s+theme=\{DATE_ACTION_THEME\}\s+disabled=\{busy \|\| isToday\}\s+\{\.\.\.hiddenDateActionProps\(isToday\)\}\s+style=\{\{ opacity: isToday \? 0 : 1 \}\}/,
+  );
+  for (const id of ['week-date-circle', 'month-date-circle']) {
+    assert.match(
+      element(id).openingElement.getText(source),
+      /backgroundColor: showSelection\s*\? colors\.primaryContainer\s*: 'transparent'/,
+    );
+  }
+  for (const condition of [
+    'busy || !historicalWeek',
+    'busy || calendar.isFuture',
+    'busy || key > todayKey',
+    'busy || disabled',
+  ]) {
+    assert.ok(text.includes(`disabled={${condition}}`), condition);
+  }
   // 任务操作按九主题无底契约显示，仍保留没有记录时不可撤销的业务禁用条件。
   assert.match(text, /disabled=\{busy \|\| !count\}/);
 });

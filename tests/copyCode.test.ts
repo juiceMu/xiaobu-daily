@@ -168,7 +168,7 @@ test('凭证key变更重建局部状态，旧请求不能结束新复制或覆�
   );
   assert.match(
     source,
-    /<CopyCodeAction key=\{value\} value=\{value\} label=\{label\} \/>/,
+    /<CopyCodeAction key=\{props\.value\} \{\.\.\.props\} \/>/,
   );
   const old = copyHarness();
   const previous = old.handleCopy();
@@ -190,7 +190,7 @@ test('凭证key变更重建局部状态，旧请求不能结束新复制或覆�
   assert.equal(current.updates.message, '券码已复制，可以粘贴发送。');
 });
 
-test('赠券、回执和小组邀请提供明确复制入口，并保留Android禁用文本选择', () => {
+test('赠券、回执和小组邀请提供完整码复制入口，小组凭证仅交给复制及二维码', () => {
   const gifts = readFileSync(
     new URL('../src/screens/GiftsScreen.tsx', import.meta.url),
     'utf8',
@@ -202,7 +202,7 @@ test('赠券、回执和小组邀请提供明确复制入口，并保留Android�
   for (const [source, value, label] of [
     [gifts, 'exportGift(selected)', '券码'],
     [gifts, 'exportGiftReceipt(receiptQr)', '回执码'],
-    [group, 'exportInvite(state)', '邀请码'],
+    [group, 'inviteCode', '邀请码'],
   ]) {
     const parsed = ts.createSourceFile(
       'screen.tsx',
@@ -238,7 +238,61 @@ test('赠券、回执和小组邀请提供明确复制入口，并保留Android�
     }
     visit(parsed);
     assert.ok(found, `${label}必须复制完整导出结果`);
-    assert.ok(source.includes("selectable={Platform.OS !== 'android'}"));
   }
+  assert.ok(gifts.includes("selectable={Platform.OS !== 'android'}"));
   assert.equal(gifts.includes('长按复制'), false);
+
+  const groupAst = ts.createSourceFile(
+    'GroupScreens.tsx',
+    group,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const inviteUsages: { component: string; prop: string }[] = [];
+  function visitInvite(node: ts.Node) {
+    if (ts.isIdentifier(node) && node.text === 'inviteCode') {
+      if (!ts.isVariableDeclaration(node.parent)) {
+        const attribute = node.parent.parent;
+        assert.ok(
+          ts.isJsxAttribute(attribute),
+          '邀请码不可作为页面文字或其他可见内容',
+        );
+        const component = attribute.parent.parent.tagName.getText(groupAst);
+        inviteUsages.push({
+          component,
+          prop: attribute.name.getText(groupAst),
+        });
+      }
+    }
+    ts.forEachChild(node, visitInvite);
+  }
+  visitInvite(groupAst);
+  assert.deepEqual(inviteUsages, [
+    { component: 'QrView', prop: 'value' },
+    { component: 'CopyCodeButton', prop: 'value' },
+  ]);
+  assert.match(
+    group,
+    /const inviteCode = state\.groupLink \? exportInvite\(state\)/,
+  );
+  assert.equal(group.match(/exportInvite\(state\)/g)?.length, 1);
+  assert.match(
+    group,
+    /const INVITE_QR_ERROR = '二维码暂时无法显示，请点击「复制邀请码」。'/,
+  );
+  assert.match(group, /\.catch\(\(\) => setError\(INVITE_QR_ERROR\)\)/);
+  assert.match(
+    group,
+    /<QrView\s+value=\{inviteCode\}\s+accessibilityLabel="小组邀请二维码，请让对方扫码"\s+errorMessage=\{INVITE_QR_ERROR\}/,
+  );
+  const qr = readFileSync(
+    new URL('../src/ui/GiftQrCode.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(
+    qr,
+    /accessibilityLabel=\{error \? undefined : accessibilityLabel\}/,
+  );
+  assert.match(qr, /\{errorMessage\}/);
 });

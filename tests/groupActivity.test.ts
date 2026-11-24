@@ -23,7 +23,7 @@ test('日期分组使用实际今天并覆盖跨年昨天和历史日期', () =>
   assert.equal(timelineDateLabel('2026-01-02', now), '1月2日');
 });
 
-test('每日序号按成员和任务隔离，倒序列表与分页保留正序次数，补卡使用所属日', () => {
+test('每日任务次数及正序号按成员、任务和所属日隔离，撤销后重新统计', () => {
   const now = new Date('2026-11-04T12:00:00');
   const own = createInitialState(now);
   const other = createInitialState(now);
@@ -70,31 +70,32 @@ test('每日序号按成员和任务隔离，倒序列表与分页保留正序�
   ];
   const result = getGroupActivity(own, peers, now);
   assert.deepEqual(
-    result.timeline.map(({ accountId, id, sequence }) => [
+    result.timeline.map(({ accountId, id, sequence, dailyTaskCount }) => [
       accountId,
       id,
       sequence,
+      dailyTaskCount,
     ]),
     [
-      ['self', 'next-day', 1],
-      ['self', 'later', 2],
-      ['self', 'other-task', 1],
-      ['peer', 'first', 1],
-      ['self', 'first', 1],
+      ['self', 'next-day', 1, 1],
+      ['self', 'later', 2, 2],
+      ['self', 'other-task', 1, 1],
+      ['peer', 'first', 1, 1],
+      ['self', 'first', 1, 2],
     ],
   );
-  assert.equal(result.timeline.slice(0, 2)[1].sequence, 2);
+  assert.equal(result.timeline.slice(0, 2)[1].dailyTaskCount, 2);
   assert.equal(
     result.timeline.find(({ id }) => id === 'later')?.date,
     '2026-11-03',
   );
   assert.equal(JSON.stringify(own.checkins), original);
   own.checkins.splice(2, 1);
-  assert.equal(
-    getGroupActivity(own, peers, now).timeline.find(({ id }) => id === 'later')
-      ?.sequence,
-    1,
+  const remaining = getGroupActivity(own, peers, now).timeline.find(
+    ({ id }) => id === 'later',
   );
+  assert.equal(remaining?.sequence, 1);
+  assert.equal(remaining?.dailyTaskCount, 1);
 });
 
 test('小组周排行与时间轴按所属周统计当前有效记录和同步快照', () => {

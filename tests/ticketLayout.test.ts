@@ -68,7 +68,11 @@ test('成员筛选保留选中语义，新主题选中边界明确且触控高�
   assert.ok(text.includes('minHeight: 48'));
   assert.ok(text.includes('minWidth: 48'));
   assert.ok(text.includes('minHeight: 30'));
-  assert.match(text, /pressed\s*\? colors\.brandFill/);
+  assert.match(
+    text,
+    /backgroundColor: selected\s*\? colors\.primaryContainer\s*: 'transparent'/,
+  );
+  assert.doesNotMatch(text, /\bpressed\b/);
   assert.ok(text.includes('onFocus={focus.onFocus}'));
   assert.ok(text.includes('borderWidth: quiet ? 1 : 0'));
   assert.ok(

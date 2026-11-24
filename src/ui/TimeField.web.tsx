@@ -38,7 +38,7 @@ export function TimeField({
         accessibilityRole="button"
         accessibilityState={{ disabled: !!disabled }}
         accessibilityLabel={label + '，' + value + '，点击选择时间'}
-        style={({ pressed }) => [
+        style={[
           styles.trigger,
           {
             outlineWidth: keyboardFocus.focusVisible ? 2 : 0,
@@ -46,8 +46,6 @@ export function TimeField({
             outlineColor: colors.primary,
             outlineOffset: 2,
             opacity: disabled ? 0.6 : 1,
-            backgroundColor:
-              !disabled && pressed ? colors.brandFill : colors.field,
           },
         ]}
       >

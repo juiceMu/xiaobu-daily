@@ -55,6 +55,19 @@ import { peerBoards } from '../domain/groupSync';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { GroupActivityView } from './GroupActivityView';
 import { openMemberRecord } from '../ui/openMemberRecord';
+
+const DATE_ACTION_THEME = { colors: { surfaceDisabled: 'transparent' } };
+
+function hiddenDateActionProps(hidden: boolean) {
+  return {
+    'aria-hidden': hidden,
+    accessibilityElementsHidden: hidden,
+    importantForAccessibility: hidden
+      ? ('no-hide-descendants' as const)
+      : undefined,
+  };
+}
+
 export function TodayScreen() {
   const { colors, quiet, signal, theme } = useAppTheme();
   const styles = useScreenStyles();
@@ -188,6 +201,7 @@ export function TodayScreen() {
   const calendarLength = calendarEnd.getDate();
   const dateNavigationSize = 28;
   const dateNavigationIconSize = 22;
+  const disabledDateColor = theme.colors.onSurfaceDisabled;
   const dateNavigationStyle = {
     margin: 0,
     width: dateNavigationSize,
@@ -237,9 +251,7 @@ export function TodayScreen() {
   const keyboardFocus = useKeyboardFocus();
   function dateNavigationProps(id: string, disabled: boolean) {
     return {
-      onPressIn: () => setPressedAction(id),
-      onPressOut: () =>
-        setPressedAction((current) => (current === id ? null : current)),
+      ...hiddenDateActionProps(disabled),
       onFocus: () => {
         keyboardFocus.onFocus();
         setFocusedAction(id);
@@ -247,7 +259,6 @@ export function TodayScreen() {
       onBlur: () => {
         keyboardFocus.onBlur();
         setFocusedAction(null);
-        setPressedAction((current) => (current === id ? null : current));
       },
       // Web 上按钮获焦会 scrollIntoView，把列表拽回周切换区域。
       ...(Platform.OS === 'web'
@@ -262,14 +273,12 @@ export function TodayScreen() {
         {
           alignItems: 'center' as const,
           justifyContent: 'center' as const,
-          opacity: 1,
-          backgroundColor: disabled
-            ? '#E9EBE9'
-            : pressedAction === id
-              ? colors.primaryContainer
-              : 'transparent',
+          opacity: disabled ? 0 : 1,
+          backgroundColor: 'transparent',
           borderWidth:
-            keyboardFocus.focusVisible && focusedAction === id ? 1 : 0,
+            !disabled && keyboardFocus.focusVisible && focusedAction === id
+              ? 1
+              : 0,
           borderColor: colors.primary,
         },
       ],
@@ -396,7 +405,7 @@ export function TodayScreen() {
                       size={dateNavigationIconSize}
                       color={
                         busy || selectedDate === '0001-01-01'
-                          ? '#707570'
+                          ? disabledDateColor
                           : colors.primary
                       }
                     />
@@ -432,7 +441,9 @@ export function TodayScreen() {
                       source="chevron-right"
                       size={dateNavigationIconSize}
                       color={
-                        busy || !historicalWeek ? '#707570' : colors.primary
+                        busy || !historicalWeek
+                          ? disabledDateColor
+                          : colors.primary
                       }
                     />
                   </Pressable>
@@ -441,6 +452,7 @@ export function TodayScreen() {
                   <ActionButton
                     compact
                     mode="text"
+                    theme={DATE_ACTION_THEME}
                     disabled={busy}
                     icon="calendar-month-outline"
                     onPress={() => {
@@ -455,7 +467,11 @@ export function TodayScreen() {
                   </ActionButton>
                   <ActionButton
                     compact
+                    mode="text"
+                    theme={DATE_ACTION_THEME}
                     disabled={busy || isToday}
+                    {...hiddenDateActionProps(isToday)}
+                    style={{ opacity: isToday ? 0 : 1 }}
                     onPress={() => changePickedDate(null)}
                   >
                     回今天
@@ -547,6 +563,8 @@ export function TodayScreen() {
                     now,
                     selectedDate,
                   );
+                  const showSelection =
+                    calendar.isSelected && !calendar.isFuture;
                   return (
                     <Pressable
                       key={day.date}
@@ -587,8 +605,8 @@ export function TodayScreen() {
                             fontSize: 12,
                             lineHeight: 18,
                             color:
-                              busy || calendar.isFuture
-                                ? '#707570'
+                              calendar.isFuture || (busy && !showSelection)
+                                ? disabledDateColor
                                 : colors.muted,
                           },
                         ]}
@@ -604,22 +622,19 @@ export function TodayScreen() {
                           borderRadius: 999,
                           alignItems: 'center',
                           justifyContent: 'center',
-                          backgroundColor:
-                            busy || calendar.isFuture
-                              ? '#E9EBE9'
-                              : calendar.isSelected
-                                ? colors.primaryContainer
-                                : 'transparent',
+                          backgroundColor: showSelection
+                            ? colors.primaryContainer
+                            : 'transparent',
                         }}
                       >
                         <Text
                           style={[
                             styles.body,
                             {
-                              fontWeight: '700',
+                              fontWeight: calendar.isFuture ? '400' : '700',
                               color:
-                                busy || calendar.isFuture
-                                  ? '#707570'
+                                calendar.isFuture || (busy && !showSelection)
+                                  ? disabledDateColor
                                   : colors.ink,
                             },
                           ]}
@@ -785,7 +800,7 @@ export function TodayScreen() {
                     setMemberError('');
                     setSection(item);
                   }}
-                  style={({ pressed }) => ({
+                  style={{
                     minHeight: 48,
                     paddingHorizontal: 12,
                     alignItems: 'center',
@@ -793,8 +808,7 @@ export function TodayScreen() {
                     borderBottomWidth: 2,
                     borderBottomColor:
                       section === item ? colors.primary : 'transparent',
-                    backgroundColor: pressed ? colors.field : 'transparent',
-                  })}
+                  }}
                 >
                   <Text
                     style={{
@@ -1454,6 +1468,7 @@ export function TodayScreen() {
                     const day = index - calendarOffset + 1;
                     const key =
                       calendarMonth.slice(0, 8) + String(day).padStart(2, '0');
+                    const showSelection = key === dateInput && key <= todayKey;
                     return day < 1 ? (
                       <View
                         key={'blank-' + index}
@@ -1490,18 +1505,17 @@ export function TodayScreen() {
                             borderRadius: 999,
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backgroundColor:
-                              busy || key > todayKey
-                                ? '#E9EBE9'
-                                : key === dateInput
-                                  ? colors.primaryContainer
-                                  : 'transparent',
+                            backgroundColor: showSelection
+                              ? colors.primaryContainer
+                              : 'transparent',
                           }}
                         >
                           <Text
                             style={[
                               styles.body,
-                              (busy || key > todayKey) && { color: '#707570' },
+                              (key > todayKey || (busy && !showSelection)) && {
+                                color: disabledDateColor,
+                              },
                             ]}
                           >
                             {day}
@@ -1530,6 +1544,7 @@ export function TodayScreen() {
                 const selected = isMonth
                   ? value === calendarMonthNumber
                   : value === calendarYear;
+                const showSelection = selected && !disabled;
                 const label = isMonth ? `${value}月` : `${value}年`;
                 return (
                   <Pressable
@@ -1584,18 +1599,17 @@ export function TodayScreen() {
                         borderRadius: 999,
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor:
-                          busy || disabled
-                            ? '#E9EBE9'
-                            : selected
-                              ? colors.primaryContainer
-                              : 'transparent',
+                        backgroundColor: showSelection
+                          ? colors.primaryContainer
+                          : 'transparent',
                       }}
                     >
                       <Text
                         style={[
                           styles.body,
-                          (busy || disabled) && { color: '#707570' },
+                          (disabled || (busy && !showSelection)) && {
+                            color: disabledDateColor,
+                          },
                         ]}
                       >
                         {label}

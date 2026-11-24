@@ -66,22 +66,12 @@ function MilestoneTab({
 }) {
   const { colors, quiet } = useAppTheme();
   const keyboardFocus = useKeyboardFocus();
-  const [hovered, setHovered] = useState(false);
-  const [pressed, setPressed] = useState(false);
-  const hot = !disabled && (hovered || pressed);
   return (
     <TouchableRipple
       testID="milestone-goal-tab"
       disabled={disabled}
       onPress={onPress}
       rippleColor={'transparent'}
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => {
-        setHovered(false);
-        setPressed(false);
-      }}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
       onFocus={keyboardFocus.onFocus}
       onBlur={keyboardFocus.onBlur}
       accessibilityRole="tab"
@@ -113,9 +103,7 @@ function MilestoneTab({
             borderColor: selected && quiet ? colors.primary : 'transparent',
             backgroundColor: selected
               ? colors.primaryContainer
-              : hot
-                ? colors.field
-                : colors.surface,
+              : colors.surface,
           },
           Platform.OS === 'web' && {
             outlineWidth: !disabled && keyboardFocus.focusVisible ? 2 : 0,

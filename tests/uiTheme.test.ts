@@ -35,21 +35,6 @@ function contrast(foreground: string, background: string) {
   );
   return (values[0] + 0.05) / (values[1] + 0.05);
 }
-function mix(background: string, foreground: string, strength: number) {
-  return (
-    '#' +
-    [1, 3, 5]
-      .map((offset) =>
-        Math.round(
-          parseInt(background.slice(offset, offset + 2), 16) * (1 - strength) +
-            parseInt(foreground.slice(offset, offset + 2), 16) * strength,
-        )
-          .toString(16)
-          .padStart(2, '0'),
-      )
-      .join('')
-  );
-}
 test('新主题的进度填充与实际轨道有足够区分', () => {
   const today = readFileSync(
     new URL('../src/screens/TodayScreen.tsx', import.meta.url),
@@ -101,7 +86,7 @@ test('赠券发出及收到记录使用主题行间分隔且文字在五主题�
     );
   }
 });
-test('五套主题的按钮悬停与按压实际混色后仍达正文对比度', () => {
+test('各主题按钮的文字与语义填充达到正文对比度', () => {
   for (const { id, colors } of themeOptions) {
     for (const [foreground, background] of [
       [colors.onBrand, colors.brandFill],
@@ -109,11 +94,7 @@ test('五套主题的按钮悬停与按压实际混色后仍达正文对比度',
       [colors.onReward, colors.reward],
       [colors.onArchive, colors.archive],
     ]) {
-      for (const strength of [0.07, 0.12])
-        assert.ok(
-          contrast(foreground, mix(background, foreground, strength)) >= 4.5,
-          id + '按钮混色' + strength,
-        );
+      assert.ok(contrast(foreground, background) >= 4.5, id);
     }
   }
 });
@@ -163,11 +144,7 @@ test('奖励按钮在四套新主题跟随主题，旧主题保留奖励配色',
         : { fill: colors.reward, text: colors.onReward },
       option.id,
     );
-    for (const strength of [0, 0.07, 0.12])
-      assert.ok(
-        contrast(tone.text, mix(tone.fill, tone.text, strength)) >= 4.5,
-        option.id,
-      );
+    assert.ok(contrast(tone.text, tone.fill) >= 4.5, option.id);
   }
 });
 test('浅暖灰米品牌填充与独立前景保持真实消费对比度', () => {
@@ -373,16 +350,15 @@ test('图标与关闭控件视觉缩小但保留真实触控和固定文字选�
   assert.ok(close.includes('size={16}'));
   assert.ok(close.includes('hitSlop={0}'));
   assert.ok(close.includes("Platform.OS === 'web' ? 32 : 48"));
-  assert.ok(close.includes("closePressed ? colors.brandFill : 'transparent'"));
-  assert.ok(close.includes('onPressIn={() => setClosePressed(true)}'));
-  assert.ok(close.includes('onPressOut={() => setClosePressed(false)}'));
+  assert.ok(close.includes("backgroundColor: 'transparent'"));
+  assert.doesNotMatch(close, /onPressIn|onPressOut/);
   for (const level of [1, 2, 3, 4, 5])
     assert.ok(themeText.includes('level' + level + ':'));
   for (const oldColor of ['#64617C', '#EDF3F8', '#F2F6FA'])
     assert.equal(themeText.includes(oldColor), false);
 });
 
-test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留原生反馈和回调', () => {
+test('共享控件按压保持原底色，保留键盘聚焦轮廓与回调', () => {
   const text = readFileSync(
     new URL('../src/ui/components.tsx', import.meta.url),
     'utf8',
@@ -419,6 +395,8 @@ test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留�
   }
   assert.equal(attribute('rippleColor').getText(source), "'transparent'");
   assert.equal(attribute('ref').getText(source), 'ref');
+  const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+  assert.match(app, /settings=\{\{\s*rippleEffectEnabled: false,/);
   const content = attribute('contentStyle');
   assert.ok(ts.isArrayLiteralExpression(content));
   const callerIndex = content.elements.findIndex(
@@ -435,10 +413,7 @@ test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留�
         property.initializer.getText(source),
       ]),
   );
-  assert.equal(
-    feedbackStyles.get('backgroundColor'),
-    'active ? feedbackFill : fill',
-  );
+  assert.equal(feedbackStyles.get('backgroundColor'), 'fill');
   assert.equal(
     feedbackStyles.has('borderRadius'),
     false,
@@ -466,14 +441,7 @@ test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留�
     '!disabled && keyboardFocus.focusVisible ? 2 : 0',
   );
   assert.equal(outlineStyles.get('outlineOffset'), '-2');
-  for (const event of [
-    'onPointerEnter',
-    'onPointerLeave',
-    'onFocus',
-    'onBlur',
-    'onPressIn',
-    'onPressOut',
-  ]) {
+  for (const event of ['onFocus', 'onBlur']) {
     assert.ok(
       attribute(event)
         .getText(source)
@@ -481,10 +449,10 @@ test('Web悬停按下只变底色，键盘聚焦才绘制内层轮廓且保留�
       event + ' 必须保留调用方回调',
     );
   }
-  assert.ok(
-    text.includes('!disabled') &&
-      text.includes('!selected') &&
-      text.includes('(isWeb && hovered) || pressed'),
+  assert.match(button.getText(source), /\{\.\.\.props\}/);
+  assert.doesNotMatch(
+    button.getText(source),
+    /onPressIn=|onPressOut=|feedbackFill/,
   );
   assert.ok(text.includes('minWidth: 48'));
   assert.ok(text.includes('minHeight: 48'));

@@ -60,7 +60,7 @@ test('共享输入文字与占位符同为14，单行44起随字体扩大，多�
   assert.ok(milestones.includes('accessibilityRole="search"'));
   assert.ok(milestones.includes('returnKeyType="search"'));
 });
-test('时间框保持平台弹窗选择、触控高度及禁用按压反馈', () => {
+test('时间框保持平台弹窗、触控高度和禁用状态，按压无着色', () => {
   const web = read('../src/ui/TimeField.web.tsx');
   const native = read('../src/ui/TimeField.tsx');
   for (const source of [web, native]) {
@@ -73,7 +73,8 @@ test('时间框保持平台弹窗选择、触控高度及禁用按压反馈', ()
   for (const source of [web, native]) {
     assert.ok(source.includes('accessibilityState={{ disabled: !!disabled }}'));
     assert.ok(source.includes('opacity: disabled ? 0.6 : 1'));
-    assert.ok(source.includes('colors.brandFill'));
+    assert.ok(source.includes('backgroundColor: colors.field'));
+    assert.doesNotMatch(source, /onPressIn|onPressOut|\bpressed\b/);
   }
   assert.ok(web.includes('formatTime(hour, minute)'));
   assert.ok(native.includes('@react-native-community/datetimepicker'));

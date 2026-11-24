@@ -75,7 +75,6 @@ test('旧主题共享卡片无常驻描边，新主题条件描边，图标以�
   );
   assert.ok(iconChoice);
   let background: ts.Expression | undefined;
-  let hot: ts.Expression | undefined;
   function visit(node: ts.Node) {
     if (
       ts.isPropertyAssignment(node) &&
@@ -83,41 +82,30 @@ test('旧主题共享卡片无常驻描边，新主题条件描边，图标以�
       ts.isConditionalExpression(node.initializer)
     )
       background = node.initializer;
-    if (ts.isVariableDeclaration(node) && node.name.getText(parsed) === 'hot')
-      hot = node.initializer;
     ts.forEachChild(node, visit);
   }
   visit(iconChoice);
   assert.ok(background);
-  assert.ok(hot);
   const evaluate = new Function(
     'selected',
-    'hovered',
-    'pressed',
     'colors',
-    `const hot = ${hot.getText(parsed)}; return ${background.getText(parsed)};`,
+    `return ${background.getText(parsed)};`,
   );
   const colors = {
     selectedIcon: 'selected',
-    brandFill: 'hover',
     field: 'idle',
   };
   for (const selected of [false, true]) {
-    for (const hovered of [false, true]) {
-      for (const pressed of [false, true]) {
-        assert.equal(
-          evaluate(selected, hovered, pressed, colors),
-          selected
-            ? colors.selectedIcon
-            : hovered || pressed
-              ? colors.brandFill
-              : colors.field,
-        );
-      }
-    }
+    assert.equal(
+      evaluate(selected, colors),
+      selected ? colors.selectedIcon : colors.field,
+    );
   }
   assert.ok(source.includes('selected ? colors.surface : colors.primary'));
-  assert.match(source, /scale: selected && hot \? 0\.88 : 1/);
+  assert.doesNotMatch(
+    iconChoice.getText(parsed),
+    /onPressIn|onPressOut|scale:/,
+  );
   const nativeTime = readFileSync(
     new URL('../src/ui/TimeField.tsx', import.meta.url),
     'utf8',
