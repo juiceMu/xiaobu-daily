@@ -47,6 +47,7 @@ import {
 } from './src/screens';
 import { GroupViewProvider } from './src/ui/GroupViewProvider';
 import { ThemeProvider, useAppTheme } from './src/ui/ThemeProvider';
+import { TaskHistoryScreen } from './src/screens/TaskHistoryScreen';
 
 type MoreStackParams = {
   index: undefined;
@@ -64,8 +65,16 @@ type TabsParams = {
   tickets: { intent?: 'own-available'; at?: number } | undefined;
   more: NavigatorScreenParams<MoreStackParams> | undefined;
 };
+type RootStackParams = {
+  tabs: NavigatorScreenParams<TabsParams> | undefined;
+  taskHistory: { taskId: string; initialDate?: string };
+};
+type GetTabsState = () => NonNullable<
+  ReturnType<NavigationContainerRef<RootStackParams>['getRootState']>
+>['routes'][number]['state'];
 const Tabs = createBottomTabNavigator<TabsParams>();
 const Stack = createNativeStackNavigator<MoreStackParams>();
+const RootStack = createNativeStackNavigator<RootStackParams>();
 const tabIcons: Record<string, string> = {
   today: 'check-circle-outline',
   tickets: 'ticket-outline',
@@ -76,7 +85,7 @@ const tabLabels: Record<string, string> = {
   tickets: '我的奖券',
   more: '更多',
 };
-const linking: LinkingOptions<TabsParams> = {
+const linking = {
   prefixes: [
     Linking.createURL('/'),
     'sprout://',
@@ -89,24 +98,30 @@ const linking: LinkingOptions<TabsParams> = {
     'sprout-peerprotectionqa://',
   ],
   config: {
+    initialRouteName: 'tabs',
     screens: {
-      today: 'today',
-      tickets: 'tickets',
-      more: {
-        path: 'more',
-        initialRouteName: 'index',
+      tabs: {
         screens: {
-          index: '',
-          milestones: 'milestones',
-          growth: 'growth',
-          archived: 'archived',
-          settings: 'settings',
-          gifts: 'gifts',
-          account: 'account',
-          group: 'group',
-          member: 'member/:accountId',
+          today: 'today',
+          tickets: 'tickets',
+          more: {
+            path: 'more',
+            initialRouteName: 'index',
+            screens: {
+              index: '',
+              milestones: 'milestones',
+              growth: 'growth',
+              archived: 'archived',
+              settings: 'settings',
+              gifts: 'gifts',
+              account: 'account',
+              group: 'group',
+              member: 'member/:accountId',
+            },
+          },
         },
       },
+      taskHistory: 'task-history/:taskId',
     },
   },
 };
@@ -114,9 +129,9 @@ function TabBar({
   state,
   navigation,
   insets,
-  getRootState,
+  getTabsState,
 }: BottomTabBarProps & {
-  getRootState: NavigationContainerRef<TabsParams>['getRootState'];
+  getTabsState: GetTabsState;
 }) {
   const { colors } = useAppTheme();
   const { fontScale } = useWindowDimensions();
@@ -152,7 +167,7 @@ function TabBar({
           navigation.navigate('more');
           // 正常派发退栈动作，让未保存设置的离开确认继续生效。
           // 冷启动深链的父路由可能仍是部分状态；从容器读取子栈水合后的实时键。
-          const nested = getRootState()?.routes.find(
+          const nested = getTabsState()?.routes.find(
             (item) => item.key === route.key,
           )?.state;
           if (nested?.key) {
@@ -273,8 +288,25 @@ function TicketsRoute() {
     </SafeAreaView>
   );
 }
+function AppTabs({ getTabsState }: { getTabsState: GetTabsState }) {
+  const { colors } = useAppTheme();
+  return (
+    <Tabs.Navigator
+      tabBar={(props) => <TabBar {...props} getTabsState={getTabsState} />}
+      screenOptions={{
+        headerShown: false,
+        animation: 'none',
+        sceneStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <Tabs.Screen name="today" component={TodayRoute} />
+      <Tabs.Screen name="tickets" component={TicketsRoute} />
+      <Tabs.Screen name="more" component={MoreNavigator} />
+    </Tabs.Navigator>
+  );
+}
 function Navigation() {
-  const navigationRef = useNavigationContainerRef<TabsParams>();
+  const navigationRef = useNavigationContainerRef<RootStackParams>();
   const { colors } = useAppTheme();
   const { message, clearMessage } = useApp();
   return (
@@ -285,7 +317,7 @@ function Navigation() {
       >
         <NavigationContainer
           ref={navigationRef}
-          linking={linking}
+          linking={linking as LinkingOptions<RootStackParams>}
           theme={{
             ...DefaultTheme,
             colors: {
@@ -298,20 +330,39 @@ function Navigation() {
             },
           }}
         >
-          <Tabs.Navigator
-            tabBar={(props) => (
-              <TabBar {...props} getRootState={navigationRef.getRootState} />
-            )}
+          <RootStack.Navigator
+            initialRouteName="tabs"
             screenOptions={{
-              headerShown: false,
               animation: 'none',
-              sceneStyle: { backgroundColor: colors.background },
+              headerShadowVisible: false,
+              headerTitleAlign: 'center',
+              headerTitleStyle: { fontSize: 16 },
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.ink,
+              contentStyle: { backgroundColor: colors.background },
             }}
           >
-            <Tabs.Screen name="today" component={TodayRoute} />
-            <Tabs.Screen name="tickets" component={TicketsRoute} />
-            <Tabs.Screen name="more" component={MoreNavigator} />
-          </Tabs.Navigator>
+            <RootStack.Screen name="tabs" options={{ headerShown: false }}>
+              {() => (
+                <AppTabs
+                  getTabsState={() =>
+                    navigationRef
+                      .getRootState()
+                      ?.routes.find((route) => route.name === 'tabs')?.state
+                  }
+                />
+              )}
+            </RootStack.Screen>
+            <RootStack.Screen
+              name="taskHistory"
+              options={{
+                title: '打卡记录',
+                headerBackButtonDisplayMode: 'minimal',
+              }}
+            >
+              {({ route }) => <TaskHistoryScreen {...route.params} />}
+            </RootStack.Screen>
+          </RootStack.Navigator>
         </NavigationContainer>
       </SafeAreaView>
       <Snackbar

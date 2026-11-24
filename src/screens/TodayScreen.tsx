@@ -6,7 +6,11 @@ import React, {
   useState,
 } from 'react';
 import { BackHandler, FlatList, Platform, Pressable, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import {
+  StackActions,
+  useFocusEffect,
+  useNavigation,
+} from '@react-navigation/native';
 import { Icon, IconButton, Menu, Text } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
@@ -1248,6 +1252,28 @@ export function TodayScreen() {
                       />
                     }
                   >
+                    <Menu.Item
+                      dense
+                      style={{ minHeight: 40 }}
+                      titleStyle={{ fontSize: 13, lineHeight: 20 }}
+                      title="打卡记录"
+                      leadingIcon={({ color }) => (
+                        <Icon
+                          source="calendar-check-outline"
+                          size={18}
+                          color={color}
+                        />
+                      )}
+                      onPress={() => {
+                        setMenuId(null);
+                        navigation.dispatch(
+                          StackActions.push('taskHistory', {
+                            taskId: item.id,
+                            initialDate: selectedDate,
+                          }),
+                        );
+                      }}
+                    />
                     <Menu.Item
                       dense
                       style={{ minHeight: 40 }}

@@ -298,9 +298,9 @@ test('更多Tab只在tabPress未取消时显式回到总览，其他Tab保留原
     more.thenStatement.getText(app).includes('StackActions.popToTop()'),
   );
   assert.ok(more.thenStatement.getText(app).includes('target: nested.key'));
-  assert.ok(more.thenStatement.getText(app).includes('getRootState()?.routes'));
+  assert.ok(more.thenStatement.getText(app).includes('getTabsState()?.routes'));
   assert.ok(app.text.includes('ref={navigationRef}'));
-  assert.ok(app.text.includes('getRootState={navigationRef.getRootState}'));
+  assert.ok(app.text.includes('getTabsState={getTabsState}'));
   assert.equal(
     more.elseStatement?.getText(app),
     'navigation.navigate(route.name);',
@@ -340,7 +340,7 @@ test('冷启动深链的父Tab仍为部分状态时，更多点击使用已水�
     config: Parameters<typeof getStateFromPath>[1];
   };
   const partial = getStateFromPath('more/member/qa-missing-member', config)
-    ?.routes[0].state;
+    ?.routes[0].state?.routes[0].state;
   assert.ok(partial);
   assert.equal(partial.key, undefined);
   const options = {
@@ -369,16 +369,16 @@ test('冷启动深链的父Tab仍为部分状态时，更多点击使用已水�
       stackState = router.getRehydratedState(next, options);
     },
   };
-  const getRootState = () => ({
+  const getTabsState = () => ({
     routes: [{ key: 'more-tab', state: stackState }],
   });
   const callback = new Function(
     'navigation',
     'state',
     'StackActions',
-    'getRootState',
+    'getTabsState',
     'return (' + handler.expression.getText(app) + ')',
-  )(navigation, state, StackActions, getRootState);
+  )(navigation, state, StackActions, getTabsState);
   callback({
     route: { name: 'more', key: 'more-tab' },
     preventDefault: () => assert.fail('tabPress 未取消'),
@@ -445,7 +445,7 @@ test('真实StackRouter中更多点击退栈不追加index，取消tabPress不�
     'navigation',
     'state',
     'StackActions',
-    'getRootState',
+    'getTabsState',
     'return (' + handler.expression.getText(app) + ')',
   )(navigation, state, StackActions, () => state) as (event: {
     route: { name: string; key: string };
@@ -660,7 +660,7 @@ test('更多成员栈回总览，并经真实beforeRemove保护草稿', async ()
       'navigation',
       'state',
       'StackActions',
-      'getRootState',
+      'getTabsState',
       'return (' + handler.expression.getText(app) + ')',
     )(navigation, state, StackActions, () => state) as (event: {
       route: { name: string; key: string };

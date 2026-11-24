@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { extractPathFromURL } from '../node_modules/@react-navigation/native/src/extractPathFromURL';
 import { getStateFromPath } from '../node_modules/@react-navigation/core/src/getStateFromPath';
+import { getPathFromState } from '../node_modules/@react-navigation/core/src/getPathFromState';
 
 // 抽取应用真实配置，再执行导航库解析；不代替系统派发、页面授权与返回键真机验收。
 const source = ts.createSourceFile(
@@ -68,8 +69,11 @@ for (const prefix of [
     for (const page of ['account', 'growth', 'gifts', 'group', 'settings']) {
       const state = parse(`${prefix}more/${page}`);
       assert.ok(state, page);
-      assert.equal(state.routes.at(-1)?.name, 'more');
-      const nested = state.routes.at(-1)?.state;
+      const tab = state.routes.at(-1);
+      assert.equal(tab?.name, 'tabs');
+      const more = tab.state?.routes.at(-1);
+      assert.equal(more?.name, 'more');
+      const nested = more.state;
       assert.deepEqual(
         nested?.routes.map((route) => route.name),
         ['index', page],
@@ -77,15 +81,35 @@ for (const prefix of [
       assert.equal(nested?.index, 1);
     }
     for (const tab of ['today', 'tickets']) {
-      assert.equal(parse(`${prefix}${tab}`)?.routes.at(-1)?.name, tab);
+      const state = parse(`${prefix}${tab}`);
+      assert.equal(state?.routes.at(-1)?.state?.routes.at(-1)?.name, tab);
     }
-    const member = parse(`${prefix}more/member/test-account`);
-    assert.equal(member?.routes.at(-1)?.state?.routes.at(-1)?.name, 'member');
-    assert.deepEqual(member?.routes.at(-1)?.state?.routes.at(-1)?.params, {
+    const member = parse(`${prefix}more/member/test-account`)
+      ?.routes.at(-1)
+      ?.state?.routes.at(-1)
+      ?.state?.routes.at(-1);
+    assert.equal(member?.name, 'member');
+    assert.deepEqual(member.params, {
       accountId: 'test-account',
     });
   });
 }
+
+test('任务打卡记录详情保留应用返回入口，Web 路径和起始日期可来回转换', () => {
+  const url = 'task-history/reading?initialDate=2026-10-29';
+  const state = parse(`${developmentPrefix}${url}`);
+  assert.ok(state);
+  assert.deepEqual(
+    state.routes.map((route) => route.name),
+    ['tabs', 'taskHistory'],
+  );
+  assert.deepEqual(state.routes.at(-1)?.params, {
+    taskId: 'reading',
+    initialDate: '2026-10-29',
+  });
+  assert.equal(getPathFromState(state, linking.config), `/${url}`);
+  assert.equal(parse(`${developmentPrefix}task-history/`), undefined);
+});
 
 test('拒绝未知协议、相似协议、非法页面与缺失成员参数', () => {
   for (const url of [
