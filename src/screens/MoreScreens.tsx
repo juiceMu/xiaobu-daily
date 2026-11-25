@@ -4,6 +4,8 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
   View,
 } from 'react-native';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
@@ -21,6 +23,7 @@ import {
   themeOptions,
   getThemeOption,
   categoryInk,
+  softThemeRoles,
   type ThemeOption,
 } from '../ui/themeCatalog';
 import { control, font, radius, space } from '../ui/uiTokens';
@@ -261,8 +264,16 @@ export function ArchivedScreen() {
 }
 
 export function SettingsScreen() {
-  const { themeId, selectTheme, themeBusy, themeReady, themeError } =
-    useAppTheme();
+  const {
+    colors,
+    palette,
+    themeId,
+    selectTheme,
+    themeBusy,
+    themeReady,
+    themeError,
+  } = useAppTheme();
+  const weekdayBorder = palette ? softThemeRoles.borderSoft : colors.border;
   const styles = useScreenStyles();
   const { state, busy, run } = useApp();
   const navigation = useNavigation();
@@ -407,28 +418,36 @@ export function SettingsScreen() {
                   <Text style={expiryEnabled ? styles.body : styles.muted}>
                     下周哪一天过期？
                   </Text>
-                  <View style={[styles.actions, { marginTop: 0 }]}>
-                    {Array.from({ length: 7 }, (_, index) => index + 1).map(
-                      (day) => (
-                        <ActionButton
-                          key={day}
-                          accessibilityLabel={'周' + '一二三四五六日'[day - 1]}
-                          mode={expiryDay === day ? 'contained' : 'outlined'}
-                          accessibilityState={{
-                            selected: expiryDay === day,
-                            disabled: expiryLocked,
-                          }}
-                          aria-disabled={expiryLocked}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                      flexGrow: 1,
+                      minWidth: 7 * control[44],
+                      flexDirection: 'row',
+                    }}
+                  >
+                    <View
+                      accessibilityRole="radiogroup"
+                      accessibilityLabel="到期星期"
+                      style={{ flex: 1, flexDirection: 'row' }}
+                    >
+                      {Array.from('一二三四五六日', (name, index) => (
+                        <ExpiryWeekday
+                          key={name}
+                          label={'周' + name}
+                          checked={expiryDay === index + 1}
                           disabled={expiryLocked}
+                          borderColor={weekdayBorder}
                           onPress={() => {
-                            if (!expiryLocked) setExpiryDay(day);
+                            if (!expiryLocked) setExpiryDay(index + 1);
                           }}
-                        >
-                          周{'一二三四五六日'[day - 1]}
-                        </ActionButton>
-                      ),
-                    )}
-                  </View>
+                          first={index === 0}
+                          last={index === 6}
+                        />
+                      ))}
+                    </View>
+                  </ScrollView>
                   <TimeField
                     label="到期时间"
                     value={expiryTime}
@@ -469,6 +488,89 @@ export function SettingsScreen() {
         )}
       </Page>
     </KeyboardAvoidingView>
+  );
+}
+
+function ExpiryWeekday({
+  label,
+  checked,
+  disabled,
+  borderColor,
+  onPress,
+  first,
+  last,
+}: {
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  borderColor: string;
+  onPress: () => void;
+  first: boolean;
+  last: boolean;
+}) {
+  const { colors, palette, theme } = useAppTheme();
+  const focus = useKeyboardFocus();
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={label}
+      accessibilityState={{ checked, disabled }}
+      aria-checked={checked}
+      aria-disabled={disabled}
+      disabled={disabled}
+      onPress={onPress}
+      onFocus={focus.onFocus}
+      onBlur={focus.onBlur}
+      style={{
+        flex: 1,
+        minWidth: control[44],
+        minHeight: control[44],
+        justifyContent: 'center',
+      }}
+    >
+      {({ pressed }) => (
+        <View
+          style={{
+            minHeight: control[28],
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: disabled
+              ? theme.colors.surfaceDisabled
+              : checked || pressed
+                ? colors.primaryContainer
+                : colors.surface,
+            borderColor,
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderLeftWidth: first ? 1 : 0,
+            borderRightWidth: 1,
+            borderTopLeftRadius: first ? radius[8] : 0,
+            borderBottomLeftRadius: first ? radius[8] : 0,
+            borderTopRightRadius: last ? radius[8] : 0,
+            borderBottomRightRadius: last ? radius[8] : 0,
+            ...(Platform.OS === 'web' && {
+              outlineColor: colors.primary,
+              outlineStyle: 'solid',
+              outlineOffset: -2,
+              outlineWidth: !disabled && focus.focusVisible ? 2 : 0,
+            }),
+          }}
+        >
+          <Text
+            style={{
+              fontSize: font[11],
+              fontWeight: checked && !disabled ? '600' : '400',
+              color:
+                checked && !disabled
+                  ? (palette?.brand.ink ?? colors.primary)
+                  : colors.muted,
+            }}
+          >
+            {label}
+          </Text>
+        </View>
+      )}
+    </Pressable>
   );
 }
 

@@ -104,7 +104,10 @@ test('历史日期界面提供周切换月历与回今天，记录和确认按�
   assert.ok(source.includes('查看上一周'));
   assert.ok(source.includes('查看下一周'));
   assert.ok(source.includes('日历上一月'));
-  assert.ok(source.includes('回今天'));
+  assert.match(
+    source,
+    /historicalWeek && \(\s*<Pressable\s+testID="back-today"[\s\S]*?accessibilityLabel="回到今天"[\s\S]*?changePickedDate\(null\)/,
+  );
   assert.ok(compact.includes('getTaskCount(state,item.id,selectedNow)'));
   assert.ok(compact.includes('checkIn(draft,item.id,newDate(),selectedDate)'));
   assert.ok(

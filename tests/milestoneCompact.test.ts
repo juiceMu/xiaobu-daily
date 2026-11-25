@@ -26,44 +26,20 @@ function functionSource(name: string) {
   return node.getText(milestone);
 }
 
-test('双卡选择、页码点和已有横滑均保留键盘与读屏状态', () => {
-  const tab = functionSource('MilestoneTab');
-  for (const value of [
-    "rippleColor={'transparent'}",
-    'useKeyboardFocus()',
-    'onFocus={keyboardFocus.onFocus}',
-    'onBlur={keyboardFocus.onBlur}',
-    'keyboardFocus.focusVisible ? 2 : 0',
-    'minHeight: control[44]',
-    'accessibilityRole="button"',
-    'accessibilityState={{ selected, disabled }}',
-    'aria-pressed={selected}',
-    'disabled={disabled}',
-    'onPress={onPress}',
-    'numberOfLines={1}',
-  ])
-    assert.ok(tab.includes(value), value);
-  assert.match(
-    tab,
-    /disabled\s*\? colors\.field\s*:\s*alternate\s*\? colors\.purple\s*:\s*colors\.peach/,
+test('柔彩单列目标及奖券入口保留键盘和读屏语义', () => {
+  const design = readFileSync(
+    new URL('../src/screens/MilestoneDesign.tsx', import.meta.url),
+    'utf8',
   );
-  const dot = functionSource('MilestonePageDot');
-  for (const value of [
-    'accessibilityRole="button"',
-    'aria-pressed={selected}',
-    'disabled={disabled}',
-    'onPress={onPress}',
-    'width: control[44]',
-    'height: control[44]',
-    'width: space[8]',
-  ])
-    assert.ok(dot.includes(value), value);
+  assert.match(milestoneText, /accessibilityRole="tablist"/);
   assert.match(
     milestoneText,
-    /onScroll=\{Platform\.OS === 'web' \? selectPage : undefined\}/,
+    /accessibilityState=\{\{ selected, disabled: busy \}\}/,
   );
-  assert.match(milestoneText, /onMomentumScrollEnd=\{selectPage\}/);
-  assert.doesNotMatch(milestoneText, /上一项|下一项/);
+  assert.match(design, /testID="milestone-open-tickets"/);
+  assert.match(design, /onFocus=\{focus\.onFocus\}/);
+  assert.match(design, /onPress=\{onTickets\}/);
+  assert.match(design, /accessibilityViewIsModal/);
 });
 
 test('奖励行12号文图24字14上下6，奖励区紧凑标题13并保留导航和触控高度', () => {
@@ -129,7 +105,7 @@ test('表单标题安全区内顶部16底部4，固定16标题和小关闭保留
   assert.ok(componentText.includes('accessibilityRole="header"'));
   const history = milestoneText.slice(
     milestoneText.indexOf('visible={historyOpen}'),
-    milestoneText.indexOf('<FormModal'),
+    milestoneText.indexOf('visible={!!form}'),
   );
   assert.ok(history.includes('flex: 1, padding: 16'));
   assert.ok(history.includes('SafeAreaView'));

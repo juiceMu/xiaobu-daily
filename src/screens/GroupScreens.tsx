@@ -204,7 +204,9 @@ export function GroupScreen() {
               <View
                 style={{
                   borderTopWidth: 1,
-                  borderTopColor: colors.border,
+                  borderTopColor: palette
+                    ? softThemeRoles.borderSoft
+                    : colors.border,
                   paddingTop: space[4],
                 }}
               >

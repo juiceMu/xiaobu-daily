@@ -56,7 +56,15 @@ test('里程碑统计数值和单位单独呈现，表单先填写起点并解�
     new URL('../src/screens/MilestonesScreen.tsx', import.meta.url),
     'utf8',
   );
-  assert.ok(source.includes('单位：{goal.unit}'));
+  const design = readFileSync(
+    new URL('../src/screens/MilestoneDesign.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(design, /entries\.at\(-1\)\?\.weight \?\? item\.startWeight/);
+  assert.match(
+    design,
+    /\{current\}\s*<\/Text>\s*<Text[^>]*>\s*\{item\.unit\}\s*<\/Text>/,
+  );
   assert.ok(
     source.indexOf('label="起始数值') < source.indexOf('label="计量单位'),
   );

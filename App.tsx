@@ -207,7 +207,7 @@ function TabBar({
   );
 }
 function MoreNavigator() {
-  const { colors } = useAppTheme();
+  const { colors, palette } = useAppTheme();
   return (
     <Stack.Navigator
       initialRouteName="index"
@@ -246,7 +246,10 @@ function MoreNavigator() {
       <Stack.Screen
         name="milestones"
         component={MilestonesScreen}
-        options={{ title: '里程碑' }}
+        options={{
+          title: '里程碑',
+          ...(palette ? { headerTitle: '', headerBackVisible: true } : {}),
+        }}
       />
       <Stack.Screen
         name="growth"

@@ -18,6 +18,7 @@ import { ActionButton, Empty, Page, Panel } from '../ui/components';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { iconName } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
+import { softThemeRoles } from '../ui/themeCatalog';
 import {
   formatMilestoneSource,
   formatTicketValidity,
@@ -113,7 +114,7 @@ function MemberFilter({
 }
 
 export function TicketsScreen() {
-  const { colors, theme } = useAppTheme();
+  const { colors, theme, palette } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, run, busy } = useApp();
   const {
@@ -258,7 +259,11 @@ export function TicketsScreen() {
     else setError(result.message);
   }
   return (
-    <Page title="我的奖券" scroll={false}>
+    <Page
+      title="我的奖券"
+      subtitle={palette ? '努力存起来，也记得好好享受。' : undefined}
+      scroll={false}
+    >
       <FlatList
         style={styles.listViewport}
         data={rows}
@@ -439,6 +444,7 @@ export function TicketsScreen() {
                   ? formatMilestoneSource(item.goalName || goal?.name)
                   : '每周打卡奖励';
           const archived = status !== 'available';
+          const cornerArchive = archived && !!palette;
           const archivedLabel = status === 'used' ? '已使用' : '已过期';
           const statusLabel =
             status === 'used'
@@ -450,6 +456,31 @@ export function TicketsScreen() {
           const jointUse = item.companionUses?.find((session) =>
             ['committed', 'completed'].includes(session.stage),
           );
+          const archivedSummary = cornerArchive
+            ? [
+                statusLabel,
+                jointUse
+                  ? `与 ${item.source === 'companion' ? jointUse.mainName : jointUse.companionName} 一起兑换`
+                  : status === 'expired'
+                    ? '未使用'
+                    : undefined,
+                `获得于 ${formatDate(item.createdAt)}`,
+                item.source === 'weight' && status === 'used'
+                  ? formatTicketValidity(item)
+                  : undefined,
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            : undefined;
+          const iconTone = palette
+            ? item.source === 'companion'
+              ? palette.accent
+              : item.source === 'gift'
+                ? palette.c3
+                : item.source === 'weight'
+                  ? palette.c4
+                  : palette.brand
+            : undefined;
           const TicketContainer = archived ? View : Panel;
           return (
             <TicketContainer
@@ -461,6 +492,15 @@ export function TicketsScreen() {
                   backgroundColor: theme.colors.surfaceDisabled,
                   borderRadius: radius[8],
                 },
+                palette && {
+                  position: 'relative',
+                  minHeight: 52,
+                  gap: space[10],
+                  borderRadius: radius[10],
+                  borderWidth: 1,
+                  borderColor: softThemeRoles.borderSoft,
+                  backgroundColor: colors.surface,
+                },
               ]}
             >
               <View
@@ -469,29 +509,41 @@ export function TicketsScreen() {
                   flexDirection: 'row',
                   alignItems: 'center',
                   flexWrap: 'nowrap',
-                  gap: 8,
+                  gap: palette ? space[10] : space[8],
                 }}
               >
                 <View
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 12,
-                    flexShrink: 0,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: archived
-                      ? 'transparent'
-                      : item.source === 'weight'
-                        ? colors.purple
-                        : colors.peach,
-                    borderWidth: archived ? 1 : 0,
-                    borderColor: colors.border,
-                  }}
+                  style={[
+                    {
+                      width: 32,
+                      height: 32,
+                      borderRadius: 12,
+                      flexShrink: 0,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: archived
+                        ? 'transparent'
+                        : item.source === 'weight'
+                          ? colors.purple
+                          : colors.peach,
+                      borderWidth: archived ? 1 : 0,
+                      borderColor: colors.border,
+                    },
+                    palette && {
+                      width: 34,
+                      height: 34,
+                      borderRadius: 9,
+                      borderWidth: 1,
+                      borderColor: softThemeRoles.borderSoft,
+                      backgroundColor: archived
+                        ? 'transparent'
+                        : iconTone?.soft,
+                    },
+                  ]}
                 >
                   <Icon
                     source={
-                      item.source === 'gift'
+                      cornerArchive || item.source === 'gift'
                         ? 'gift-outline'
                         : item.source === 'companion'
                           ? 'account-multiple-outline'
@@ -499,22 +551,17 @@ export function TicketsScreen() {
                             ? iconName(item.goalIcon || goal?.icon)
                             : 'ticket-outline'
                     }
-                    size={18}
-                    color={archived ? colors.muted : colors.primary}
+                    size={palette ? 20 : 18}
+                    color={
+                      archived
+                        ? colors.muted
+                        : (iconTone?.ink ?? colors.primary)
+                    }
                   />
                 </View>
-                <View style={[styles.grow, { minWidth: 0 }]}>
-                  {showGroup && owned && !groupByMember ? (
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        lineHeight: 18,
-                        color: colors.muted,
-                      }}
-                    >
-                      {owned.person.name}
-                    </Text>
-                  ) : null}
+                <View
+                  style={[styles.grow, cornerArchive && { paddingRight: 60 }]}
+                >
                   <Text
                     testID="ticket-title"
                     style={{
@@ -522,8 +569,9 @@ export function TicketsScreen() {
                       lineHeight: 18,
                       fontWeight: archived ? '400' : '500',
                       color: archived ? colors.muted : colors.ink,
+                      marginBottom: palette ? (archived ? 2 : 3) : undefined,
                     }}
-                    numberOfLines={2}
+                    numberOfLines={cornerArchive ? 1 : 2}
                     ellipsizeMode="tail"
                     accessibilityLabel={item.name}
                   >
@@ -532,26 +580,34 @@ export function TicketsScreen() {
                   <Text
                     testID="ticket-status"
                     style={{
-                      fontSize: 12,
-                      lineHeight: 18,
+                      fontSize: palette ? 11 : 12,
+                      lineHeight: palette ? 15 : 18,
                       color: colors.muted,
                     }}
+                    numberOfLines={cornerArchive ? 1 : undefined}
+                    accessibilityLabel={archivedSummary}
                   >
-                    {sourceName} · {statusLabel}
+                    {archivedSummary ?? (
+                      <>
+                        {sourceName} · {statusLabel}
+                      </>
+                    )}
                   </Text>
-                  <Text
-                    testID="ticket-created-at"
-                    style={{
-                      fontSize: 12,
-                      lineHeight: 18,
-                      color: colors.muted,
-                    }}
-                  >
-                    获得于 {formatDate(item.createdAt)}
-                    {status === 'used'
-                      ? ` · ${formatTicketValidity(item)}`
-                      : ''}
-                  </Text>
+                  {!cornerArchive && (
+                    <Text
+                      testID="ticket-created-at"
+                      style={{
+                        fontSize: palette ? 11 : 12,
+                        lineHeight: palette ? 15 : 18,
+                        color: colors.muted,
+                      }}
+                    >
+                      获得于 {formatDate(item.createdAt)}
+                      {status === 'used'
+                        ? ` · ${formatTicketValidity(item)}`
+                        : ''}
+                    </Text>
+                  )}
                 </View>
                 {status === 'available' &&
                 item.source === 'companion' &&
@@ -560,7 +616,11 @@ export function TicketsScreen() {
                     testID="companion-find-partner-button"
                     tone="reward"
                     mode="contained-tonal"
+                    size={palette ? 'sm' : undefined}
                     compact
+                    contentStyle={
+                      palette ? { paddingHorizontal: 9 } : undefined
+                    }
                     accessibilityLabel={'找伙伴一起使用同行券，' + item.name}
                     labelStyle={{ fontSize: 12, lineHeight: 18 }}
                     style={{
@@ -582,7 +642,11 @@ export function TicketsScreen() {
                       testID="ticket-use-button"
                       tone="reward"
                       mode="contained-tonal"
+                      size={palette ? 'sm' : undefined}
                       compact
+                      contentStyle={
+                        palette ? { paddingHorizontal: 9 } : undefined
+                      }
                       accessibilityLabel={'使用奖券，' + item.name}
                       labelStyle={{ fontSize: 12, lineHeight: 18 }}
                       style={{ alignSelf: 'center', flexShrink: 0 }}
@@ -596,7 +660,7 @@ export function TicketsScreen() {
                       使用
                     </ActionButton>
                   ))}
-                {archived && (
+                {archived && !palette && (
                   <Text
                     testID="ticket-archived-label"
                     style={{
@@ -609,6 +673,41 @@ export function TicketsScreen() {
                   </Text>
                 )}
               </View>
+              {cornerArchive && (
+                <View
+                  testID="ticket-archived-corner"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    minHeight: 21,
+                    minWidth: 46,
+                    paddingHorizontal: space[8],
+                    borderTopRightRadius: 9,
+                    borderBottomLeftRadius: 7,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor:
+                      status === 'used'
+                        ? palette.brand.soft
+                        : softThemeRoles.warningSoft,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color:
+                        status === 'used'
+                          ? palette.brand.ink
+                          : softThemeRoles.warning,
+                      fontSize: 10,
+                      lineHeight: 10,
+                      includeFontPadding: false,
+                    }}
+                  >
+                    {archivedLabel}
+                  </Text>
+                </View>
+              )}
               {activeCompanion ? (
                 <Text style={styles.muted} accessibilityLiveRegion="polite">
                   {companionStageLabel(activeCompanion)}

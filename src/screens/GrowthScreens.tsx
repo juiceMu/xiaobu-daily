@@ -9,7 +9,6 @@ import {
 import { Icon, Text } from 'react-native-paper';
 import { dateKey } from '../domain/engine';
 import { buildTaskHistoryIndex } from '../domain/taskHistory';
-import type { Task } from '../domain/types';
 import { formatCalendarDate, formatCalendarRange } from '../ui/displayDate';
 import { useApp } from '../state/AppProvider';
 import {
@@ -308,18 +307,11 @@ function ProgressCard({
 const CHART_TRACK_HEIGHT = control[44] * 2;
 const CHART_LABEL_HEIGHT = space[16];
 const CHART_DASH_COUNT = 28;
-const TARGET_LINE_OPACITY = 0.5;
 
-function ChartDash({
-  color,
-  legend = false,
-}: {
-  color: string;
-  legend?: boolean;
-}) {
+function ChartDash({ color }: { color: string }) {
   return (
     <View style={styles.chartDashRow}>
-      {Array.from({ length: legend ? 3 : CHART_DASH_COUNT }, (_, index) => (
+      {Array.from({ length: CHART_DASH_COUNT }, (_, index) => (
         <View
           key={index}
           style={[styles.chartDash, { backgroundColor: color }]}
@@ -329,22 +321,11 @@ function ChartDash({
   );
 }
 
-function WeeklyChart({
-  summary,
-  tasks,
-  historical,
-}: {
-  summary: GrowthProgress;
-  tasks: readonly Task[];
-  historical: boolean;
-}) {
+function WeeklyChart({ summary }: { summary: GrowthProgress }) {
   const { colors } = useAppTheme();
   const screen = useScreenStyles();
-  const { target, ceiling, ticks } = weeklyChartScale(tasks, summary.days);
+  const { ceiling, ticks } = weeklyChartScale(summary.days);
   const toHeight = (value: number) => (value / ceiling) * CHART_TRACK_HEIGHT;
-  const targetLabel = historical
-    ? '每日任务目标（按当前设置）'
-    : '每日任务目标';
   return (
     <Panel style={screen.card}>
       <Text style={screen.number}>
@@ -372,19 +353,6 @@ function WeeklyChart({
               <ChartDash color={colors.border} />
             </View>
           ))}
-          {target !== null && (
-            <View
-              testID="growth-week-chart-target"
-              style={[
-                styles.chartTarget,
-                {
-                  bottom: CHART_LABEL_HEIGHT + toHeight(target),
-                },
-              ]}
-            >
-              <ChartDash color={colors.primary} />
-            </View>
-          )}
         </View>
         <View style={styles.barRow}>
           {summary.days.map((entry, index) => {
@@ -445,16 +413,6 @@ function WeeklyChart({
           />
           <Text style={screen.muted}>0 次</Text>
         </View>
-        {target !== null && (
-          <View style={styles.legendItem}>
-            <View style={styles.chartTargetLegend}>
-              <ChartDash color={colors.primary} legend />
-            </View>
-            <Text style={screen.muted}>
-              {targetLabel}：{target} 次
-            </Text>
-          </View>
-        )}
       </View>
     </Panel>
   );
@@ -530,11 +488,7 @@ export function GrowthScreen() {
           ListHeaderComponent={
             isWeekly ? (
               <View style={[screen.column, screen.listHeader]}>
-                <WeeklyChart
-                  summary={summary}
-                  tasks={state.tasks}
-                  historical={offset < 0}
-                />
+                <WeeklyChart summary={summary} />
                 <SectionTitle title="每个任务的小积累" />
               </View>
             ) : null
@@ -888,14 +842,6 @@ const styles = StyleSheet.create({
   },
   chartDashRow: { height: 1, flexDirection: 'row', flex: 1, gap: space[4] },
   chartDash: { flex: 1 },
-  chartTarget: {
-    position: 'absolute',
-    left: control[28],
-    right: 0,
-    height: 1,
-    flexDirection: 'row',
-    opacity: TARGET_LINE_OPACITY,
-  },
   chartValue: {
     position: 'absolute',
     left: 0,
@@ -926,12 +872,6 @@ const styles = StyleSheet.create({
     width: space[12],
     height: space[2],
     borderRadius: radius[4],
-  },
-  chartTargetLegend: {
-    width: space[16],
-    height: 1,
-    flexDirection: 'row',
-    opacity: TARGET_LINE_OPACITY,
   },
   calendar: { gap: space[4], marginTop: space[8] },
   calendarRow: { flexDirection: 'row', gap: space[4] },

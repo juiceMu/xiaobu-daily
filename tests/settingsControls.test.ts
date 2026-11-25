@@ -86,6 +86,23 @@ test('关闭到期仍保留设置入口，Web 开关使用真实按钮和对称�
   assert.match(track, /boxShadow: disabled/);
 });
 
+test('到期星期保持单行触控，不随共享按钮容器换行', () => {
+  const source = parse('../src/screens/MoreScreens.tsx');
+  const group = find(source, 'ScrollView').find((node) =>
+    node.getText(source).includes("Array.from('一二三四五六日'"),
+  );
+  assert.ok(group);
+  assert.ok(attr(group, 'horizontal', source));
+  assert.match(
+    expr(group, 'contentContainerStyle', source),
+    /flexDirection: 'row'/,
+  );
+  assert.match(
+    expr(group, 'contentContainerStyle', source),
+    /7 \* control\[44\]/,
+  );
+});
+
 test('Web使用小时分钟选择弹窗，不用系统time输入，仅确认提交时间', () => {
   const source = parse('../src/ui/TimeField.web.tsx');
   assert.equal(find(source, 'input').length, 0);

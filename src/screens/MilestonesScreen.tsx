@@ -1,21 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
-import {
-  FlatList,
-  Modal,
-  Platform,
-  Pressable,
-  View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import { FlatList, Modal, Platform, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  Icon,
-  TextInput as PaperTextInput,
-  Text,
-  TouchableRipple,
-} from 'react-native-paper';
+import { Icon, TextInput as PaperTextInput, Text } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
 import { nextTicketLandingId } from '../ui/ticketLandingId';
@@ -46,14 +33,18 @@ import {
 } from '../ui/components';
 import { iconName } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
-import { control, font, radius, space } from '../ui/uiTokens';
+import { space } from '../ui/uiTokens';
+import { softThemeRoles } from '../ui/themeCatalog';
+import {
+  MilestoneCard,
+  MilestoneIconAction,
+  MilestoneTicketSheet,
+} from './MilestoneDesign';
 import { unlockedRewards } from '../ui/rewardHistory';
 import { formatCalendarDate } from '../ui/displayDate';
 import { milestoneGroups, selectMilestone } from '../ui/milestoneSelection';
 import { milestoneUnitError } from '../domain/milestoneUnit.mjs';
 import { Confirm, discardDraft, ErrorText, useScreenStyles } from './shared';
-
-const MILESTONES_PER_PAGE = 2;
 
 type GoalForm = {
   id?: string;
@@ -65,43 +56,39 @@ type GoalForm = {
   icon: MilestoneIcon;
   locked: boolean;
 };
-function MilestoneTab({
+function LegacyMilestoneTab({
   item,
   selected,
-  alternate,
   disabled,
   onPress,
 }: {
   item: MilestoneGoal;
   selected: boolean;
-  alternate: boolean;
   disabled: boolean;
   onPress: () => void;
 }) {
-  const { colors } = useAppTheme();
+  const { colors, quiet } = useAppTheme();
   const keyboardFocus = useKeyboardFocus();
   return (
-    <TouchableRipple
+    <Pressable
       testID="milestone-goal-tab"
       disabled={disabled}
       onPress={onPress}
-      rippleColor={'transparent'}
       onFocus={keyboardFocus.onFocus}
       onBlur={keyboardFocus.onBlur}
-      accessibilityRole="button"
+      accessibilityRole="tab"
       accessibilityState={{ selected, disabled }}
-      aria-pressed={selected}
+      aria-selected={selected}
       aria-disabled={disabled}
       accessibilityLabel={
         item.name +
         (item.archived ? '，已归档' : item.enabled ? '，进行中' : '，已暂停')
       }
       style={{
-        flex: 1,
-        minWidth: 0,
-        minHeight: control[44],
-        borderRadius: radius[10],
+        borderRadius: 16,
+        minHeight: 48,
         justifyContent: 'center',
+        overflow: 'hidden',
         backgroundColor: 'transparent',
       }}
     >
@@ -110,106 +97,57 @@ function MilestoneTab({
           {
             flexDirection: 'row',
             alignItems: 'center',
-            gap: space[6],
-            minHeight: control[44],
-            borderRadius: radius[10],
-            paddingHorizontal: space[10],
-            paddingVertical: space[6],
-            borderWidth: 1,
-            borderColor: selected && !disabled ? colors.primary : colors.border,
+            gap: 6,
+            minHeight: 34,
+            borderRadius: 16,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            borderWidth: quiet ? 1 : 0,
+            borderColor:
+              selected && quiet && !disabled ? colors.primary : 'transparent',
             backgroundColor: disabled
               ? colors.field
-              : alternate
-                ? colors.purple
-                : colors.peach,
+              : selected
+                ? colors.primaryContainer
+                : colors.surface,
           },
           Platform.OS === 'web' && {
             outlineWidth: !disabled && keyboardFocus.focusVisible ? 2 : 0,
             outlineStyle: 'solid',
             outlineColor: colors.primary,
-            outlineOffset: 2,
+            outlineOffset: -2,
           },
         ]}
       >
         <Icon
           source={iconName(item.icon)}
-          size={font[18]}
+          size={18}
           color={disabled ? colors.muted : colors.primary}
         />
         <Text
           numberOfLines={1}
           style={{
-            flex: 1,
-            minWidth: 0,
-            fontSize: font[13],
-            fontWeight: selected ? '600' : '400',
+            maxWidth: 120,
+            fontSize: 14,
+            lineHeight: 20,
             color: disabled ? colors.muted : colors.ink,
           }}
         >
           {item.name}
         </Text>
-        {selected && (
-          <Icon
-            source="check"
-            size={font[14]}
-            color={disabled ? colors.muted : colors.primary}
-          />
-        )}
       </View>
-    </TouchableRipple>
+    </Pressable>
   );
 }
-function MilestonePageDot({
-  label,
-  selected,
-  disabled,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  disabled: boolean;
-  onPress: () => void;
-}) {
-  const { colors } = useAppTheme();
-  const focus = useKeyboardFocus();
+function nextMilestone(goal: MilestoneGoal) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected, disabled }}
-      aria-pressed={selected}
-      aria-disabled={disabled}
-      disabled={disabled}
-      onPress={onPress}
-      onFocus={focus.onFocus}
-      onBlur={focus.onBlur}
-      style={{
-        width: control[44],
-        height: control[44],
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <View
-        style={{
-          width: space[8],
-          height: space[8],
-          borderRadius: radius.full,
-          borderWidth: 1,
-          borderColor: colors.muted,
-          backgroundColor:
-            selected && !disabled ? colors.primary : colors.surface,
-          ...(focus.focusVisible && !disabled && Platform.OS === 'web'
-            ? {
-                outlineWidth: 2,
-                outlineColor: colors.primary,
-                outlineStyle: 'solid',
-                outlineOffset: 2,
-              }
-            : {}),
-        }}
-      />
-    </Pressable>
+    Math.round(
+      (Number(goal.startWeight) +
+        (goal.direction === 'increase' ? 1 : -1) *
+          (goal.unlockedMilestones.length + 1) *
+          goal.step) *
+        10,
+    ) / 10
   );
 }
 const rewardButtonContent = {
@@ -263,7 +201,7 @@ function RewardRow({ value, goal }: { value: number; goal: MilestoneGoal }) {
   );
 }
 export function MilestonesScreen() {
-  const { colors, quiet } = useAppTheme();
+  const { colors, palette, quiet } = useAppTheme();
   const styles = useScreenStyles();
   const navigation = useNavigation<
     NavigationProp<{
@@ -277,41 +215,41 @@ export function MilestonesScreen() {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const searchFocus = useKeyboardFocus();
+  const currentTabFocus = useKeyboardFocus();
+  const archivedTabFocus = useKeyboardFocus();
   const goals = archiveFilter ? groups.archived : groups.current;
   const { visible: visibleGoals, selected: goal } = selectMilestone(
     goals,
     selectedId,
     search,
   );
-  const tabList = useRef<FlatList<MilestoneGoal[]>>(null);
-  const [pagerWidth, setPagerWidth] = useState(0);
+  const legacyTabList = useRef<FlatList<MilestoneGoal>>(null);
   const selectedIndex = visibleGoals.findIndex((item) => item.id === goal?.id);
-  const selectedPage = Math.max(
-    0,
-    Math.floor(selectedIndex / MILESTONES_PER_PAGE),
-  );
-  const pages = Array.from(
-    { length: Math.ceil(visibleGoals.length / MILESTONES_PER_PAGE) },
-    (_, page) =>
-      visibleGoals.slice(
-        page * MILESTONES_PER_PAGE,
-        (page + 1) * MILESTONES_PER_PAGE,
-      ),
-  );
   const isArchived = goal?.archived === true;
   useEffect(() => {
-    if (pagerWidth > 0 && selectedIndex >= 0) {
-      tabList.current?.scrollToOffset({
-        offset: selectedPage * pagerWidth,
+    if (!palette && selectedIndex >= 0) {
+      legacyTabList.current?.scrollToIndex({
+        index: selectedIndex,
         animated: false,
+        viewPosition: 0.5,
       });
     }
-  }, [pagerWidth, selectedIndex, selectedPage, archiveFilter, search]);
+  }, [palette, selectedIndex, archiveFilter, search]);
   const rewards = goal ? unlockedRewards(goal) : [];
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [ticketGoalId, setTicketGoalId] = useState<string | null>(null);
+  const ticketGoal = goals.find((item) => item.id === ticketGoalId);
+  const goalTickets = ticketGoal
+    ? state.tickets.filter(
+        (ticket) =>
+          ticket.source === 'weight' && ticket.goalId === ticketGoal.id,
+      )
+    : [];
   const [form, setForm] = useState<GoalForm | null>(null);
   const [record, setRecord] = useState('');
-  const [recordOpen, setRecordOpen] = useState(false);
+  const [recordGoalId, setRecordGoalId] = useState<string | null>(null);
+  const recordGoal = groups.current.find((item) => item.id === recordGoalId);
   const [error, setError] = useState('');
   const [recordError, setRecordError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -320,19 +258,6 @@ export function MilestonesScreen() {
     name: string;
   } | null>(null);
   const [initialForm, setInitialForm] = useState('');
-  function selectPage(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    if (pagerWidth <= 0 || busy) return;
-    const position = event.nativeEvent.contentOffset.x;
-    const nextPage = Math.round(position / pagerWidth);
-    // Web 只派发滚动事件。等页面吸附到位后再更新选择。
-    if (Platform.OS === 'web' && Math.abs(position - nextPage * pagerWidth) > 1)
-      return;
-    const nextGoal = pages[nextPage]?.[0];
-    if (nextGoal && nextPage !== selectedPage) {
-      setSelectedId(nextGoal.id);
-      setError('');
-    }
-  }
   function openForm(current?: MilestoneGoal) {
     setError('');
     const next: GoalForm = current
@@ -380,77 +305,420 @@ export function MilestonesScreen() {
       setForm(null);
     } else setError(result.message);
   }
-  async function saveRecord() {
-    if (!goal || busy || isArchived) return;
-    const result = await run((draft) =>
-      recordMilestoneValue(draft, goal.id, record, new Date()),
-    );
-    if (result.ok) {
-      setRecordOpen(false);
-      setRecord('');
-    } else setRecordError(result.message);
+  function openRecord(target: MilestoneGoal) {
+    if (
+      busy ||
+      target.archived ||
+      !target.enabled ||
+      milestoneUnitError(target.unit)
+    )
+      return;
+    setSelectedId(target.id);
+    setRecordError('');
+    setRecord('');
+    setRecordGoalId(target.id);
   }
-  const latest = goal?.entries.at(-1);
+  function closeRecord() {
+    setRecordGoalId(null);
+    setRecord('');
+  }
+  async function saveRecord() {
+    if (
+      !recordGoal ||
+      busy ||
+      !recordGoal.enabled ||
+      milestoneUnitError(recordGoal.unit)
+    )
+      return;
+    const result = await run((draft) =>
+      recordMilestoneValue(draft, recordGoal.id, record, new Date()),
+    );
+    if (result.ok) closeRecord();
+    else setRecordError(result.message);
+  }
   const invalidUnit = goal ? milestoneUnitError(goal.unit) : '';
-  const next =
-    goal &&
-    Math.round(
-      (Number(goal.startWeight) +
-        (goal.direction === 'increase' ? 1 : -1) *
-          (goal.unlockedMilestones.length + 1) *
-          goal.step) *
-        10,
-    ) / 10;
+  const latest = goal?.entries.at(-1);
+  const next = goal ? nextMilestone(goal) : 0;
+  function switchArchive(archived: boolean) {
+    setArchiveFilter(archived);
+    setSearch('');
+    setError('');
+  }
+  function toggleSearch() {
+    setSearchOpen(!searchOpen);
+    if (searchOpen) setSearch('');
+  }
+  function selectGoal(id: string) {
+    setSelectedId(id);
+    setError('');
+  }
+  const showManage =
+    manageOpen && !form && !archiving && !deleting && !historyOpen;
+  const renderGoalDetails = (goal: MilestoneGoal) => (
+    <>
+      <Panel style={styles.card}>
+        <Text style={styles.heading}>{goal.name}</Text>
+        {!palette && (
+          <View style={[styles.row, { flexWrap: 'wrap' }]}>
+            <View style={styles.stat}>
+              <Text style={styles.muted}>
+                {latest ? '当前数值' : '起始数值'}
+              </Text>
+              <Text style={styles.number}>
+                {latest?.weight ?? goal.startWeight}
+              </Text>
+              <Text style={styles.muted}>单位：{goal.unit}</Text>
+            </View>
+            <View
+              style={[
+                styles.stat,
+                quiet
+                  ? { borderLeftWidth: 1, borderLeftColor: colors.border }
+                  : { backgroundColor: colors.purple },
+              ]}
+            >
+              <Text style={styles.muted}>累计解锁</Text>
+              <Text style={styles.number}>
+                {goal.unlockedMilestones.length}
+                <Text style={styles.body}> 张</Text>
+              </Text>
+            </View>
+          </View>
+        )}
+        {invalidUnit && (
+          <ErrorText
+            message={
+              `单位“${goal.unit}”疑似误填。起始数值实际为 ${goal.startWeight}。` +
+              (goal.entries.length
+                ? '已有记录，规则已锁定；请新建单位正确的目标，原记录和奖券保留。'
+                : '请打开“规则与图标”，分别填写起始数值和单位。')
+            }
+          />
+        )}
+        {!palette && !invalidUnit && (
+          <>
+            <Text style={styles.body}>
+              每{goal.direction === 'increase' ? '增加' : '减少'} {goal.step}{' '}
+              {goal.unit}，解锁一张。
+            </Text>
+            <Text style={styles.muted}>
+              {next >= 0 && next <= 1000000
+                ? '下一个里程碑：' + next + ' ' + goal.unit
+                : '已到达当前方向的数值边界'}
+            </Text>
+          </>
+        )}
+        <Text style={styles.muted}>
+          {isArchived ? '已归档 · 归档前' : ''}
+          {goal.enabled ? '进行中' : '已暂停'} ·
+          重复到达不会重复奖励；一次跨过多个刻度会逐一补发。
+        </Text>
+        {isArchived ? (
+          <ActionButton
+            mode="contained-tonal"
+            icon="archive-arrow-up-outline"
+            tone="save"
+            disabled={busy}
+            onPress={() => {
+              setError('');
+              void run((draft) => restoreMilestoneGoal(draft, goal.id)).then(
+                (result) => {
+                  if (result.ok) {
+                    setManageOpen(false);
+                    setArchiveFilter(false);
+                    setSearch('');
+                    setSelectedId(goal.id);
+                  } else setError(result.message);
+                },
+              );
+            }}
+          >
+            恢复到当前
+          </ActionButton>
+        ) : (
+          <>
+            {!palette && (
+              <ActionButton
+                testID="milestone-legacy-record"
+                mode="contained"
+                icon="pencil-plus-outline"
+                disabled={busy || !goal.enabled || !!invalidUnit}
+                style={styles.card}
+                onPress={() => openRecord(goal)}
+              >
+                记录新数值
+              </ActionButton>
+            )}
+            <View style={styles.actions}>
+              <ActionButton
+                mode="outlined"
+                disabled={busy}
+                onPress={() => openForm(goal)}
+              >
+                规则与图标
+              </ActionButton>
+              <ActionButton
+                mode="text"
+                disabled={busy}
+                onPress={() => {
+                  void run((draft) =>
+                    setMilestoneEnabled(draft, goal.id, !goal.enabled),
+                  );
+                }}
+              >
+                {goal.enabled ? '暂停' : '继续记录'}
+              </ActionButton>
+            </View>
+          </>
+        )}
+        <ErrorText message={error} />
+      </Panel>
+      {!isArchived && (
+        <View style={{ gap: 4 }}>
+          <Text style={styles.muted}>
+            暂停仍留在当前列表；归档会收起目标，记录与奖励都会保留。
+          </Text>
+          <ActionButton
+            mode="text"
+            icon="archive-outline"
+            tone="archive"
+            disabled={busy}
+            onPress={() => {
+              setError('');
+              setArchiving({ id: goal.id, name: goal.name });
+            }}
+          >
+            归档此里程碑
+          </ActionButton>
+        </View>
+      )}
+      {!palette && (
+        <Panel style={[styles.card, { padding: 10, gap: 4 }]}>
+          <SectionTitle
+            title="已解锁的奖励"
+            titleStyle={{ fontSize: 13, lineHeight: 20, fontWeight: '500' }}
+            action={
+              <ActionButton
+                mode="text"
+                contentStyle={rewardButtonContent}
+                labelStyle={rewardButtonLabel}
+                onPress={() =>
+                  navigation.navigate('tickets', {
+                    intent: 'own-available',
+                    at: nextTicketLandingId(),
+                  })
+                }
+              >
+                查看奖券
+              </ActionButton>
+            }
+          />
+          {rewards.length ? (
+            rewards
+              .slice(0, 6)
+              .map((value) => (
+                <RewardRow key={value} value={value} goal={goal} />
+              ))
+          ) : (
+            <Empty
+              title="还没有解锁奖励"
+              description="首次达到新的里程碑后，奖励会出现在这里。普通记录不会重复发券。"
+            />
+          )}
+          {rewards.length > 6 && (
+            <ActionButton
+              mode="text"
+              contentStyle={rewardButtonContent}
+              labelStyle={rewardButtonLabel}
+              onPress={() => setHistoryOpen(true)}
+            >
+              查看全部 {rewards.length} 项奖励
+            </ActionButton>
+          )}
+        </Panel>
+      )}
+      {isArchived && (
+        <Panel style={[styles.card, { padding: 12, gap: 8 }]}>
+          <SectionTitle title="归档前的记录" />
+          {goal.entries.length ? (
+            <>
+              <Text style={styles.muted}>
+                共 {goal.entries.length} 次记录 · 最近 5 次
+              </Text>
+              {goal.entries
+                .slice(-5)
+                .reverse()
+                .map((entry) => (
+                  <View
+                    key={entry.id}
+                    style={[
+                      styles.row,
+                      { justifyContent: 'space-between', flexWrap: 'wrap' },
+                    ]}
+                  >
+                    <Text style={styles.muted}>
+                      {formatCalendarDate(entry.date, true)}
+                    </Text>
+                    <Text style={styles.body}>
+                      {entry.weight} {goal.unit}
+                    </Text>
+                  </View>
+                ))}
+            </>
+          ) : (
+            <Text style={styles.muted}>还没有记录，恢复后可以继续积累。</Text>
+          )}
+        </Panel>
+      )}
+      <ActionButton
+        mode="text"
+        icon="delete-outline"
+        textColor={colors.danger}
+        disabled={busy}
+        style={{ marginTop: 8 }}
+        onPress={() => {
+          setError('');
+          setDeleting(true);
+        }}
+      >
+        删除此里程碑
+      </ActionButton>
+    </>
+  );
   return (
     <Page
       title="里程碑"
+      titleStyle={
+        palette
+          ? { fontSize: 18, fontWeight: '500', lineHeight: 25 }
+          : undefined
+      }
       subtitle="到达新刻度解锁 1 张奖券，永久有效，不受到期设置影响。"
     >
-      <ActionButton
-        mode="contained"
-        icon="plus"
-        disabled={busy}
-        onPress={() => openForm()}
-      >
-        新增里程碑
-      </ActionButton>
-      <View style={styles.actions}>
+      {!palette && (
         <ActionButton
+          mode="contained"
+          icon="plus"
           disabled={busy}
-          mode={!archiveFilter ? 'contained-tonal' : 'text'}
-          accessibilityState={{ selected: !archiveFilter }}
-          onPress={() => {
-            setArchiveFilter(false);
-            setSearch('');
-            setError('');
+          onPress={() => openForm()}
+        >
+          新增里程碑
+        </ActionButton>
+      )}
+      {palette ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignItems: 'flex-end',
+            gap: 10,
+            marginBottom: 2,
           }}
         >
-          当前 {groups.current.length}
-        </ActionButton>
-        <ActionButton
-          disabled={busy}
-          mode={archiveFilter ? 'contained-tonal' : 'text'}
-          accessibilityState={{ selected: archiveFilter }}
-          onPress={() => {
-            setArchiveFilter(true);
-            setSearch('');
-            setError('');
-          }}
-        >
-          已归档 {groups.archived.length}
-        </ActionButton>
-        <ActionButton
-          disabled={busy}
-          mode="text"
-          icon="magnify"
-          onPress={() => {
-            setSearchOpen(!searchOpen);
-            if (searchOpen) setSearch('');
-          }}
-        >
-          {searchOpen ? '收起搜索' : '搜索'}
-        </ActionButton>
-      </View>
+          <View
+            accessibilityRole="tablist"
+            style={{
+              flexGrow: 1,
+              flexShrink: 1,
+              flexDirection: 'row',
+              gap: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: softThemeRoles.borderSoft,
+            }}
+          >
+            {[false, true].map((archived) => {
+              const selected = archiveFilter === archived;
+              const focus = archived ? archivedTabFocus : currentTabFocus;
+              return (
+                <Pressable
+                  key={String(archived)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected, disabled: busy }}
+                  disabled={busy}
+                  hitSlop={{ top: 10 }}
+                  onFocus={focus.onFocus}
+                  onBlur={focus.onBlur}
+                  onPress={() => switchArchive(archived)}
+                  style={{
+                    paddingBottom: 9,
+                    borderBottomWidth: 2,
+                    marginBottom: -1,
+                    borderBottomColor:
+                      selected && !busy ? palette.brand.solid : 'transparent',
+                    outlineWidth: focus.focusVisible ? 2 : 0,
+                    outlineStyle: 'solid',
+                    outlineColor: colors.primary,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: busy
+                        ? colors.border
+                        : selected
+                          ? palette.brand.ink
+                          : colors.muted,
+                      fontWeight: selected ? '500' : '400',
+                    }}
+                  >
+                    {archived
+                      ? '已归档 ' + groups.archived.length
+                      : '当前 ' + groups.current.length}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <MilestoneIconAction
+            testID="milestone-search-toggle"
+            icon="magnify"
+            label={searchOpen ? '收起搜索' : '搜索里程碑'}
+            expanded={searchOpen}
+            disabled={busy}
+            onPress={toggleSearch}
+          />
+          <ActionButton
+            size="sm"
+            mode="contained-tonal"
+            icon="plus"
+            disabled={busy}
+            onPress={() => openForm()}
+            style={{ minHeight: 26 }}
+            contentStyle={{ paddingHorizontal: 9 }}
+            hitSlop={8}
+          >
+            新增里程碑
+          </ActionButton>
+        </View>
+      ) : (
+        <View style={styles.actions}>
+          <ActionButton
+            disabled={busy}
+            mode={!archiveFilter ? 'contained-tonal' : 'text'}
+            accessibilityState={{ selected: !archiveFilter }}
+            onPress={() => switchArchive(false)}
+          >
+            当前 {groups.current.length}
+          </ActionButton>
+          <ActionButton
+            disabled={busy}
+            mode={archiveFilter ? 'contained-tonal' : 'text'}
+            accessibilityState={{ selected: archiveFilter }}
+            onPress={() => switchArchive(true)}
+          >
+            已归档 {groups.archived.length}
+          </ActionButton>
+          <ActionButton
+            disabled={busy}
+            mode="text"
+            icon="magnify"
+            accessibilityState={{ expanded: searchOpen }}
+            onPress={toggleSearch}
+          >
+            {searchOpen ? '收起搜索' : '搜索'}
+          </ActionButton>
+        </View>
+      )}
       {searchOpen && (
         <TextInput
           dense
@@ -495,85 +763,91 @@ export function MilestonesScreen() {
           }
         />
       )}
-      {visibleGoals.length > 0 && (
-        <View
-          style={{ gap: space[4] }}
-          onLayout={({ nativeEvent }) =>
-            setPagerWidth(nativeEvent.layout.width)
-          }
-        >
-          {pagerWidth > 0 && (
-            <FlatList
-              ref={tabList}
-              testID="milestone-inline-tabs"
-              accessibilityLabel="选择里程碑"
-              scrollEnabled={!busy}
-              horizontal
-              pagingEnabled
-              data={pages}
-              keyExtractor={(items) => items[0].id}
-              showsHorizontalScrollIndicator={false}
-              showsVerticalScrollIndicator={false}
-              extraData={goal?.id}
-              getItemLayout={(_, index) => ({
-                length: pagerWidth,
-                offset: pagerWidth * index,
-                index,
-              })}
-              onScroll={Platform.OS === 'web' ? selectPage : undefined}
-              onMomentumScrollEnd={selectPage}
-              renderItem={({ item }) => (
-                <View
-                  style={{
-                    width: pagerWidth,
-                    flexDirection: 'row',
-                    gap: space[8],
-                  }}
-                >
-                  {item.map((member, index) => (
-                    <MilestoneTab
-                      key={member.id}
-                      item={member}
-                      selected={goal?.id === member.id}
-                      alternate={index === 1}
-                      disabled={busy}
-                      onPress={() => {
-                        setSelectedId(member.id);
-                        setError('');
-                      }}
-                    />
-                  ))}
-                  {item.length === 1 && <View style={{ flex: 1 }} />}
-                </View>
-              )}
-            />
-          )}
-          {pages.length > 1 && (
-            <View
-              testID="milestone-page-dots"
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'center',
-                flexWrap: 'wrap',
-              }}
-            >
-              {pages.map((items, index) => (
-                <MilestonePageDot
-                  key={items[0].id}
-                  label={`第 ${index + 1} 页，共 ${pages.length} 页`}
-                  selected={index === selectedPage}
-                  disabled={busy}
-                  onPress={() => {
-                    if (index !== selectedPage) {
-                      setSelectedId(items[0].id);
-                      setError('');
-                    }
-                  }}
-                />
-              ))}
+      {!palette && visibleGoals.length > 0 && (
+        <View testID="milestone-legacy-nav" style={{ gap: space[4] }}>
+          <FlatList
+            ref={legacyTabList}
+            testID="milestone-legacy-tabs"
+            scrollEnabled={!busy}
+            horizontal
+            data={visibleGoals}
+            keyExtractor={(item) => item.id}
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            extraData={goal?.id}
+            onScrollToIndexFailed={({ index, averageItemLength }) =>
+              legacyTabList.current?.scrollToOffset({
+                offset: averageItemLength * index,
+                animated: false,
+              })
+            }
+            contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+            renderItem={({ item }) => (
+              <LegacyMilestoneTab
+                item={item}
+                selected={goal?.id === item.id}
+                disabled={busy}
+                onPress={() => selectGoal(item.id)}
+              />
+            )}
+          />
+          <View
+            style={[
+              styles.row,
+              { justifyContent: 'space-between', flexWrap: 'wrap' },
+            ]}
+          >
+            <Text style={styles.muted}>
+              {selectedIndex + 1} / {visibleGoals.length} 个 · 左右滑动切换
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <ActionButton
+                mode="text"
+                accessibilityLabel="上一个里程碑"
+                disabled={busy || selectedIndex <= 0}
+                onPress={() => selectGoal(visibleGoals[selectedIndex - 1].id)}
+              >
+                上一项
+              </ActionButton>
+              <ActionButton
+                mode="text"
+                accessibilityLabel="下一个里程碑"
+                disabled={busy || selectedIndex >= visibleGoals.length - 1}
+                onPress={() => selectGoal(visibleGoals[selectedIndex + 1].id)}
+              >
+                下一项
+              </ActionButton>
             </View>
-          )}
+          </View>
         </View>
+      )}
+      {palette && visibleGoals.length > 0 && (
+        <View testID="milestone-single-list" style={{ gap: 10 }}>
+          {visibleGoals.map((item, index) => (
+            <MilestoneCard
+              key={item.id}
+              item={item}
+              index={index}
+              next={nextMilestone(item)}
+              invalidUnit={milestoneUnitError(item.unit)}
+              disabled={busy}
+              onManage={() => {
+                selectGoal(item.id);
+                setManageOpen(true);
+              }}
+              onRecord={() => openRecord(item)}
+              onTickets={() => setTicketGoalId(item.id)}
+            />
+          ))}
+        </View>
+      )}
+      {palette && ticketGoal && (
+        <MilestoneTicketSheet
+          key={ticketGoal.id}
+          goal={ticketGoal}
+          tickets={goalTickets}
+          onClose={() => setTicketGoalId(null)}
+        />
       )}
       {!goal ? (
         <Empty
@@ -596,233 +870,17 @@ export function MilestonesScreen() {
                   : '体重、阅读、存钱都可以。设置起点、方向与差值，开始积累自己的小成就。'
           }
         />
-      ) : (
-        <>
-          <Panel style={styles.card}>
-            <Text style={styles.heading}>{goal.name}</Text>
-            <View style={[styles.row, { flexWrap: 'wrap' }]}>
-              <View style={styles.stat}>
-                <Text style={styles.muted}>
-                  {latest ? '当前数值' : '起始数值'}
-                </Text>
-                <Text style={styles.number}>
-                  {latest?.weight ?? goal.startWeight}
-                </Text>
-                <Text style={styles.muted}>单位：{goal.unit}</Text>
-              </View>
-              <View
-                style={[
-                  styles.stat,
-                  quiet
-                    ? { borderLeftWidth: 1, borderLeftColor: colors.border }
-                    : { backgroundColor: colors.purple },
-                ]}
-              >
-                <Text style={styles.muted}>累计解锁</Text>
-                <Text style={styles.number}>
-                  {goal.unlockedMilestones.length}
-                  <Text style={styles.body}> 张</Text>
-                </Text>
-              </View>
-            </View>
-            {invalidUnit ? (
-              <ErrorText
-                message={
-                  `单位“${goal.unit}”疑似误填。起始数值实际为 ${goal.startWeight}。` +
-                  (goal.entries.length
-                    ? '已有记录，规则已锁定；请新建单位正确的目标，原记录和奖券保留。'
-                    : '请打开“规则与图标”，分别填写起始数值和单位。')
-                }
-              />
-            ) : (
-              <Text style={styles.body}>
-                每{goal.direction === 'increase' ? '增加' : '减少'} {goal.step}{' '}
-                {goal.unit}，解锁一张。
-              </Text>
-            )}
-            {!invalidUnit && (
-              <Text style={styles.muted}>
-                {Number(next) >= 0 && Number(next) <= 1000000
-                  ? '下一个里程碑：' + next + ' ' + goal.unit
-                  : '已到达当前方向的数值边界'}
-              </Text>
-            )}
-            <Text style={styles.muted}>
-              {isArchived ? '已归档 · 归档前' : ''}
-              {goal.enabled ? '进行中' : '已暂停'} ·
-              重复到达不会重复奖励；一次跨过多个刻度会逐一补发。
-            </Text>
-            {isArchived ? (
-              <ActionButton
-                mode="contained-tonal"
-                icon="archive-arrow-up-outline"
-                tone="save"
-                disabled={busy}
-                onPress={() => {
-                  setError('');
-                  void run((draft) =>
-                    restoreMilestoneGoal(draft, goal.id),
-                  ).then((result) => {
-                    if (result.ok) {
-                      setArchiveFilter(false);
-                      setSearch('');
-                      setSelectedId(goal.id);
-                    } else setError(result.message);
-                  });
-                }}
-              >
-                恢复到当前
-              </ActionButton>
-            ) : (
-              <>
-                <ActionButton
-                  mode="contained"
-                  icon="pencil-plus-outline"
-                  disabled={busy || !goal.enabled || !!invalidUnit}
-                  style={styles.card}
-                  onPress={() => {
-                    setRecordError('');
-                    setRecord('');
-                    setRecordOpen(true);
-                  }}
-                >
-                  记录新数值
-                </ActionButton>
-                <View style={styles.actions}>
-                  <ActionButton
-                    mode="outlined"
-                    disabled={busy}
-                    onPress={() => openForm(goal)}
-                  >
-                    规则与图标
-                  </ActionButton>
-                  <ActionButton
-                    mode="text"
-                    disabled={busy}
-                    onPress={() => {
-                      void run((draft) =>
-                        setMilestoneEnabled(draft, goal.id, !goal.enabled),
-                      );
-                    }}
-                  >
-                    {goal.enabled ? '暂停' : '继续记录'}
-                  </ActionButton>
-                </View>
-              </>
-            )}
-            <ErrorText message={error} />
-          </Panel>
-          {!isArchived && (
-            <View style={{ gap: 4 }}>
-              <Text style={styles.muted}>
-                暂停仍留在当前列表；归档会收起目标，记录与奖励都会保留。
-              </Text>
-              <ActionButton
-                mode="text"
-                icon="archive-outline"
-                tone="archive"
-                disabled={busy}
-                onPress={() => {
-                  setError('');
-                  setArchiving({ id: goal.id, name: goal.name });
-                }}
-              >
-                归档此里程碑
-              </ActionButton>
-            </View>
-          )}
-          <Panel style={[styles.card, { padding: 10, gap: 4 }]}>
-            <SectionTitle
-              title="已解锁的奖励"
-              titleStyle={{ fontSize: 13, lineHeight: 20, fontWeight: '500' }}
-              action={
-                <ActionButton
-                  mode="text"
-                  contentStyle={rewardButtonContent}
-                  labelStyle={rewardButtonLabel}
-                  onPress={() =>
-                    navigation.navigate('tickets', {
-                      intent: 'own-available',
-                      at: nextTicketLandingId(),
-                    })
-                  }
-                >
-                  查看奖券
-                </ActionButton>
-              }
-            />
-            {rewards.length ? (
-              rewards
-                .slice(0, 6)
-                .map((value) => (
-                  <RewardRow key={value} value={value} goal={goal} />
-                ))
-            ) : (
-              <Empty
-                title="还没有解锁奖励"
-                description="首次达到新的里程碑后，奖励会出现在这里。普通记录不会重复发券。"
-              />
-            )}
-            {rewards.length > 6 && (
-              <ActionButton
-                mode="text"
-                contentStyle={rewardButtonContent}
-                labelStyle={rewardButtonLabel}
-                onPress={() => setHistoryOpen(true)}
-              >
-                查看全部 {rewards.length} 项奖励
-              </ActionButton>
-            )}
-          </Panel>
-          {isArchived && (
-            <Panel style={[styles.card, { padding: 12, gap: 8 }]}>
-              <SectionTitle title="归档前的记录" />
-              {goal.entries.length ? (
-                <>
-                  <Text style={styles.muted}>
-                    共 {goal.entries.length} 次记录 · 最近 5 次
-                  </Text>
-                  {goal.entries
-                    .slice(-5)
-                    .reverse()
-                    .map((entry) => (
-                      <View
-                        key={entry.id}
-                        style={[
-                          styles.row,
-                          { justifyContent: 'space-between', flexWrap: 'wrap' },
-                        ]}
-                      >
-                        <Text style={styles.muted}>
-                          {formatCalendarDate(entry.date, true)}
-                        </Text>
-                        <Text style={styles.body}>
-                          {entry.weight} {goal.unit}
-                        </Text>
-                      </View>
-                    ))}
-                </>
-              ) : (
-                <Text style={styles.muted}>
-                  还没有记录，恢复后可以继续积累。
-                </Text>
-              )}
-            </Panel>
-          )}
-          <ActionButton
-            mode="text"
-            icon="delete-outline"
-            textColor={colors.danger}
-            disabled={busy}
-            style={{ marginTop: 8 }}
-            onPress={() => {
-              setError('');
-              setDeleting(true);
-            }}
-          >
-            删除此里程碑
-          </ActionButton>
-        </>
+      ) : !palette ? (
+        renderGoalDetails(goal)
+      ) : null}
+      {palette && goal && (
+        <FormModal
+          visible={showManage}
+          title={goal.name + ' · 更多操作'}
+          onDismiss={() => setManageOpen(false)}
+        >
+          {renderGoalDetails(goal)}
+        </FormModal>
       )}
       {historyOpen ? (
         <Modal
@@ -994,21 +1052,17 @@ export function MilestonesScreen() {
         )}
       </FormModal>
       <FormModal
-        visible={recordOpen}
-        title={'记录' + (goal?.name || '数值')}
+        visible={recordGoalId !== null}
+        title={'记录' + (recordGoal?.name || '数值')}
         onDismiss={() => {
-          if (!busy)
-            discardDraft(!!record, () => {
-              setRecordOpen(false);
-              setRecord('');
-            });
+          if (!busy) discardDraft(!!record, closeRecord);
         }}
       >
         <View style={styles.form}>
           <TextInput
             dense
             mode="outlined"
-            label={'当前数值（' + (goal?.unit || '') + '）'}
+            label={'当前数值（' + (recordGoal?.unit || '') + '）'}
             numericRule={{ kind: 'decimal', min: 0, max: 1000000 }}
             validationVisible={!!recordError}
             value={record}
@@ -1025,19 +1079,18 @@ export function MilestonesScreen() {
               mode="outlined"
               tone="neutral"
               disabled={busy}
-              onPress={() =>
-                discardDraft(!!record, () => {
-                  setRecordOpen(false);
-                  setRecord('');
-                })
-              }
+              onPress={() => discardDraft(!!record, closeRecord)}
             >
               取消
             </ActionButton>
             <ActionButton
               mode="contained"
               loading={busy}
-              disabled={busy}
+              disabled={
+                busy ||
+                !recordGoal?.enabled ||
+                !!milestoneUnitError(recordGoal?.unit ?? '')
+              }
               tone="save"
               onPress={() => {
                 void saveRecord();
@@ -1068,6 +1121,7 @@ export function MilestonesScreen() {
               (result) => {
                 if (result.ok) {
                   setArchiving(null);
+                  setManageOpen(false);
                   setSelectedId('');
                   setSearch('');
                 } else setError(result.message);
@@ -1093,8 +1147,10 @@ export function MilestonesScreen() {
           if (goal)
             void run((draft) => deleteMilestoneGoal(draft, goal.id)).then(
               (result) => {
-                if (result.ok) setDeleting(false);
-                else setError(result.message);
+                if (result.ok) {
+                  setDeleting(false);
+                  setManageOpen(false);
+                } else setError(result.message);
               },
             );
         }}

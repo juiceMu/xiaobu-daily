@@ -102,7 +102,8 @@ test('奖券图标文字使用按钮同一横行，紧凑卡片不设固定高�
   );
   assert.ok(row.getText(source).includes('styles.grow'));
   assert.ok(row.getText(source).includes('width: 32'));
-  assert.ok(row.getText(source).includes('size={18}'));
+  assert.ok(row.getText(source).includes('width: 34'));
+  assert.ok(row.getText(source).includes('size={palette ? 20 : 18}'));
   const buttonText = button.getText(source);
   let ownerCheck: ts.Node | undefined = button;
   let showsOwnTicket = false;
@@ -136,11 +137,11 @@ test('奖券图标文字使用按钮同一横行，紧凑卡片不设固定高�
   );
 });
 
-test('奖券标题两行省略保留全文读屏，状态来源获得时间紧凑且备注不截断', () => {
+test('柔彩归档标题单行省略并保留全文读屏，其他奖券标题保留两行', () => {
   const title = byId('ticket-title');
   assert.equal(
     attribute(title, 'numberOfLines')?.initializer?.getText(source),
-    '{2}',
+    '{cornerArchive ? 1 : 2}',
   );
   assert.equal(
     attribute(title, 'accessibilityLabel')?.initializer?.getText(source),
@@ -151,22 +152,23 @@ test('奖券标题两行省略保留全文读屏，状态来源获得时间紧�
       ?.initializer?.getText(source)
       .includes('fontSize: 13'),
   );
-  for (const id of [
-    'ticket-status',
-    'ticket-created-at',
-    'ticket-usage-note',
-  ]) {
+  for (const id of ['ticket-status', 'ticket-created-at']) {
     assert.ok(
       attribute(byId(id), 'style')
         ?.initializer?.getText(source)
-        .includes('fontSize: 12'),
+        .includes('fontSize: palette ? 11 : 12'),
     );
   }
   const note = byId('ticket-usage-note');
+  assert.match(
+    attribute(note, 'style')?.initializer?.getText(source) ?? '',
+    /fontSize: 12/,
+  );
   assert.equal(attribute(note, 'numberOfLines'), undefined);
   assert.equal(attribute(note, 'ellipsizeMode'), undefined);
   const status = byId('ticket-status').getText(source);
   assert.ok(status.includes('{sourceName} · {statusLabel}'));
+  assert.match(status, /accessibilityLabel=\{archivedSummary\}/);
   assert.ok(
     source.text.includes('formatMilestoneSource(item.goalName || goal?.name)'),
   );
@@ -180,13 +182,25 @@ test('奖券标题两行省略保留全文读屏，状态来源获得时间紧�
   );
 });
 
-test('归档奖券只显示纯文字状态，无独立阴影或操作入口', () => {
+test('归档奖券保持只读，柔彩主题将状态贴在卡片右上角', () => {
   const row = byId('ticket-main-row');
   assert.ok(ts.isJsxElement(row));
   const panel = row.parent;
   assert.ok(ts.isJsxElement(panel));
   const archive = byId('ticket-archived-label');
   assert.equal(opening(archive).tagName.getText(source), 'Text');
+  assert.match(row.getText(source), /archived && !palette &&/);
+  const corner = byId('ticket-archived-corner');
+  const cornerStyle =
+    attribute(corner, 'style')?.initializer?.getText(source) ?? '';
+  assert.match(cornerStyle, /position: 'absolute'/);
+  assert.match(cornerStyle, /top: 0/);
+  assert.match(cornerStyle, /right: 0/);
+  assert.match(cornerStyle, /palette.brand.soft/);
+  assert.match(cornerStyle, /softThemeRoles.warningSoft/);
+  assert.match(corner.getText(source), /palette.brand.ink/);
+  assert.match(corner.getText(source), /softThemeRoles.warning,/);
+  assert.match(row.getText(source), /paddingRight: 60/);
   assert.match(
     panel.getText(source),
     /archive[d] \? \{ 'aria-disabled': true \}/,

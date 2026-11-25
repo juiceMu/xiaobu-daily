@@ -39,11 +39,13 @@ export function Page({
   subtitle,
   children,
   scroll = true,
+  titleStyle,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   scroll?: boolean;
+  titleStyle?: StyleProp<TextStyle>;
 }) {
   const styles = useStyles();
   const { width } = useWindowDimensions();
@@ -53,7 +55,7 @@ export function Page({
       <Text
         accessibilityRole="header"
         variant="headlineMedium"
-        style={styles.title}
+        style={[styles.title, titleStyle]}
       >
         {title}
       </Text>

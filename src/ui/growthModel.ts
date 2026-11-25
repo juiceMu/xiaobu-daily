@@ -98,26 +98,14 @@ export function buildGrowthProgress(
 const WEEK_CHART_STEPS = 3;
 const WEEK_CHART_MIN_TICK = 3;
 
-export function weeklyChartScale(
-  tasks: readonly Task[],
-  days: readonly { count: number }[],
-) {
-  const totalDailyTarget = tasks.reduce(
-    (total, task) =>
-      task.archived || task.deleted ? total : total + task.target,
-    0,
-  );
-  const maxValue = Math.max(
-    totalDailyTarget,
-    ...days.map(({ count }) => count),
-  );
+export function weeklyChartScale(days: readonly { count: number }[]) {
+  const maxValue = Math.max(0, ...days.map(({ count }) => count));
   const tick = Math.max(
     WEEK_CHART_MIN_TICK,
     Math.ceil(maxValue / (WEEK_CHART_STEPS * WEEK_CHART_MIN_TICK)) *
       WEEK_CHART_MIN_TICK,
   );
   return {
-    target: totalDailyTarget > 0 ? totalDailyTarget : null,
     ceiling: tick * WEEK_CHART_STEPS,
     ticks: Array.from(
       { length: WEEK_CHART_STEPS + 1 },

@@ -548,6 +548,53 @@ export function TodayScreen({
                     },
                   )}
                 </View>
+                {historicalWeek && (
+                  <Pressable
+                    testID="back-today"
+                    accessibilityRole="button"
+                    accessibilityLabel="回到今天"
+                    aria-disabled={busy}
+                    disabled={busy}
+                    onPress={() => {
+                      if (!busy) changePickedDate(null);
+                    }}
+                    onFocus={() => {
+                      keyboardFocus.onFocus();
+                      setFocusedAction('back-today');
+                    }}
+                    onBlur={() => {
+                      keyboardFocus.onBlur();
+                      setFocusedAction(null);
+                    }}
+                    style={{
+                      width: control[44],
+                      height: control[44],
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: radius[4],
+                      ...(Platform.OS === 'web' && {
+                        outlineStyle: 'solid',
+                        outlineColor: colors.primary,
+                        outlineOffset: 2,
+                        outlineWidth:
+                          !busy &&
+                          keyboardFocus.focusVisible &&
+                          focusedAction === 'back-today'
+                            ? 2
+                            : 0,
+                        cursor: (busy
+                          ? 'not-allowed'
+                          : 'pointer') as ViewStyle['cursor'],
+                      }),
+                    }}
+                  >
+                    <Icon
+                      source="crosshairs-gps"
+                      size={font[16]}
+                      color={busy ? colors.border : colors.muted}
+                    />
+                  </Pressable>
+                )}
                 <Pressable
                   testID="week-date"
                   disabled={busy}
@@ -817,7 +864,7 @@ export function TodayScreen({
                 <Text style={styles.muted}>
                   已选 {formatCalendarDate(selectedDate)}
                 </Text>
-                {!isToday && (
+                {!isToday && !historicalWeek && (
                   <ActionButton
                     size="sm"
                     mode="text"
@@ -969,18 +1016,6 @@ export function TodayScreen({
                 setSection(item);
               }}
             />
-            {section === 'mine' && (
-              <ActionButton
-                size="sm"
-                mode="text"
-                icon="qrcode-scan"
-                style={{ alignSelf: 'flex-start' }}
-                disabled={busy}
-                onPress={() => navigation.dispatch(StackActions.push('scan'))}
-              >
-                扫码领取
-              </ActionButton>
-            )}
             {section === 'activity' ? (
               <GroupActivityView
                 key={weekKey(selectedNow)}

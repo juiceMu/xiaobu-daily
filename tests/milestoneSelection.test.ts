@@ -89,19 +89,17 @@ test('页内搜索忽略首尾空格和英文大小写，过滤安全回退且�
   assert.equal(milestoneGroups(state.milestoneGoals).current.length, 2);
 });
 
-test('双卡横向分页保留归档、记录、已发奖励入口', () => {
+test('柔彩单列卡片按目标打开记录、管理与奖券', () => {
   const source = readFileSync(
     new URL('../src/screens/MilestonesScreen.tsx', import.meta.url),
     'utf8',
   );
   for (const text of [
-    'milestone-inline-tabs',
-    'ref={tabList}',
-    'MILESTONES_PER_PAGE = 2',
-    'pagingEnabled',
-    'onMomentumScrollEnd={selectPage}',
-    'milestone-page-dots',
-    'scrollToOffset',
+    'milestone-single-list',
+    'onRecord={() => openRecord(item)}',
+    'onTickets={() => setTicketGoalId(item.id)}',
+    "ticket.source === 'weight'",
+    'ticket.goalId === ticketGoal.id',
     'setArchiving({ id: goal.id, name: goal.name })',
     'archiveMilestoneGoal(draft, archiving.id)',
     'restoreMilestoneGoal(draft, goal.id)',
@@ -114,7 +112,24 @@ test('双卡横向分页保留归档、记录、已发奖励入口', () => {
     '已解锁的奖励',
   ])
     assert.ok(source.includes(text), text);
-  assert.doesNotMatch(source, /上一项|下一项|左右滑动切换/);
+  const legacyStart = source.indexOf('{!palette && visibleGoals.length > 0');
+  const cardsStart = source.indexOf('{palette && visibleGoals.length > 0');
+  const detailStart = source.indexOf('{!goal ?', cardsStart);
+  assert.ok(legacyStart >= 0 && cardsStart > legacyStart);
+  assert.ok(detailStart > cardsStart);
+  const legacy = source.slice(legacyStart, cardsStart);
+  const cards = source.slice(cardsStart, detailStart);
+  assert.match(legacy, /上一项/);
+  assert.match(legacy, /下一项/);
+  assert.match(legacy, /左右滑动切换/);
+  assert.doesNotMatch(legacy, /milestone-page-dots|pagingEnabled/);
+  assert.match(cards, /visibleGoals\.map/);
+  assert.doesNotMatch(cards, /milestone-page-dots|pagingEnabled/);
+  assert.doesNotMatch(cards, /上一项|下一项|左右滑动切换/);
+  assert.match(
+    source,
+    /\{!palette && \(\s*<ActionButton\s+testID="milestone-legacy-record"/,
+  );
   assert.equal(source.includes('visible={selector}'), false);
   assert.equal(source.includes('setSelector'), false);
 });
