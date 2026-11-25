@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Text, TextInput as PaperTextInput } from 'react-native-paper';
 import { useAppTheme } from './ThemeProvider';
+import { control, font, radius, space } from './uiTokens';
 import { useKeyboardFocus } from './useKeyboardFocus';
 import { useAndroidMountReady } from './useAndroidMountReady';
 import { numericInputError } from '../domain/engine';
@@ -70,7 +71,10 @@ export const AppTextInput = forwardRef<
   const keyboardFocus = useKeyboardFocus();
   const { fontScale } = useWindowDimensions();
   // 单行压缩到44dp，大字体时按实际行高扩展，备注不施加固定高度。
-  const inputHeight = Math.max(44, Math.ceil(20 * fontScale + 20));
+  const inputHeight = Math.max(
+    control[44],
+    Math.ceil(20 * fontScale + space[20]),
+  );
   // useId 含冒号，Android 无障碍资源名不接受，会在挂载时直接崩溃。
   const labelId = useId().replace(/[^A-Za-z0-9_-]/g, '');
   const errorId = useId().replace(/[^A-Za-z0-9_-]/g, '');
@@ -87,16 +91,27 @@ export const AppTextInput = forwardRef<
     numericRule && props.value === undefined
       ? numericDraft
       : (props.value ?? '');
+  const readonly = props.readOnly || props.editable === false;
+  const quietField = props.disabled || readonly;
+  const fieldBackground = quietField
+    ? theme.colors.surfaceDisabled
+    : colors.surface;
+  const fieldText = quietField ? colors.muted : colors.ink;
+  const fieldBorder = error
+    ? colors.danger
+    : focused && !quietField
+      ? colors.primary
+      : colors.border;
   const fieldLabel =
     accessibilityLabel ?? (typeof label === 'string' ? label : undefined);
 
   return (
-    <View collapsable={false} style={{ gap: 4, minWidth: 0 }}>
+    <View collapsable={false} style={{ gap: space[4], minWidth: 0 }}>
       {label != null && (
         <Text
           nativeID={labelId}
           style={{
-            fontSize: 12,
+            fontSize: font[12],
             lineHeight: 18,
             color: error ? colors.danger : colors.muted,
           }}
@@ -139,7 +154,9 @@ export const AppTextInput = forwardRef<
             }}
             collapsable={false}
             autoFocus
-            editable={!props.disabled}
+            editable={!props.disabled && !readonly}
+            readOnly={readonly}
+            aria-disabled={props.disabled}
             value={String(displayValue ?? '')}
             onChangeText={(text) => {
               const next = numericRule
@@ -157,15 +174,15 @@ export const AppTextInput = forwardRef<
             style={[
               {
                 minHeight: props.multiline ? 88 : inputHeight,
-                borderRadius: 10,
-                paddingHorizontal: 12,
-                paddingVertical: props.multiline ? 10 : 0,
-                fontSize: 14,
+                borderRadius: radius[8],
+                paddingHorizontal: space[12],
+                paddingVertical: props.multiline ? space[10] : 0,
+                fontSize: font[14],
                 lineHeight: 20,
-                color: colors.ink,
-                backgroundColor: focused
-                  ? colors.primaryContainer
-                  : theme.colors.surfaceVariant,
+                color: fieldText,
+                backgroundColor: fieldBackground,
+                borderColor: fieldBorder,
+                borderWidth: error || (focused && !quietField) ? 2 : 1,
               },
               style,
             ]}
@@ -253,6 +270,8 @@ export const AppTextInput = forwardRef<
               else if (ref) ref.current = instance;
             }}
             error={error}
+            readOnly={readonly}
+            aria-disabled={props.disabled}
             aria-invalid={!!error}
             aria-describedby={
               Platform.OS === 'web'
@@ -274,21 +293,29 @@ export const AppTextInput = forwardRef<
                 />
               ) : undefined)
             }
-            outlineStyle={[outlineStyle, { borderWidth: 0 }]}
+            outlineColor={fieldBorder}
+            activeOutlineColor={fieldBorder}
+            textColor={fieldText}
+            placeholderTextColor={colors.muted}
+            outlineStyle={[
+              outlineStyle,
+              {
+                borderRadius: radius[8],
+                borderWidth: error || (focused && !quietField) ? 2 : 1,
+              },
+            ]}
             contentStyle={[
               contentStyle,
-              { fontSize: 14, lineHeight: 20 },
+              { fontSize: font[14], lineHeight: 20 },
               !props.multiline && { paddingTop: 10, paddingBottom: 10 },
             ]}
             style={[
               style,
               !props.multiline && { height: inputHeight },
               {
-                fontSize: 14,
+                fontSize: font[14],
                 lineHeight: 20,
-                backgroundColor: focused
-                  ? colors.primaryContainer
-                  : theme.colors.surfaceVariant,
+                backgroundColor: fieldBackground,
               },
               Platform.OS === 'web' && {
                 outlineWidth: keyboardFocus.focusVisible ? 2 : 0,
@@ -348,6 +375,7 @@ export const AppTextInput = forwardRef<
       ) : (
         <Pressable
           disabled={!!props.disabled}
+          aria-disabled={props.disabled}
           accessibilityRole="button"
           accessibilityLabel={fieldLabel}
           onPress={() => {
@@ -355,21 +383,20 @@ export const AppTextInput = forwardRef<
           }}
           style={{
             minHeight: props.multiline ? 88 : inputHeight,
-            borderRadius: 10,
-            paddingHorizontal: 12,
+            borderRadius: radius[8],
+            paddingHorizontal: space[12],
             justifyContent: 'center',
-            backgroundColor: focused
-              ? colors.primaryContainer
-              : theme.colors.surfaceVariant,
-            opacity: props.disabled ? 0.5 : 1,
+            backgroundColor: fieldBackground,
+            borderWidth: error ? 2 : 1,
+            borderColor: fieldBorder,
           }}
         >
           <Text
             numberOfLines={props.multiline ? undefined : 1}
             style={{
-              fontSize: 14,
+              fontSize: font[14],
               lineHeight: 20,
-              color: displayValue ? colors.ink : colors.muted,
+              color: displayValue ? fieldText : colors.muted,
             }}
           >
             {displayValue ||
@@ -384,7 +411,7 @@ export const AppTextInput = forwardRef<
           nativeID={errorId}
           accessibilityRole="alert"
           accessibilityLiveRegion="polite"
-          style={{ fontSize: 12, lineHeight: 18, color: colors.danger }}
+          style={{ fontSize: font[12], lineHeight: 18, color: colors.danger }}
         >
           {fieldError}
         </Text>

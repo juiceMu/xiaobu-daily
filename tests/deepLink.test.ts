@@ -65,8 +65,15 @@ for (const prefix of [
   'sprout-peerprotectionqa://',
   developmentPrefix,
 ]) {
-  test(`${prefix}解析账户/成长/赠券/小组/设置并保留更多总览返回入口`, () => {
-    for (const page of ['account', 'growth', 'gifts', 'group', 'settings']) {
+  test(`${prefix}解析账户/成长/月度回顾/赠券/小组/设置并保留更多总览返回入口`, () => {
+    for (const page of [
+      'account',
+      'growth',
+      'month',
+      'gifts',
+      'group',
+      'settings',
+    ]) {
       const state = parse(`${prefix}more/${page}`);
       assert.ok(state, page);
       const tab = state.routes.at(-1);

@@ -1,4 +1,3 @@
-import { utilityColors } from './themeCatalog';
 import React, {
   forwardRef,
   useMemo,
@@ -7,9 +6,11 @@ import React, {
   type ReactNode,
 } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -25,12 +26,12 @@ import {
   IconButton,
   Text,
   TouchableRipple,
-  useTheme,
-  type MD3Theme,
 } from 'react-native-paper';
 import { iconOptions } from './theme';
 import { useAppTheme } from './ThemeProvider';
-import type { AppColors } from './themeCatalog';
+import { utilityColors, type AppColors } from './themeCatalog';
+import { control, font, radius, space } from './uiTokens';
+import { useReducedMotion } from './useReducedMotion';
 import { useKeyboardFocus } from './useKeyboardFocus';
 
 export function Page({
@@ -64,7 +65,7 @@ export function Page({
       {scroll ? (
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator
           showsHorizontalScrollIndicator={false}
           removeClippedSubviews={false}
           contentContainerStyle={[
@@ -110,9 +111,11 @@ export function Panel({
 export function Empty({
   title,
   description,
+  action,
 }: {
   title: string;
   description: string;
+  action?: ReactNode;
 }) {
   const { colors } = useAppTheme();
   const styles = useStyles();
@@ -125,6 +128,7 @@ export function Empty({
         {title}
       </Text>
       <Text style={[styles.subtitle, styles.center]}>{description}</Text>
+      {action}
     </View>
   );
 }
@@ -132,7 +136,11 @@ export type ActionTone =
   'primary' | 'neutral' | 'save' | 'reward' | 'archive' | 'danger';
 export const ActionButton = forwardRef<
   View,
-  ComponentProps<typeof Button> & { tone?: ActionTone }
+  Omit<ComponentProps<typeof Button>, 'style'> & {
+    style?: StyleProp<ViewStyle>;
+    tone?: ActionTone;
+    size?: 'sm';
+  }
 >(function ActionButton(
   {
     contentStyle,
@@ -140,30 +148,39 @@ export const ActionButton = forwardRef<
     labelStyle,
     accessibilityState,
     accessibilityLabel,
+    accessibilityHint,
+    accessibilityRole = 'button',
+    accessible,
     children,
     mode = 'text',
     buttonColor,
     textColor,
     tone,
+    size,
     disabled,
-    compact = true,
-    theme: themeOverrides,
+    loading = false,
+    icon,
+    uppercase,
+    maxFontSizeMultiplier,
+    onPress,
+    onLongPress,
+    onPressIn,
+    onPressOut,
     onFocus,
     onBlur,
-    ...props
+    delayLongPress,
+    hitSlop,
+    testID,
   },
   ref,
 ) {
-  const { colors, quiet } = useAppTheme();
-  const styles = useStyles();
+  const { colors, quiet, theme } = useAppTheme();
   const keyboardFocus = useKeyboardFocus();
-  const isWeb = Platform.OS === 'web';
-  const buttonTheme = useTheme<MD3Theme>(
-    themeOverrides as Parameters<typeof useTheme<MD3Theme>>[0],
-  );
-  const filled =
-    mode === 'contained' || mode === 'contained-tonal' || mode === 'elevated';
+  const reducedMotion = useReducedMotion();
+  const unavailable = !!disabled || loading;
   const outlined = mode === 'outlined';
+  const ghost =
+    mode === 'text' && (!tone || tone === 'neutral') && !buttonColor;
   const actionTone =
     accessibilityState?.selected === false ? 'neutral' : (tone ?? 'primary');
   const tones = {
@@ -176,31 +193,56 @@ export const ActionButton = forwardRef<
     archive: { fill: colors.archive, text: colors.onArchive },
     danger: { fill: colors.danger, text: utilityColors.onSolid },
   };
-  const fill = disabled
-    ? buttonTheme.colors.surfaceDisabled
-    : (buttonColor ??
-      (actionTone === 'neutral'
+  const fill =
+    unavailable && !loading
+      ? ghost
         ? 'transparent'
-        : filled || outlined || tone
-          ? tones[actionTone].fill
-          : 'transparent'));
+        : theme.colors.surfaceDisabled
+      : (buttonColor ??
+        (ghost || outlined ? 'transparent' : tones[actionTone].fill));
   const foreground =
-    textColor ??
-    (buttonColor === colors.danger
-      ? buttonTheme.colors.onError
-      : tones[actionTone].text);
-  // 外层保留原生48dp/web40dp触控，内层只绘制30dp视觉。
+    unavailable && !loading
+      ? ghost
+        ? colors.border
+        : colors.muted
+      : (textColor ??
+        (buttonColor === colors.danger
+          ? utilityColors.onSolid
+          : tones[actionTone].text));
+  const label =
+    typeof children === 'string' && uppercase
+      ? children.toUpperCase()
+      : children;
+  const spokenLabel =
+    accessibilityLabel ?? (typeof label === 'string' ? label : undefined);
+  const selected = accessibilityState?.selected;
+  const visuals = size === 'sm' ? control[26] : control[28];
   return (
-    <Button
-      {...props}
+    <Pressable
       ref={ref}
-      mode="text"
-      compact={compact}
-      disabled={disabled}
-      theme={themeOverrides}
-      buttonColor="transparent"
-      textColor={foreground}
-      rippleColor={'transparent'}
+      testID={testID}
+      accessible={accessible}
+      accessibilityRole={accessibilityRole}
+      accessibilityHint={accessibilityHint}
+      accessibilityLabel={
+        selected === undefined || !spokenLabel
+          ? spokenLabel
+          : `${spokenLabel}，${selected ? '已选择' : '未选择'}`
+      }
+      accessibilityState={{
+        ...accessibilityState,
+        disabled: unavailable,
+        busy: loading,
+      }}
+      aria-disabled={unavailable}
+      aria-busy={loading}
+      disabled={unavailable}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      delayLongPress={delayLongPress}
+      hitSlop={hitSlop}
       onFocus={(event) => {
         keyboardFocus.onFocus();
         onFocus?.(event);
@@ -209,57 +251,103 @@ export const ActionButton = forwardRef<
         keyboardFocus.onBlur();
         onBlur?.(event);
       }}
-      accessibilityState={accessibilityState}
-      accessibilityLabel={
-        accessibilityState?.selected !== undefined
-          ? `${accessibilityLabel ?? (typeof children === 'string' ? children : '选项')}，${accessibilityState.selected ? '已选择' : '未选择'}`
-          : accessibilityLabel
-      }
       style={[
-        styles.button,
-        isWeb && {
-          minWidth: 40,
-          minHeight: 40,
-          // @ts-expect-error RNW 支持关闭过渡，避免筛选切换闪烁
-          transitionDuration: '0ms',
+        {
+          minWidth: control[44],
+          minHeight: control[44],
+          maxWidth: '100%',
+          justifyContent: 'center',
+          borderRadius: radius[6],
         },
         style,
-        { backgroundColor: 'transparent', borderWidth: 0 },
-      ]}
-      labelStyle={[
-        {
-          fontSize: 12,
-          lineHeight: 18,
-          fontWeight: '500',
-          marginVertical: 6,
-          marginHorizontal: 8,
-          flexShrink: 1,
-        },
-        labelStyle,
-      ]}
-      contentStyle={[
-        {
-          minHeight: 30,
-          marginVertical: isWeb ? 5 : 9,
-          flexShrink: 0,
-          borderRadius: 10,
-          borderWidth: 0,
-        },
-        contentStyle,
-        {
-          backgroundColor: fill,
-          ...(isWeb ? ({ transitionDuration: '0ms' } as ViewStyle) : null),
-        },
-        isWeb && {
-          outlineWidth: !disabled && keyboardFocus.focusVisible ? 2 : 0,
+        Platform.OS === 'web' && {
+          cursor: (unavailable
+            ? 'not-allowed'
+            : 'pointer') as ViewStyle['cursor'],
+          outlineWidth: !unavailable && keyboardFocus.focusVisible ? 2 : 0,
           outlineStyle: 'solid',
-          outlineColor: foreground,
-          outlineOffset: -2,
+          outlineColor: colors.primary,
+          outlineOffset: 2,
         },
       ]}
     >
-      {children}
-    </Button>
+      {({ pressed }) => (
+        <View
+          style={[
+            {
+              paddingHorizontal: space[10],
+              minHeight: visuals,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: space[5],
+              minWidth: 0,
+            },
+            contentStyle,
+            {
+              minHeight: visuals,
+              borderRadius: radius[6],
+              borderWidth:
+                outlined || (unavailable && !loading && !ghost) ? 1 : 0,
+              borderColor:
+                unavailable && !loading ? colors.border : colors.primary,
+              backgroundColor: fill,
+              ...(pressed && !unavailable ? { opacity: 0.82 } : null),
+            },
+          ]}
+        >
+          {icon ? (
+            <Icon
+              source={icon}
+              size={font[14]}
+              color={loading ? 'transparent' : foreground}
+            />
+          ) : null}
+          <Text
+            aria-hidden={loading && !!spokenLabel}
+            maxFontSizeMultiplier={maxFontSizeMultiplier}
+            style={[
+              {
+                fontSize: font[12],
+                fontWeight: '500',
+                flexShrink: 1,
+                minWidth: 0,
+                textAlign: 'center',
+              },
+              labelStyle,
+              { color: loading ? 'transparent' : foreground },
+            ]}
+          >
+            {label}
+          </Text>
+          {loading ? (
+            <View
+              aria-hidden
+              pointerEvents="none"
+              style={StyleSheet.absoluteFill}
+            >
+              <View
+                style={{
+                  flex: 1,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                {reducedMotion ? (
+                  <Icon
+                    source="progress-clock"
+                    size={font[14]}
+                    color={foreground}
+                  />
+                ) : (
+                  <ActivityIndicator size={font[14]} color={foreground} />
+                )}
+              </View>
+            </View>
+          ) : null}
+        </View>
+      )}
+    </Pressable>
   );
 });
 export function SectionTitle({
@@ -426,9 +514,9 @@ export function FormModal({
             rippleColor={'transparent'}
             style={{
               margin: 0,
-              width: Platform.OS === 'web' ? 32 : 48,
-              height: Platform.OS === 'web' ? 32 : 48,
-              borderRadius: Platform.OS === 'web' ? 16 : 24,
+              width: control[44],
+              height: control[44],
+              borderRadius: radius.full,
               backgroundColor: 'transparent',
             }}
             onPress={onDismiss}
@@ -455,7 +543,12 @@ export function FormModal({
 const createStyles = (colors: AppColors) =>
   StyleSheet.create({
     flex: { flex: 1 },
-    page: { flex: 1, backgroundColor: colors.background },
+    page: {
+      flex: 1,
+      minHeight: 0,
+      minWidth: 0,
+      backgroundColor: colors.background,
+    },
     content: {
       width: '100%',
       maxWidth: 600,
@@ -479,13 +572,6 @@ const createStyles = (colors: AppColors) =>
       padding: 12,
       gap: 8,
       flexShrink: 0,
-    },
-    button: {
-      borderRadius: 10,
-      minWidth: 48,
-      minHeight: 48,
-      flexShrink: 0,
-      maxWidth: '100%',
     },
     section: {
       flexDirection: 'row',

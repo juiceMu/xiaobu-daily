@@ -60,7 +60,7 @@ function taskButton(id: string) {
   return matches[0];
 }
 
-test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与动态无障碍名称', () => {
+test('任务操作各平台44dp，移除网页hover底色但保留焦点与动态无障碍名称', () => {
   const checkin = taskButton('task-checkin-button');
   const undo = taskButton('task-undo-button');
   for (const button of [checkin, undo, taskButton('task-more-button')]) {
@@ -88,11 +88,7 @@ test('任务操作网页36原生44dp，移除网页hover底色但保留焦点与
     assert.ok(prop(button, 'onPressOut')?.includes('? null : current'));
     assert.ok(prop(button, 'onBlur')?.includes('setPressedAction'));
   }
-  assert.ok(
-    today.text.includes(
-      "const taskActionSize = Platform.OS === 'web' ? 36 : 44",
-    ),
-  );
+  assert.ok(today.text.includes('const taskActionSize = control[44]'));
   const icon = prop(checkin, 'icon');
   assert.ok(icon?.includes("'check-circle'"));
   assert.match(icon ?? '', /quiet\s*\?\s*'check-all'\s*:\s*'check-circle'/);
@@ -520,6 +516,7 @@ test('更多导航和深链显式设置总览initialRoute，并保留账户与�
       'index',
       'milestones',
       'growth',
+      'month',
       'archived',
       'settings',
       'gifts',

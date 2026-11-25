@@ -306,7 +306,7 @@ export function applyGroupJournals(
   }
   validateSync(next);
   const message = forks
-    ? `已同步 ${accepted} 人的记录，${forks} 人的记录无法合并，原副本保留`
+    ? `已同步 ${accepted} 人的记录，${forks} 人的记录有冲突，仍显示上次同步的记录`
     : accepted
       ? `已同步 ${accepted} 人的记录`
       : '没有新的小组记录';

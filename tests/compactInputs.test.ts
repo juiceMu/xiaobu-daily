@@ -2,14 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { control, space } from '../src/ui/uiTokens';
 const read = (file: string) =>
   readFileSync(new URL(file, import.meta.url), 'utf8');
 test('共享输入文字与占位符同为14，单行44起随字体扩大，多行不固定高度', () => {
   const source = read('../src/ui/AppTextInput.tsx');
-  assert.ok(source.includes('fontSize: 14, lineHeight: 20'));
+  assert.ok(source.includes('fontSize: font[14], lineHeight: 20'));
   assert.ok(source.includes('!props.multiline && { height: inputHeight }'));
   assert.ok(source.includes('label={undefined}'));
-  assert.ok(source.includes('fontSize: 12'));
+  assert.ok(source.includes('fontSize: font[12]'));
   assert.equal(source.includes('allowFontScaling={false}'), false);
   const ast = ts.createSourceFile(
     'input.tsx',
@@ -28,19 +29,26 @@ test('共享输入文字与占位符同为14，单行44起随字体扩大，多�
     ts.forEachChild(node, visit);
   }
   visit(ast);
-  const height = new Function('fontScale', 'return ' + expression) as (
+  const height = new Function(
+    'fontScale',
+    'control',
+    'space',
+    'return ' + expression,
+  ) as (
     scale: number,
+    controls: typeof control,
+    spacing: typeof space,
   ) => number;
-  assert.equal(height(1), 44);
-  assert.ok(height(2) >= 60);
-  assert.ok(height(3) >= 80);
+  assert.equal(height(1, control, space), 44);
+  assert.ok(height(2, control, space) >= 60);
+  assert.ok(height(3, control, space) >= 80);
   assert.ok(
     source.includes(
       '!props.multiline && { paddingTop: 10, paddingBottom: 10 }',
     ),
   );
   for (const scale of [1, 1.5, 2, 3]) {
-    assert.ok(height(scale) - 10 - 10 >= 20 * scale);
+    assert.ok(height(scale, control, space) - 10 - 10 >= 20 * scale);
   }
   for (const file of [
     'TodayScreen',

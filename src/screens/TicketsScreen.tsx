@@ -19,9 +19,15 @@ import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { iconName } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { formatMilestoneSource, formatTicketExpiry } from '../ui/ticketLabels';
-import { TicketStatusBadge } from '../ui/TicketStatusBadge';
+import { font, radius, space } from '../ui/uiTokens';
 import { usedTicketRows, type TicketListRow } from '../ui/rewardHistory';
-import { discardDraft, ErrorText, formatDate, useScreenStyles } from './shared';
+import {
+  CouponRuleDetails,
+  discardDraft,
+  ErrorText,
+  formatDate,
+  useScreenStyles,
+} from './shared';
 import { GroupViewSwitch } from '../ui/GroupViewSwitch';
 import { useGroupView } from '../ui/GroupViewProvider';
 import { useTicketLanding } from '../ui/useTicketLanding';
@@ -33,6 +39,7 @@ import { CompanionUseDialog } from '../ui/CompanionUseDialog';
 import { CompanionHistory } from '../ui/CompanionHistory';
 import { companionStageLabel } from '../ui/companionUi';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
+import { HistoryTabs } from '../ui/HistoryControls';
 
 function MemberFilter({
   name,
@@ -103,7 +110,7 @@ function MemberFilter({
 }
 
 export function TicketsScreen() {
-  const { colors } = useAppTheme();
+  const { colors, theme } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, run, busy } = useApp();
   const {
@@ -248,11 +255,7 @@ export function TicketsScreen() {
     else setError(result.message);
   }
   return (
-    <Page
-      title="我的奖券"
-      subtitle="努力存起来，也记得好好享受。"
-      scroll={false}
-    >
+    <Page title="我的奖券" scroll={false}>
       <FlatList
         style={styles.listViewport}
         data={rows}
@@ -263,25 +266,23 @@ export function TicketsScreen() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           <View style={[styles.column, styles.listHeader]}>
-            <View style={styles.actions}>
-              {(['available', 'used', 'expired', 'all'] as const).map(
-                (value, index) => (
-                  <ActionButton
-                    key={value}
-                    mode={filter === value ? 'contained-tonal' : 'text'}
-                    contentStyle={{ borderRadius: 18 }}
-                    accessibilityState={{ selected: filter === value }}
-                    onPress={() => setFilter(value)}
-                  >
-                    {['可使用', '已使用', '已过期', '全部'][index]}
-                  </ActionButton>
-                ),
-              )}
-            </View>
+            <HistoryTabs
+              testID="ticket-status-tabs"
+              label="奖券状态"
+              options={[
+                { value: 'available', label: '可使用' },
+                { value: 'used', label: '已使用' },
+                { value: 'expired', label: '已过期' },
+                { value: 'all', label: '全部' },
+              ]}
+              value={filter}
+              onChange={setFilter}
+            />
             {state.groupLink ? (
               <>
                 <Text style={styles.muted}>选择看全组后，可按成员查看奖券</Text>
                 <GroupViewSwitch
+                  textOnly
                   displayMode={landing.forceSelf ? 'self' : undefined}
                   onChangeMode={landing.selectMode}
                   disabled={landing.pending}
@@ -300,11 +301,6 @@ export function TicketsScreen() {
               />
             ) : readFailed ? (
               <ErrorText message={viewError} />
-            ) : null}
-            {showGroup ? (
-              <Text style={styles.muted}>
-                可用 {availableCount} · 已使用 {usedCount}
-              </Text>
             ) : null}
             {showGroup ? (
               <View
@@ -334,6 +330,17 @@ export function TicketsScreen() {
                 })}
               </View>
             ) : null}
+            <View
+              style={[
+                styles.row,
+                { justifyContent: 'space-between', flexWrap: 'wrap' },
+              ]}
+            >
+              <Text style={styles.muted}>共 {tickets.length} 张</Text>
+              <Text style={styles.muted}>
+                可用 {availableCount} · 已使用 {usedCount}
+              </Text>
+            </View>
             <CompanionInvitations />
           </View>
         }
@@ -428,21 +435,30 @@ export function TicketsScreen() {
                 : item.source === 'weight'
                   ? formatMilestoneSource(item.goalName || goal?.name)
                   : '每周打卡奖励';
+          const archived = status !== 'available';
+          const archivedLabel = status === 'used' ? '已使用' : '已过期';
           const statusLabel =
             status === 'used'
-              ? `已使用 · ${formatDate(item.usedAt!)}`
-              : status === 'expired'
-                ? `已过期 · ${formatTicketExpiry(item.expiresAt)}`
-                : formatTicketExpiry(item.expiresAt);
+              ? formatDate(item.usedAt!)
+              : formatTicketExpiry(item.expiresAt);
           const activeCompanion = item.companionUses?.find(
             (session) => !['completed', 'cancelled'].includes(session.stage),
           );
           const jointUse = item.companionUses?.find((session) =>
             ['committed', 'completed'].includes(session.stage),
           );
+          const TicketContainer = archived ? View : Panel;
           return (
-            <Panel
-              style={[styles.card, { padding: 12, gap: 6, overflow: 'hidden' }]}
+            <TicketContainer
+              {...(archived ? { 'aria-disabled': true } : {})}
+              style={[
+                styles.card,
+                { padding: space[12], gap: space[6], overflow: 'hidden' },
+                archived && {
+                  backgroundColor: theme.colors.surfaceDisabled,
+                  borderRadius: radius[8],
+                },
+              ]}
             >
               <View
                 testID="ticket-main-row"
@@ -461,8 +477,13 @@ export function TicketsScreen() {
                     flexShrink: 0,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor:
-                      item.source === 'weight' ? colors.purple : colors.peach,
+                    backgroundColor: archived
+                      ? 'transparent'
+                      : item.source === 'weight'
+                        ? colors.purple
+                        : colors.peach,
+                    borderWidth: archived ? 1 : 0,
+                    borderColor: colors.border,
                   }}
                 >
                   <Icon
@@ -476,15 +497,10 @@ export function TicketsScreen() {
                             : 'ticket-outline'
                     }
                     size={18}
-                    color={colors.primary}
+                    color={archived ? colors.muted : colors.primary}
                   />
                 </View>
-                <View
-                  style={[
-                    styles.grow,
-                    status !== 'available' ? { paddingRight: 64 } : null,
-                  ]}
-                >
+                <View style={[styles.grow, { minWidth: 0 }]}>
                   {showGroup && owned && !groupByMember ? (
                     <Text
                       style={{
@@ -501,8 +517,8 @@ export function TicketsScreen() {
                     style={{
                       fontSize: 13,
                       lineHeight: 18,
-                      fontWeight: '500',
-                      color: colors.ink,
+                      fontWeight: archived ? '400' : '500',
+                      color: archived ? colors.muted : colors.ink,
                     }}
                     numberOfLines={2}
                     ellipsizeMode="tail"
@@ -577,8 +593,19 @@ export function TicketsScreen() {
                       使用
                     </ActionButton>
                   ))}
+                {archived && (
+                  <Text
+                    testID="ticket-archived-label"
+                    style={{
+                      color: colors.muted,
+                      fontSize: font[11],
+                      flexShrink: 0,
+                    }}
+                  >
+                    {archivedLabel}
+                  </Text>
+                )}
               </View>
-              <TicketStatusBadge status={status} />
               {activeCompanion ? (
                 <Text style={styles.muted} accessibilityLiveRegion="polite">
                   {companionStageLabel(activeCompanion)}
@@ -599,20 +626,24 @@ export function TicketsScreen() {
                   用途：{item.usageNote}
                 </Text>
               ) : null}
-            </Panel>
+            </TicketContainer>
           );
         }}
       />
       <ConfirmationDialog
         visible={!!selected}
         busy={busy}
-        title="使用这张奖券？"
+        title={selected ? `使用「${selected.name}」？` : '使用奖券？'}
         onDismiss={() => {
           if (!busy) discardDraft(!!note, () => setSelected(null));
         }}
       >
         <View style={styles.form}>
-          <Text style={styles.body}>{selected?.name}使用后不可重复使用。</Text>
+          <CouponRuleDetails
+            cost="使用 1 张奖券"
+            condition="奖券仍可使用"
+            rules="确认使用后，奖券不能再次使用。若想搭配伙伴的同行券，请选择邀请同行。"
+          />
           <ActionButton
             mode="contained-tonal"
             tone="reward"

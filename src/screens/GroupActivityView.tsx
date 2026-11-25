@@ -1,6 +1,5 @@
-import { utilityColors } from '../ui/themeCatalog';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   getGroupActivity,
@@ -13,6 +12,7 @@ import { peerBoards } from '../domain/groupSync';
 import { ActionButton, Panel } from '../ui/components';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { useAppTheme } from '../ui/ThemeProvider';
+import { font, radius, space } from '../ui/uiTokens';
 import { formatDate, useScreenStyles } from './shared';
 
 type Activity = ReturnType<typeof getGroupActivity>;
@@ -29,7 +29,7 @@ export function GroupActivityView({
   historicalWeek: boolean;
 }) {
   const styles = useScreenStyles();
-  const { colors, quiet } = useAppTheme();
+  const { colors } = useAppTheme();
   const [visibleCount, setVisibleCount] = useState(30);
   const activity: Activity = getGroupActivity(
     state,
@@ -52,7 +52,7 @@ export function GroupActivityView({
         </Text>
       )}
       <Text accessibilityRole="header" style={styles.heading}>
-        {historicalWeek ? '所选周打卡排行榜' : '本周打卡排行榜'}
+        {historicalWeek ? '该周打卡排行榜' : '本周打卡排行榜'}
       </Text>
       <Panel style={styles.card}>
         <Text style={styles.muted}>合计 {activity.total} 次</Text>
@@ -131,108 +131,87 @@ export function GroupActivityView({
               activity.timeline[index + 1]?.date === entry.date;
             return (
               <View key={`${entry.accountId}:${entry.id}`}>
-                {startsDay ? (
+                {startsDay && (
                   <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      marginTop: index === 0 ? 8 : 16,
-                      marginBottom: 16,
-                    }}
+                    style={[
+                      timelineStyles.dateHeader,
+                      index > 0 && timelineStyles.nextDate,
+                    ]}
                   >
                     <Text
                       testID="timeline-date-heading"
                       accessibilityRole="header"
                       style={[
                         styles.muted,
-                        quiet && { color: colors.ink, fontWeight: '600' },
+                        { color: colors.ink, fontWeight: '600' },
                       ]}
                     >
                       {timelineDateLabel(entry.date, now)}
                     </Text>
-                    {quiet ? (
-                      <View
-                        testID="timeline-date-divider"
-                        accessible={false}
-                        accessibilityElementsHidden
-                        importantForAccessibility="no-hide-descendants"
-                        style={{
-                          flex: 1,
-                          height: 1,
-                          marginLeft: 10,
-                          backgroundColor: colors.border,
-                        }}
-                      />
-                    ) : null}
                   </View>
-                ) : null}
-                <View style={{ flexDirection: 'row', gap: 16 }}>
+                )}
+                <View style={timelineStyles.entry} testID="timeline-entry">
+                  <Text
+                    testID="timeline-time"
+                    style={[timelineStyles.time, { color: colors.muted }]}
+                  >
+                    {recordedLabel}
+                  </Text>
                   <View
+                    testID="timeline-axis"
                     accessible={false}
                     accessibilityElementsHidden
                     importantForAccessibility="no-hide-descendants"
-                    style={{ width: 24, alignItems: 'center' }}
+                    style={timelineStyles.axis}
                   >
-                    {!startsDay ? (
+                    {!startsDay && (
                       <View
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          height: 9,
-                          width: quiet ? 1 : 2,
-                          backgroundColor: quiet
-                            ? utilityColors.timelineRule
-                            : colors.primaryContainer,
-                        }}
+                        style={[
+                          timelineStyles.line,
+                          timelineStyles.lineAbove,
+                          { backgroundColor: colors.border },
+                        ]}
                       />
-                    ) : null}
-                    {!quiet || continuesDay ? (
+                    )}
+                    {continuesDay && (
                       <View
-                        style={{
-                          position: 'absolute',
-                          top: 9,
-                          bottom: 0,
-                          width: quiet ? 1 : 2,
-                          backgroundColor: quiet
-                            ? utilityColors.timelineRule
-                            : colors.primaryContainer,
-                        }}
+                        style={[
+                          timelineStyles.line,
+                          timelineStyles.lineBelow,
+                          { backgroundColor: colors.border },
+                        ]}
                       />
-                    ) : null}
+                    )}
                     <View
-                      style={{
-                        width: quiet ? 11 : 12,
-                        height: quiet ? 11 : 12,
-                        marginTop: 4,
-                        borderRadius: quiet ? 5.5 : 6,
-                        backgroundColor: quiet
-                          ? colors.background
-                          : colors.primary,
-                        ...(quiet
-                          ? {
-                              borderWidth: 2,
-                              borderColor: colors.primary,
-                            }
-                          : {}),
-                      }}
+                      style={[
+                        timelineStyles.dot,
+                        { backgroundColor: colors.selectedIcon },
+                      ]}
                     />
                   </View>
-                  <View style={{ flex: 1, minWidth: 0, paddingBottom: 24 }}>
-                    <Text style={styles.body}>
+                  <View
+                    style={[
+                      timelineStyles.card,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.body} numberOfLines={2}>
                       {entry.name}
                       {entry.isSelf ? '（我）' : ''} 打卡了「{entry.taskName}」
                     </Text>
-                    <Text style={[styles.muted, { marginTop: 6 }]}>
-                      {recordedLabel}
-                      {entry.dailyTaskCount > 1
-                        ? ` · 当天第 ${entry.sequence} 次`
-                        : ''}
-                    </Text>
-                    {isBackfill ? (
+                    {entry.dailyTaskCount > 1 && (
+                      <Text style={styles.muted}>
+                        当天第 {entry.sequence} 次
+                      </Text>
+                    )}
+                    {isBackfill && (
                       <Text style={styles.muted}>
                         补卡 · 操作于 {recordedAt.toLocaleDateString('zh-CN')}
                       </Text>
-                    ) : null}
+                    )}
                   </View>
                 </View>
               </View>
@@ -250,3 +229,39 @@ export function GroupActivityView({
     </View>
   );
 }
+
+const TIME_WIDTH = 38;
+const AXIS_WIDTH = space[16];
+const DOT_SIZE = 9;
+const DOT_TOP = 13;
+const timelineStyles = StyleSheet.create({
+  dateHeader: { marginLeft: TIME_WIDTH + AXIS_WIDTH, marginBottom: space[6] },
+  nextDate: { marginTop: space[12] },
+  entry: { flexDirection: 'row', alignItems: 'stretch' },
+  time: {
+    width: TIME_WIDTH,
+    textAlign: 'right',
+    paddingTop: space[10],
+    paddingRight: space[4],
+    fontSize: font[10],
+  },
+  axis: { width: AXIS_WIDTH, alignItems: 'center' },
+  line: { width: 1.5, position: 'absolute' },
+  lineAbove: { top: 0, height: DOT_TOP },
+  lineBelow: { top: DOT_TOP, bottom: 0 },
+  dot: {
+    marginTop: DOT_TOP,
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    borderRadius: radius.full,
+  },
+  card: {
+    flex: 1,
+    minWidth: 0,
+    borderWidth: 1,
+    borderRadius: radius[10],
+    paddingHorizontal: space[10],
+    paddingVertical: space[6],
+    marginBottom: space[8],
+  },
+});

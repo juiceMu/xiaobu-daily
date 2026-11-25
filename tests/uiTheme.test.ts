@@ -23,7 +23,7 @@ test('各主题的禁用按钮使用统一中性灰背景与前景', () => {
   assert.match(themeText, /onSurfaceDisabled: '#707570'/);
   assert.match(
     components,
-    /const fill = disabled\s*\? buttonTheme\.colors\.surfaceDisabled/,
+    /const fill =[\s\S]*?theme\.colors\.surfaceDisabled/,
   );
   assert.ok(contrast('#707570', '#E9EBE9') >= 3);
 });
@@ -242,30 +242,17 @@ test('全应用采用紧凑手机字号和间距，不禁用系统文字缩放',
   assert.ok(shared.includes('separator: { height: 8 }'));
   assert.equal(components.includes('allowFontScaling={false}'), false);
 });
-test('统一按钮原生48网页40dp触控且视觉30dp，不依赖扩展命中范围', () => {
+test('共享按钮使用 44 热区，保留 28 和 26 视觉档位', () => {
   const source = readFileSync(
     new URL('../src/ui/components.tsx', import.meta.url),
     'utf8',
   );
-  assert.match(source, /button:\s*\{[^}]*minHeight:\s*48/s);
-  assert.match(source, /minHeight:\s*30/);
-  assert.ok(source.includes('minWidth: 40'));
-  assert.ok(source.includes('minHeight: 40'));
-  assert.ok(source.includes('marginVertical: isWeb ? 5 : 9'));
-  assert.match(source, /backgroundColor:\s*['"]transparent['"]/);
-  assert.match(source, /fontSize:\s*12/);
-  const tickets = readFileSync(
-    new URL('../src/screens/TicketsScreen.tsx', import.meta.url),
-    'utf8',
-  );
   assert.match(
-    tickets,
-    /mode=\{filter === value \? 'contained-tonal' : 'text'\}/,
+    source,
+    /const visuals = size === 'sm' \? control\[26\] : control\[28\]/,
   );
-  assert.match(
-    tickets,
-    /accessibilityState=\{\{ selected: filter === value \}\}/,
-  );
+  assert.match(source, /minWidth: control\[44\],\s*minHeight: control\[44\]/);
+  assert.match(source, /minHeight: visuals/);
 });
 
 test('页面标题16号且顶部留白16dp，底栏在系统安全区之外增加12dp并同步增高', () => {
@@ -329,7 +316,7 @@ test('图标与关闭控件视觉缩小但保留真实触控和固定文字选�
   );
   assert.ok(close.includes('size={16}'));
   assert.ok(close.includes('hitSlop={0}'));
-  assert.ok(close.includes("Platform.OS === 'web' ? 32 : 48"));
+  assert.ok(close.includes('width: control[44]'));
   assert.ok(close.includes("backgroundColor: 'transparent'"));
   assert.doesNotMatch(close, /onPressIn|onPressOut/);
   for (const level of [1, 2, 3, 4, 5])
@@ -338,102 +325,27 @@ test('图标与关闭控件视觉缩小但保留真实触控和固定文字选�
     assert.equal(themeText.includes(oldColor), false);
 });
 
-test('共享控件按压保持原底色，保留键盘聚焦轮廓与回调', () => {
-  const text = readFileSync(
+test('共享按钮忙碌时锁定按压并保留原文，焦点与加载语义独立', () => {
+  const source = readFileSync(
     new URL('../src/ui/components.tsx', import.meta.url),
     'utf8',
   );
-  const source = ts.createSourceFile(
-    'components.tsx',
-    text,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
+  const button = source.slice(
+    source.indexOf('export const ActionButton'),
+    source.indexOf('export function SectionTitle'),
   );
-  let button: ts.JsxElement | undefined;
-  function visit(node: ts.Node) {
-    if (
-      ts.isJsxElement(node) &&
-      node.openingElement.tagName.getText(source) === 'Button'
-    )
-      button = node;
-    ts.forEachChild(node, visit);
-  }
-  visit(source);
-  assert.ok(button);
-  function attribute(name: string) {
-    const property = button!.openingElement.attributes.properties.find(
-      (item): item is ts.JsxAttribute =>
-        ts.isJsxAttribute(item) && item.name.getText(source) === name,
-    );
-    const value = property?.initializer;
-    assert.ok(
-      value && ts.isJsxExpression(value) && value.expression,
-      name + ' 必须存在',
-    );
-    return value.expression;
-  }
-  assert.equal(attribute('rippleColor').getText(source), "'transparent'");
-  assert.equal(attribute('ref').getText(source), 'ref');
-  const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
-  assert.match(app, /settings=\{\{\s*rippleEffectEnabled: false,/);
-  const content = attribute('contentStyle');
-  assert.ok(ts.isArrayLiteralExpression(content));
-  const callerIndex = content.elements.findIndex(
-    (item) => item.getText(source) === 'contentStyle',
+  assert.match(button, /const unavailable = !!disabled \|\| loading/);
+  assert.match(button, /disabled=\{unavailable\}/);
+  assert.match(button, /aria-busy=\{loading\}/);
+  assert.match(button, /pressed && !unavailable \? \{ opacity: 0.82 \}/);
+  assert.match(
+    button,
+    /outlineWidth: !unavailable && keyboardFocus.focusVisible \? 2 : 0/,
   );
-  assert.ok(callerIndex >= 0);
-  const feedback = content.elements[callerIndex + 1];
-  assert.ok(ts.isObjectLiteralExpression(feedback));
-  const feedbackStyles = new Map(
-    feedback.properties
-      .filter(ts.isPropertyAssignment)
-      .map((property) => [
-        property.name.getText(source),
-        property.initializer.getText(source),
-      ]),
-  );
-  assert.equal(feedbackStyles.get('backgroundColor'), 'fill');
-  assert.equal(
-    feedbackStyles.has('borderRadius'),
-    false,
-    '状态层不可覆盖调用方的18dp胶囊圆角',
-  );
-  assert.equal(
-    feedbackStyles.has('height'),
-    false,
-    '状态层不可用固定高度阻断系统文字缩放',
-  );
-  const outline = content.elements[callerIndex + 2];
-  assert.ok(ts.isBinaryExpression(outline));
-  assert.equal(outline.left.getText(source), 'isWeb');
-  assert.ok(ts.isObjectLiteralExpression(outline.right));
-  const outlineStyles = new Map(
-    outline.right.properties
-      .filter(ts.isPropertyAssignment)
-      .map((property) => [
-        property.name.getText(source),
-        property.initializer.getText(source),
-      ]),
-  );
-  assert.equal(
-    outlineStyles.get('outlineWidth'),
-    '!disabled && keyboardFocus.focusVisible ? 2 : 0',
-  );
-  assert.equal(outlineStyles.get('outlineOffset'), '-2');
-  for (const event of ['onFocus', 'onBlur']) {
-    assert.ok(
-      attribute(event)
-        .getText(source)
-        .includes(event + '?.(event)'),
-      event + ' 必须保留调用方回调',
-    );
-  }
-  assert.match(button.getText(source), /\{\.\.\.props\}/);
-  assert.doesNotMatch(
-    button.getText(source),
-    /onPressIn=|onPressOut=|feedbackFill/,
-  );
-  assert.ok(text.includes('minWidth: 48'));
-  assert.ok(text.includes('minHeight: 48'));
+  assert.match(button, /outlineOffset: 2/);
+  assert.match(button, /color: loading \? 'transparent' : foreground/);
+  assert.match(button, /StyleSheet.absoluteFill/);
+  assert.match(button, /reducedMotion[\s\S]*ActivityIndicator/);
+  assert.match(button, /onFocus\?\.\(event\)/);
+  assert.match(button, /onBlur\?\.\(event\)/);
 });

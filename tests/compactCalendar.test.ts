@@ -36,15 +36,15 @@ function element(id: string) {
   return found;
 }
 
-test('周月日期仅独立32起步浅蓝圆形选中，列透明且不插入勾号', () => {
+test('周月日期独立28起步圆形选中，列透明且不插入勾号', () => {
   for (const id of ['week-date-circle', 'month-date-circle']) {
     const circle = element(id);
     const style = circle.openingElement.getText(source);
     for (const value of [
-      'minWidth: 32',
-      'minHeight: 32',
-      'padding: 4',
-      'borderRadius: 999',
+      'minWidth: control[28]',
+      'minHeight: control[28]',
+      'padding: space[4]',
+      'borderRadius: radius.full',
       'colors.primaryContainer',
     ])
       assert.ok(style.includes(value), value);
@@ -80,12 +80,19 @@ test('颜色选择使用实际tint圆点、12字和已选文本，触控48且保
   assert.equal(color.includes('borderWidth'), false);
 });
 
-test('日期前后按钮图标22、触控28并与选日期同行，保留键盘焦点和读屏名称', () => {
-  assert.ok(text.includes('const dateNavigationSize = 28'));
+test('周选择器保持30视觉和44触控，保留键盘焦点和读屏名称', () => {
+  assert.ok(text.includes('const dateNavigationSize = control[44]'));
   assert.ok(text.includes('const dateNavigationIconSize = 22'));
   assert.ok(text.includes('size={dateNavigationIconSize}'));
   assert.ok(text.includes('weekRangeLabel'));
-  assert.ok(text.includes('accessibilityLabel="查看上一周"'));
+  const header = element('week-navigation').getText(source);
+  assert.match(header, /查看上一周/);
+  assert.match(header, /查看下一周/);
+  assert.match(header, /minWidth: control\[44\]/);
+  assert.match(header, /minHeight: control\[44\]/);
+  assert.match(header, /aria-disabled=\{disabled\}/);
+  assert.doesNotMatch(header, /opacity:/);
+  assert.match(header, /setDatePickerVisible\(true\)/);
   assert.ok(text.includes('event.preventDefault()'));
   assert.ok(text.includes('changePickedDate'));
   const controls = text.slice(
@@ -127,21 +134,24 @@ test('日期前后按钮图标22、触控28并与选日期同行，保留键盘�
   assert.equal(text.includes('例如 2026-10-19'), false);
 });
 
-test('不可用翻页箭头和今天的回今天控件占位隐藏，未来日期和已选日期仍可区分', () => {
+test('日历边界箭头占位隐藏，周选择器保持禁用箭头可见，未来日期保留语义', () => {
   assert.ok(!text.includes('#E9EBE9'));
   assert.ok(text.includes('theme.colors.onSurfaceDisabled'));
   assert.match(text, /\.\.\.hiddenDateActionProps\(disabled\)/);
-  assert.match(text, /opacity: disabled \? 0 : 1/);
+  assert.match(text, /onSurfaceDisabled: 'transparent'/);
+  assert.doesNotMatch(text, /opacity: disabled/);
   assert.match(text, /'aria-hidden': hidden/);
   assert.match(text, /accessibilityElementsHidden: hidden/);
   assert.match(text, /'no-hide-descendants'/);
-  assert.match(text, /surfaceDisabled: 'transparent'/);
   assert.match(text, /fontWeight: calendar\.isFuture \? '400' : '700'/);
-  assert.match(text, /theme=\{DATE_ACTION_THEME\}\s+disabled=\{busy\}/);
+  const header = element('week-navigation').getText(source);
   assert.match(
-    text,
-    /mode="text"\s+theme=\{DATE_ACTION_THEME\}\s+disabled=\{busy \|\| isToday\}\s+\{\.\.\.hiddenDateActionProps\(isToday\)\}\s+style=\{\{ opacity: isToday \? 0 : 1 \}\}/,
+    header,
+    /color=\{disabled \? colors\.border : colors\.primary\}/,
   );
+  assert.match(header, /disabled=\{disabled\}/);
+  assert.doesNotMatch(header, /aria-hidden=\{disabled\}/);
+  assert.match(text, /!isToday[^]*changePickedDate\(null\)/);
   for (const id of ['week-date-circle', 'month-date-circle']) {
     assert.match(
       element(id).openingElement.getText(source),
@@ -149,7 +159,6 @@ test('不可用翻页箭头和今天的回今天控件占位隐藏，未来日�
     );
   }
   for (const condition of [
-    'busy || !historicalWeek',
     'busy || calendar.isFuture',
     'busy || key > todayKey',
     'busy || disabled',

@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from 'react-native-paper';
 import { useAppTheme } from './ThemeProvider';
+import { font, radius, space } from './uiTokens';
 
 export function ConfirmationDialog({
   visible,
@@ -44,7 +45,7 @@ export function ConfirmationDialog({
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
-            padding: 20,
+            padding: space[20],
           }}
         >
           <View
@@ -57,15 +58,15 @@ export function ConfirmationDialog({
               maxHeight: '90%',
               flexShrink: 1,
               backgroundColor: colors.surface,
-              borderRadius: 20,
-              padding: 16,
-              gap: 12,
+              borderRadius: radius[14],
+              padding: space[16],
+              gap: space[12],
             }}
           >
             <Text
               accessibilityRole="header"
               style={{
-                fontSize: 16,
+                fontSize: font[16],
                 lineHeight: 22,
                 fontWeight: '600',
                 color: colors.ink,
@@ -78,7 +79,7 @@ export function ConfirmationDialog({
               showsVerticalScrollIndicator={false}
               showsHorizontalScrollIndicator={false}
               style={{ flexShrink: 1 }}
-              contentContainerStyle={{ gap: 8 }}
+              contentContainerStyle={{ gap: space[8] }}
             >
               {children}
             </ScrollView>

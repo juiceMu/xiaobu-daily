@@ -209,7 +209,7 @@ test('手机导航采用紧凑标题底栏，里程碑和奖券输入统一由�
     new URL('../src/ui/AppTextInput.tsx', import.meta.url),
     'utf8',
   );
-  assert.ok(sharedInput.includes('fontSize: 14, lineHeight: 20'));
+  assert.ok(sharedInput.includes('fontSize: font[14], lineHeight: 20'));
 });
 
 test('里程碑历史按目标及刻度匹配券日期，区分未设到期与缺少信息', () => {

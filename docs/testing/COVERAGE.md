@@ -221,3 +221,5 @@ LAN-014 由 `tests/lanListener.test.ts` 抽取执行真实 `startLanListener`，
 - FUSION-004 与 REWARD-006 由 `tests/groupSync.test.ts` 执行同版同步日志的导出、回放及本地重载，覆盖跨年限时券的到期边界、历史空日期和关闭规则后新奖券的空日期。端到端同步和旧版混用需单独验证。
 - FUSION-001/002/003/004/006 由 `tests/fusionP0.test.ts` 执行部分真实回调并覆盖状态绑定、有效期格式及菜单位置模型。测试未挂载应用，实际可见性、触控和读屏需平台补证。
 - FUSION-004 还由 `tests/engine.test.mjs`、`tests/groupSync.test.ts` 验证发券规则、旧券无到期兼容、新旧券重载及同版本日志投影。未在真实设备上执行跨版本同步。
+- FUSION-007 至 FUSION-010 由 `tests/growthModel.test.ts` 与导航、演示数据、小组动态、奖券和里程碑相关测试覆盖真实数据模型、路由及部分界面结构。实际分页、返回焦点和弹窗交互需平台证据。
+- FUSION-011/012 由 `tests/uiTheme.test.ts`、`tests/compactInputs.test.ts`、`tests/settingsControls.test.ts`、`tests/compactCalendar.test.ts`、`tests/weekStrip.test.ts` 及 `tests/keyboardFocus.test.ts` 覆盖状态属性、样式声明和焦点模型。375px 布局、真实热区、读屏和键盘遍历仍待运行。

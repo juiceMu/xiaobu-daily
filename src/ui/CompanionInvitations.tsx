@@ -8,7 +8,12 @@ import {
 } from '../domain/companion';
 import type { CompanionUse } from '../domain/types';
 import { useApp } from '../state/AppProvider';
-import { ErrorText, formatDate, useScreenStyles } from '../screens/shared';
+import {
+  CouponRuleDetails,
+  ErrorText,
+  formatDate,
+  useScreenStyles,
+} from '../screens/shared';
 import { ActionButton, Panel } from './components';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { companionStageLabel } from './companionUi';
@@ -236,13 +241,21 @@ export function CompanionInvitations() {
               </Text>
             </>
           ) : null}
-          <Text style={styles.body}>
-            {action?.accept
-              ? action.main
-                ? '你确认使用自己的主券；伙伴确认同行后，主券设备在同步时提交联合使用。'
-                : '你只授权使用自己的同行券。双方确认并同步后一起使用；断线时保持占用，需核对结果。'
-              : '尚未提交时可取消；已确认同行的取消需要同步核对，不会立即释放奖券。已提交的使用不能回滚。'}
-          </Text>
+          <CouponRuleDetails
+            cost={
+              action?.accept ? '双方各使用 1 张奖券' : '未提交时取消不使用奖券'
+            }
+            condition={
+              action?.accept ? '双方确认并同步后一起使用' : '联合使用尚未提交'
+            }
+            rules={
+              action?.accept
+                ? action.main
+                  ? '你确认使用自己的主券。伙伴确认同行后，你的设备在同步时提交联合使用。'
+                  : '你只授权使用自己的同行券。断线时券保持占用，请同步核对结果。'
+                : '已确认同行的取消需要同步核对，奖券不会立即解除占用。已提交的使用不能撤销。'
+            }
+          />
           <ErrorText message={error} />
           <View style={styles.actions}>
             <ActionButton

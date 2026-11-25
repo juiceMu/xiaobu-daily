@@ -10,6 +10,7 @@ type CopyCodeButtonProps = {
   value: string;
   label: string;
   compactHeight?: boolean;
+  outlined?: boolean;
 };
 
 export function CopyCodeButton(props: CopyCodeButtonProps) {
@@ -17,7 +18,12 @@ export function CopyCodeButton(props: CopyCodeButtonProps) {
   return <CopyCodeAction key={props.value} {...props} />;
 }
 
-function CopyCodeAction({ value, label, compactHeight }: CopyCodeButtonProps) {
+function CopyCodeAction({
+  value,
+  label,
+  compactHeight,
+  outlined,
+}: CopyCodeButtonProps) {
   const { colors } = useAppTheme();
   const [copying, setCopying] = useState(false);
   const [message, setMessage] = useState('');
@@ -52,7 +58,8 @@ function CopyCodeAction({ value, label, compactHeight }: CopyCodeButtonProps) {
   return (
     <View style={{ gap: 8 }}>
       <ActionButton
-        mode="contained-tonal"
+        mode={outlined ? 'outlined' : 'contained-tonal'}
+        tone={outlined ? 'neutral' : undefined}
         icon="content-copy"
         accessibilityLabel={`复制${label}`}
         disabled={copying || !value.trim()}

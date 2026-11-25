@@ -84,7 +84,7 @@ test('演示历史覆盖四周、奖券三状态及三来源、里程碑生命�
   assert.equal(state.giftState?.receipts.length, 1);
   assert.ok(
     state.giftState?.received.every(
-      (receipt) => receipt.gift.issuer.name === '演示好友',
+      (receipt) => receipt.gift.issuer.name === '小雨',
     ),
   );
 });
@@ -251,8 +251,8 @@ test('同行券演示经两次事务形成可用、已使用和已过期三状�
   );
   const used = tickets.find((ticket) => ticket.usedAt)!;
   assert.equal(used.companionUses?.[0].stage, 'completed');
-  assert.equal(used.companionUses?.[0].mainName, '演示同行伙伴');
-  assert.match(used.usageNote!, /演示.*里程碑/);
+  assert.equal(used.companionUses?.[0].mainName, '小月');
+  assert.match(used.usageNote!, /同行券.*里程碑/);
   assert.deepEqual(saved.settings, before.settings);
   assert.equal(
     getWeekStats(saved, NOW).available,

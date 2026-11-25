@@ -35,6 +35,7 @@ import { CopyCodeButton } from '../ui/CopyCodeButton';
 import { useAppTheme } from '../ui/ThemeProvider';
 import {
   Confirm,
+  CouponRuleDetails,
   confirmDiscard,
   ErrorText,
   formatDate,
@@ -176,7 +177,7 @@ export function GiftsScreen() {
         <>
           <Panel>
             <Text style={styles.muted}>
-              这是离线赠券。同一码可能被其他设备重复领取；这里只记录本机的发出和收到。昵称与身份仅保存在本机，并非云账号。券码和回执没有防伪认证，请与熟悉的人确认。
+              请把券码只发给想赠送的人。同一个码在不同设备上可能被重复领取。发送和领取记录只保存在当前设备。领取前请与赠送人确认券码。
             </Text>
           </Panel>
           <Panel>
@@ -420,8 +421,14 @@ export function GiftsScreen() {
           </FormModal>
           <Confirm
             visible={confirmCreate}
-            title="制作这张赠券？"
-            description={`「${giftName}」将作为一张新的赠券发出（${validity === 'week' ? '本周有效' : '不设到期'}），不消耗已有奖励。请只将券码给你想赠送的人。`}
+            title="制作赠券？"
+            details={
+              <CouponRuleDetails
+                cost="无需消耗已有奖券"
+                condition={`「${giftName}」 · ${validity === 'week' ? '本周有效' : '不设到期'}`}
+                rules="请只将券码给你想赠送的人。发出后，对方可扫码或粘贴券码领取。"
+              />
+            }
             busy={busy}
             error={error}
             onDismiss={() => {
@@ -434,11 +441,15 @@ export function GiftsScreen() {
           />
           <Confirm
             visible={!!incoming}
-            title="领取这张心意券？"
-            description={
-              incoming
-                ? `来自「${incoming.issuer.name}」的「${incoming.name}」。${formatTicketExpiry(incoming.expiresAt)}。确认后保存到本机我的奖券。`
-                : ''
+            title="领取赠券？"
+            details={
+              incoming ? (
+                <CouponRuleDetails
+                  cost="无需消耗奖券"
+                  condition={`「${incoming.issuer.name}」赠送的「${incoming.name}」 · ${formatTicketExpiry(incoming.expiresAt)}`}
+                  rules="确认后奖券保存到我的奖券。同一设备只能领取一次。"
+                />
+              ) : undefined
             }
             busy={busy}
             error={error}
@@ -464,7 +475,7 @@ export function GiftsScreen() {
                 </Text>
                 {QrView ? <QrView value={exportGift(selected)} /> : null}
                 <Text style={styles.muted}>
-                  已制作并保存在本机；展示二维码不代表对方已经领取。离线券码可被不同设备重复领取，请勿公开传播。
+                  已制作并保存在本机；展示二维码不代表对方已经领取。同一个券码可能被多台设备领取，请勿公开分享。
                 </Text>
                 <CopyCodeButton value={exportGift(selected)} label="券码" />
                 <Text

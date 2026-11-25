@@ -139,7 +139,7 @@ test('同步写入只读副本，不进入自己的待发队列，分叉保留�
     kept.state.groupPeers?.[0].operations[0].entity.payload.includes('早睡'),
     true,
   );
-  assert.match(kept.message, /无法合并/);
+  assert.match(kept.message, /仍显示上次同步的记录/);
   assert.equal(before.groupPeers, undefined);
 });
 

@@ -54,7 +54,9 @@ test('旧主题共享卡片无常驻描边，新主题条件描边，图标以�
     /quiet && \{ borderWidth: 1, borderColor: colors\.border \}/,
   );
   assert.equal(source.includes('outlined ? 1'), false);
-  assert.ok(source.includes('filled || outlined'));
+  assert.ok(
+    source.includes('outlineWidth: !unavailable && keyboardFocus.focusVisible'),
+  );
   assert.ok(source.includes('keyboardFocus.focusVisible'));
   assert.ok(source.includes('checked: selected'));
   assert.equal(source.includes('source="check"'), false);

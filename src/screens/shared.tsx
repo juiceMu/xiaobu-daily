@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { HelperText, Text } from 'react-native-paper';
 import { ActionButton, type ActionTone } from '../ui/components';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { useAppTheme } from '../ui/ThemeProvider';
 import type { AppColors } from '../ui/themeCatalog';
+import { space } from '../ui/uiTokens';
 
 export const formatDate = (value: string) =>
   new Date(value).toLocaleString('zh-CN', {
@@ -47,10 +48,36 @@ export function ErrorText({ message }: { message: string }) {
     </HelperText>
   ) : null;
 }
+export type CouponRule = { cost: string; condition: string; rules: string };
+
+export function CouponRuleDetails({ cost, condition, rules }: CouponRule) {
+  const [expanded, setExpanded] = useState(false);
+  const styles = useScreenStyles();
+  return (
+    <View style={{ gap: space[4], minWidth: 0 }}>
+      <Text style={styles.body}>花什么：{cost}</Text>
+      <Text style={styles.body}>前提：{condition}</Text>
+      <View style={{ alignItems: 'flex-start' }}>
+        <ActionButton
+          tone="neutral"
+          size="sm"
+          accessibilityState={{ expanded }}
+          onPress={() => setExpanded(!expanded)}
+        >
+          {expanded ? '收起完整规则' : '查看完整规则'}
+        </ActionButton>
+      </View>
+      {expanded ? <Text style={styles.muted}>{rules}</Text> : null}
+    </View>
+  );
+}
+
 export function Confirm({
   visible,
   title,
   description,
+  couponRule,
+  details,
   busy,
   error,
   onDismiss,
@@ -60,7 +87,9 @@ export function Confirm({
 }: {
   visible: boolean;
   title: string;
-  description: string;
+  description?: string;
+  details?: React.ReactNode;
+  couponRule?: CouponRule;
   busy: boolean;
   error: string;
   onDismiss: () => void;
@@ -77,15 +106,15 @@ export function Confirm({
       onDismiss={onDismiss}
       busy={busy}
     >
-      <Text style={styles.body}>{description}</Text>
+      {details ??
+        (couponRule && visible ? (
+          <CouponRuleDetails {...couponRule} />
+        ) : (
+          <Text style={styles.body}>{description}</Text>
+        ))}
       <ErrorText message={error} />
-      <View style={styles.actions}>
-        <ActionButton
-          tone="neutral"
-          mode="outlined"
-          disabled={busy}
-          onPress={onDismiss}
-        >
+      <View style={[styles.actions, { justifyContent: 'flex-end' }]}>
+        <ActionButton tone="neutral" disabled={busy} onPress={onDismiss}>
           取消
         </ActionButton>
         <ActionButton

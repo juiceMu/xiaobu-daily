@@ -1,39 +1,21 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  SectionList,
-  StyleSheet,
   View,
 } from 'react-native';
-import {
-  StackActions,
-  useNavigation,
-  usePreventRemove,
-} from '@react-navigation/native';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useHeaderHeight } from '@react-navigation/elements';
-import { Icon, Switch, Text, TouchableRipple } from 'react-native-paper';
+import { Icon, Text, TouchableRipple } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
-import {
-  getWeekStats,
-  restoreTask,
-  updateSettings,
-  weekKey,
-} from '../domain/engine';
+import { restoreTask, updateSettings } from '../domain/engine';
 import type { Task } from '../domain/types';
-import { buildTaskHistoryIndex } from '../domain/taskHistory';
 import { useApp } from '../state/AppProvider';
-import {
-  ActionButton,
-  Empty,
-  Page,
-  Panel,
-  SectionTitle,
-} from '../ui/components';
+import { ActionButton, Empty, Page, Panel } from '../ui/components';
 import { iconName, tint } from '../ui/theme';
+import { CompactSwitch } from '../ui/CompactSwitch';
 import { useAppTheme } from '../ui/ThemeProvider';
 import {
   themeOptions,
@@ -41,11 +23,6 @@ import {
   type ThemeOption,
 } from '../ui/themeCatalog';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
-import {
-  HistoryPanel,
-  HistoryPeriodArrow,
-  HistoryTabs,
-} from '../ui/HistoryControls';
 import { TimeField } from '../ui/TimeField';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { DemoHistoryPanel } from '../ui/DemoHistoryPanel';
@@ -181,388 +158,6 @@ export function MoreScreen({
         </Text>
       </View>
     </Page>
-  );
-}
-
-const GROWTH_VIEWS = [
-  { value: 'weekly', label: '每周总览' },
-  { value: 'tasks', label: '按任务' },
-] as const;
-type GrowthView = (typeof GROWTH_VIEWS)[number]['value'];
-
-function TaskHistoryRow({
-  task,
-  total,
-  onPress,
-}: {
-  task: Task;
-  total: number;
-  onPress: () => void;
-}) {
-  const { colors } = useAppTheme();
-  const styles = useScreenStyles();
-  const { focusVisible, onFocus, onBlur } = useKeyboardFocus();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${task.name}，累计打卡 ${total} 次，查看打卡记录`}
-      onPress={onPress}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      testID={`growth-task-history-${task.id}`}
-      style={[
-        styles.row,
-        {
-          minHeight: 54,
-          gap: 10,
-          paddingVertical: 8,
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: focusVisible ? colors.primary : 'transparent',
-        },
-      ]}
-    >
-      <View
-        style={[styles.icon, { backgroundColor: tint(task.color, colors) }]}
-      >
-        <Icon source={iconName(task.icon)} size={20} color={colors.primary} />
-      </View>
-      <Text style={[styles.heading, styles.grow]}>{task.name}</Text>
-      <Text style={[styles.body, { color: colors.primary }]}>{total} 次</Text>
-      <Icon source="chevron-right" size={18} color={colors.muted} />
-    </Pressable>
-  );
-}
-
-function TaskHistoryList() {
-  const { state } = useApp();
-  const { colors } = useAppTheme();
-  const styles = useScreenStyles();
-  const navigation = useNavigation();
-  const history = useMemo(
-    () => buildTaskHistoryIndex(state.tasks, state.checkins),
-    [state.tasks, state.checkins],
-  );
-  const sections = [
-    {
-      title: '进行中',
-      data: state.tasks.filter(
-        (task) => !task.archived && history.has(task.id),
-      ),
-    },
-    {
-      title: '已归档',
-      data: state.tasks.filter((task) => task.archived && history.has(task.id)),
-    },
-  ].filter((section) => section.data.length > 0);
-  return (
-    <SectionList
-      style={styles.listViewport}
-      contentContainerStyle={styles.list}
-      sections={sections}
-      keyExtractor={(task) => task.id}
-      stickySectionHeadersEnabled={false}
-      showsVerticalScrollIndicator={false}
-      ListEmptyComponent={
-        <Empty
-          title="还没有任务"
-          description="在今日打卡添加任务后，就能在这里查看记录。"
-        />
-      }
-      renderSectionHeader={({ section }) => (
-        <View
-          style={[
-            styles.row,
-            {
-              justifyContent: 'space-between',
-              marginTop: 14,
-              paddingBottom: 5,
-            },
-          ]}
-        >
-          <Text accessibilityRole="header" style={styles.heading}>
-            {section.title}
-          </Text>
-          {section.title === sections[0]?.title && (
-            <Text style={styles.muted}>累计打卡</Text>
-          )}
-        </View>
-      )}
-      ItemSeparatorComponent={() => (
-        <View
-          style={{ height: 1, marginLeft: 43, backgroundColor: colors.border }}
-        />
-      )}
-      renderItem={({ item }) => (
-        <TaskHistoryRow
-          task={item}
-          total={history.get(item.id)?.total ?? 0}
-          onPress={() =>
-            navigation.dispatch(
-              StackActions.push('taskHistory', { taskId: item.id }),
-            )
-          }
-        />
-      )}
-    />
-  );
-}
-
-export function GrowthScreen() {
-  const [view, setView] = useState<GrowthView>('weekly');
-  const [offset, setOffset] = useState(0);
-  return (
-    <Page title="成长，有迹可循" scroll={false}>
-      <HistoryTabs
-        options={GROWTH_VIEWS}
-        value={view}
-        onChange={setView}
-        label="成长记录查看方式"
-        testID="growth-history-tabs"
-      />
-      <HistoryPanel fill label={view === 'weekly' ? '每周总览' : '按任务'}>
-        {view === 'weekly' ? (
-          <GrowthWeeklyList offset={offset} setOffset={setOffset} />
-        ) : (
-          <TaskHistoryList />
-        )}
-      </HistoryPanel>
-    </Page>
-  );
-}
-
-function GrowthWeekNavigation({
-  start,
-  end,
-  currentYear,
-  offset,
-  setOffset,
-}: {
-  start: string;
-  end: string;
-  currentYear: number;
-  offset: number;
-  setOffset: (next: number) => void;
-}) {
-  const { colors } = useAppTheme();
-  const focus = useKeyboardFocus();
-  const startYear = Number(start.slice(0, 4));
-  const crossesYear = start.slice(0, 4) !== end.slice(0, 4);
-  const labelDate = (key: string, withYear: boolean) =>
-    `${withYear ? Number(key.slice(0, 4)) + '年' : ''}${Number(key.slice(5, 7))}月${Number(key.slice(8, 10))}日`;
-  const range = `${labelDate(start, crossesYear || startYear !== currentYear)} – ${labelDate(end, crossesYear)}`;
-  const labels = (
-    <>
-      <Text style={[growthWeekStyles.range, { color: colors.ink }]}>
-        {range}
-      </Text>
-      <Text
-        style={[
-          growthWeekStyles.caption,
-          { color: offset === 0 ? colors.muted : colors.primary },
-          offset < 0 && growthWeekStyles.returnLabel,
-        ]}
-      >
-        {offset === 0 ? '本周' : '回到本周'}
-      </Text>
-    </>
-  );
-  return (
-    <View style={growthWeekStyles.row}>
-      <HistoryPeriodArrow
-        direction="left"
-        label="查看上一周"
-        testID="growth-previous-week"
-        onPress={() => setOffset(offset - 1)}
-      />
-      {offset === 0 ? (
-        <View style={growthWeekStyles.center}>{labels}</View>
-      ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${range}，回到本周`}
-          testID="growth-current-week"
-          onPress={() => setOffset(0)}
-          onFocus={focus.onFocus}
-          onBlur={focus.onBlur}
-          style={[
-            growthWeekStyles.center,
-            focus.focusVisible && {
-              outlineColor: colors.primary,
-              outlineOffset: -2,
-              outlineStyle: 'solid',
-              outlineWidth: 2,
-            },
-          ]}
-        >
-          {labels}
-        </Pressable>
-      )}
-      <HistoryPeriodArrow
-        direction="right"
-        label="查看下一周"
-        testID="growth-next-week"
-        onPress={offset < 0 ? () => setOffset(offset + 1) : undefined}
-      />
-    </View>
-  );
-}
-
-const growthWeekStyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center' },
-  center: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 2,
-    borderRadius: 8,
-  },
-  range: {
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-  caption: { fontSize: 12, lineHeight: 18, textAlign: 'center' },
-  returnLabel: { textDecorationLine: 'underline' },
-});
-
-function GrowthWeeklyList({
-  offset,
-  setOffset,
-}: {
-  offset: number;
-  setOffset: (next: number) => void;
-}) {
-  const { colors } = useAppTheme();
-  const styles = useScreenStyles();
-  const { state, now } = useApp();
-  const day = new Date(now);
-  day.setDate(day.getDate() + offset * 7);
-  const stats = getWeekStats(state, day);
-  const week = weekKey(day);
-  const max = Math.max(1, ...stats.days.map((entry) => entry.count));
-  const tasks = state.tasks.filter(
-    (task) =>
-      !task.deleted &&
-      state.checkins.some(
-        (entry) => entry.taskId === task.id && entry.week === week,
-      ),
-  );
-  return (
-    <FlatList
-      style={styles.listViewport}
-      data={tasks}
-      keyExtractor={(task) => task.id}
-      showsVerticalScrollIndicator={false}
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.list}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      ListHeaderComponent={
-        <View style={[styles.column, styles.listHeader]}>
-          <GrowthWeekNavigation
-            start={week}
-            end={stats.days[6].date}
-            currentYear={now.getFullYear()}
-            offset={offset}
-            setOffset={setOffset}
-          />
-          <Panel style={styles.card}>
-            <Text style={styles.number}>
-              {stats.total}
-              <Text style={styles.body}> 次打卡</Text>
-            </Text>
-            <Text style={styles.muted}>这一周，每一次努力都算数。</Text>
-            <View style={[styles.row, { alignItems: 'flex-end', gap: 4 }]}>
-              {stats.days.map((entry, index) => (
-                <View
-                  key={entry.date}
-                  style={{ flex: 1, alignItems: 'center', gap: 8 }}
-                  accessible
-                  accessibilityLabel={
-                    '周' +
-                    '一二三四五六日'[index] +
-                    '，' +
-                    entry.count +
-                    '次打卡'
-                  }
-                >
-                  <Text style={styles.body}>{entry.count}</Text>
-                  <View
-                    style={{
-                      height: 104,
-                      justifyContent: 'flex-end',
-                      width: '65%',
-                    }}
-                  >
-                    <View
-                      style={{
-                        height: Math.max(4, (entry.count / max) * 104),
-                        backgroundColor: colors.primary,
-                        borderRadius: 8,
-                      }}
-                    />
-                  </View>
-                  <Text style={styles.muted}>{'一二三四五六日'[index]}</Text>
-                </View>
-              ))}
-            </View>
-            <Text style={styles.muted}>
-              横轴：周一至周日 · 数字为每日打卡次数
-            </Text>
-          </Panel>
-          <SectionTitle title="每个任务的小积累" />
-        </View>
-      }
-      ListEmptyComponent={
-        <Empty
-          title="这一周还很安静"
-          description={
-            stats.total > 0
-              ? '本周次数已计入上方统计，已删除的任务不再单独列出。'
-              : '去今日打卡完成一个小任务，再回来看看吧。'
-          }
-        />
-      }
-      renderItem={({ item }) => (
-        <Panel style={styles.card}>
-          <View style={styles.row}>
-            <View
-              style={[
-                styles.icon,
-                { backgroundColor: tint(item.color, colors) },
-              ]}
-            >
-              <Icon
-                source={iconName(item.icon)}
-                size={24}
-                color={colors.primary}
-              />
-            </View>
-            <View style={styles.grow}>
-              <Text style={styles.heading}>{item.name}</Text>
-              <Text style={styles.muted}>
-                {item.archived
-                  ? '已归档 · 历史保留'
-                  : '每日目标 ' + item.target + ' 次'}
-              </Text>
-            </View>
-            <Text style={styles.heading}>
-              {
-                state.checkins.filter(
-                  (entry) => entry.taskId === item.id && entry.week === week,
-                ).length
-              }{' '}
-              次
-            </Text>
-          </View>
-        </Panel>
-      )}
-    />
   );
 }
 
@@ -791,22 +386,12 @@ export function SettingsScreen() {
                       适用于以后兑换的奖券和新解锁的里程碑奖券
                     </Text>
                   </View>
-                  <View
-                    style={{
-                      minHeight: 48,
-                      minWidth: 48,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Switch
-                      value={expiryEnabled}
-                      disabled={busy}
-                      onValueChange={setExpiryEnabled}
-                      accessibilityLabel="启用每周奖券过期"
-                    />
-                  </View>
+                  <CompactSwitch
+                    value={expiryEnabled}
+                    disabled={busy}
+                    onValueChange={setExpiryEnabled}
+                    accessibilityLabel="启用每周奖券过期"
+                  />
                 </View>
                 <View
                   testID="expiry-settings"
@@ -912,7 +497,7 @@ function ThemeChoice({
         minHeight: 48,
         borderWidth: 0,
         backgroundColor: selected ? colors.primaryContainer : colors.field,
-        opacity: disabled ? 0.6 : 1,
+
         outlineWidth: focus.focusVisible ? 2 : 0,
         outlineStyle: 'solid',
         outlineColor: colors.primary,

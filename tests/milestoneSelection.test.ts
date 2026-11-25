@@ -89,7 +89,7 @@ test('页内搜索忽略首尾空格和英文大小写，过滤安全回退且�
   assert.equal(milestoneGroups(state.milestoneGoals).current.length, 2);
 });
 
-test('页内横向切换替代选择Modal，归档冻结目标并保留永久奖励入口', () => {
+test('双卡横向分页保留归档、记录、已发奖励入口', () => {
   const source = readFileSync(
     new URL('../src/screens/MilestonesScreen.tsx', import.meta.url),
     'utf8',
@@ -97,11 +97,11 @@ test('页内横向切换替代选择Modal，归档冻结目标并保留永久奖
   for (const text of [
     'milestone-inline-tabs',
     'ref={tabList}',
-    'onScrollToIndexFailed=',
-    'scrollToIndex',
-    '左右滑动切换',
-    '上一个里程碑',
-    '下一个里程碑',
+    'MILESTONES_PER_PAGE = 2',
+    'pagingEnabled',
+    'onMomentumScrollEnd={selectPage}',
+    'milestone-page-dots',
+    'scrollToOffset',
     'setArchiving({ id: goal.id, name: goal.name })',
     'archiveMilestoneGoal(draft, archiving.id)',
     'restoreMilestoneGoal(draft, goal.id)',
@@ -114,6 +114,7 @@ test('页内横向切换替代选择Modal，归档冻结目标并保留永久奖
     '已解锁的奖励',
   ])
     assert.ok(source.includes(text), text);
+  assert.doesNotMatch(source, /上一项|下一项|左右滑动切换/);
   assert.equal(source.includes('visible={selector}'), false);
   assert.equal(source.includes('setSelector'), false);
 });

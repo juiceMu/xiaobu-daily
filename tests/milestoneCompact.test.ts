@@ -26,7 +26,7 @@ function functionSource(name: string) {
   return node.getText(milestone);
 }
 
-test('目标胶囊Web透明ripple去悬停铺底，原生反馈和独立键盘焦点保留', () => {
+test('双卡选择、页码点和已有横滑均保留键盘与读屏状态', () => {
   const tab = functionSource('MilestoneTab');
   for (const value of [
     "rippleColor={'transparent'}",
@@ -34,24 +34,36 @@ test('目标胶囊Web透明ripple去悬停铺底，原生反馈和独立键盘�
     'onFocus={keyboardFocus.onFocus}',
     'onBlur={keyboardFocus.onBlur}',
     'keyboardFocus.focusVisible ? 2 : 0',
-    'minHeight: 48',
-    'accessibilityRole="tab"',
+    'minHeight: control[44]',
+    'accessibilityRole="button"',
     'accessibilityState={{ selected, disabled }}',
-    'aria-selected={selected}',
+    'aria-pressed={selected}',
     'disabled={disabled}',
     'onPress={onPress}',
+    'numberOfLines={1}',
   ])
     assert.ok(tab.includes(value), value);
-  assert.ok(
-    tab.replace(/\s+/g, '').includes('selected?colors.primaryContainer'),
+  assert.match(
+    tab,
+    /disabled\s*\? colors\.field\s*:\s*alternate\s*\? colors\.purple\s*:\s*colors\.peach/,
   );
-  assert.ok(tab.includes('borderWidth: quiet ? 1 : 0'));
-  assert.ok(
-    tab.includes(
-      "borderColor: selected && quiet ? colors.primary : 'transparent'",
-    ),
+  const dot = functionSource('MilestonePageDot');
+  for (const value of [
+    'accessibilityRole="button"',
+    'aria-pressed={selected}',
+    'disabled={disabled}',
+    'onPress={onPress}',
+    'width: control[44]',
+    'height: control[44]',
+    'width: space[8]',
+  ])
+    assert.ok(dot.includes(value), value);
+  assert.match(
+    milestoneText,
+    /onScroll=\{Platform\.OS === 'web' \? selectPage : undefined\}/,
   );
-  assert.ok(milestoneText.includes('<MilestoneTab'));
+  assert.match(milestoneText, /onMomentumScrollEnd=\{selectPage\}/);
+  assert.doesNotMatch(milestoneText, /上一项|下一项/);
 });
 
 test('奖励行12号文图24字14上下6，奖励区紧凑标题13并保留导航和触控高度', () => {

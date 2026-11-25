@@ -49,7 +49,7 @@ const DEMO_INVITE = JSON.stringify({
   version: 1,
   kind: 'sprout-group',
   groupId: DEMO_GROUP_ID,
-  name: '演示小组',
+  name: '周末搭子',
   secret: DEMO_GROUP_SECRET,
 });
 
@@ -89,9 +89,9 @@ export function seedGroupActivityDemoHistory(
   try {
     const draft = migrateState(state);
     const memberConfigs = [
-      { accountId: 'demo-peer-account', name: '演示成员', counts: [2, 2, 1] },
-      { accountId: 'demo-activity-anan', name: '演示·安安', counts: [1, 1, 1] },
-      { accountId: 'demo-activity-zhou', name: '演示·小周', counts: [1, 1, 0] },
+      { accountId: 'demo-peer-account', name: '阿树', counts: [2, 2, 1] },
+      { accountId: 'demo-activity-anan', name: '安安', counts: [1, 1, 1] },
+      { accountId: 'demo-activity-zhou', name: '小周', counts: [1, 1, 0] },
     ];
     const peers = [...(draft.groupPeers ?? [])];
     for (const [index, config] of memberConfigs.entries()) {
@@ -140,7 +140,7 @@ function addActivityRecords(
   includeHistory: boolean,
 ) {
   const marker = `${ACTIVITY_DEMO_MARKER}-${weekKey(now)}`;
-  const names = ['演示·本周阅读', '演示·本周喝水', '演示·本周拉伸'];
+  const names = ['本周阅读', '本周喝水', '本周拉伸'];
   const tasks = names.map((name, index) => {
     requireSuccess(
       addTask(state, {
@@ -216,9 +216,7 @@ export function seedCompanionDemoHistory(
     }
 
     const settings = { ...state.settings };
-    requireSuccess(
-      addTask(state, { name: '演示·同行预览', target: 3, icon: '🌱' }),
-    );
+    requireSuccess(addTask(state, { name: '同行预览', target: 3, icon: '🌱' }));
     const task = state.tasks[state.tasks.length - 1];
     task.id = COMPANION_DEMO_MARKER;
     state.settings = {
@@ -242,11 +240,11 @@ export function seedCompanionDemoHistory(
       initializeSync(createInitialState(now), clock),
       clock,
       (draft) => {
-        saveProfile(draft, '演示同行伙伴', 'sun');
+        saveProfile(draft, '小月', 'sun');
         requireSuccess(joinGroup(draft, exportInvite(state)));
         const goal = requireSuccess(
           addMilestoneGoal(draft, {
-            name: '演示·同行里程碑',
+            name: '同行里程碑',
             unit: '次',
             startWeight: 0,
             step: 1,
@@ -262,7 +260,7 @@ export function seedCompanionDemoHistory(
               ticketId: draft.tickets[draft.tickets.length - 1].id,
               peerAccountId: state.sync!.accountId,
               peerTicketId: used.id,
-              note: '演示：和伙伴一起看电影，同行券随里程碑券使用',
+              note: '和伙伴一起看电影，同行券随里程碑券使用',
             },
             useAt,
             COMPANION_DEMO_USE,
@@ -309,7 +307,7 @@ export function seedDemoHistory(
     if (!hadHistory) seedPersonalHistory(state, now);
     if (canCreateGroup) {
       requireSuccess(
-        createGroup(state, '演示小组', {
+        createGroup(state, '周末搭子', {
           groupId: DEMO_GROUP_ID,
           secret: DEMO_GROUP_SECRET,
         }),
@@ -350,9 +348,9 @@ function seedPersonalHistory(state: AppState, now: Date) {
       if (id) task.id = id;
       return task;
     };
-    const reading = addDemoTask('演示·每日阅读', 3, '📖', DEMO_MARKER);
-    const walking = addDemoTask('演示·轻松散步', 2, '🚶');
-    const archived = addDemoTask('演示·旧日写作', 1, '✍️');
+    const reading = addDemoTask('每日阅读', 3, '📖', DEMO_MARKER);
+    const walking = addDemoTask('轻松散步', 2, '🚶');
+    const archived = addDemoTask('旧日写作', 1, '✍️');
     const monday = new Date(`${weekKey(now)}T00:00:00`);
     const currentDay = (now.getDay() + 6) % 7;
 
@@ -360,7 +358,7 @@ function seedPersonalHistory(state: AppState, now: Date) {
     draft.settings = {
       ...originalSettings,
       threshold: 3,
-      rewardName: '演示·周末小奖励',
+      rewardName: '周末小奖励',
       expiryEnabled: true,
       expiryDay: 1,
       expiryTime: '00:00',
@@ -385,7 +383,7 @@ function seedPersonalHistory(state: AppState, now: Date) {
           const ticket = requireSuccess(redeemTicket(draft, at)).ticket!;
           if (index <= (week === -2 ? 1 : 0))
             requireSuccess(
-              consumeTicket(draft, ticket.id, at, '演示：给自己一段休息时光'),
+              consumeTicket(draft, ticket.id, at, '给自己一段休息时光'),
             );
         }
       }
@@ -401,35 +399,35 @@ function seedPersonalHistory(state: AppState, now: Date) {
     );
     for (let index = 0; remaining > 0; index += 1) {
       const count = Math.min(99, remaining);
-      const task = addDemoTask(`演示·专注练习${index + 1}`, count, '🌱');
+      const task = addDemoTask(`专注练习${index + 1}`, count, '🌱');
       for (let entry = 0; entry < count; entry += 1)
         requireSuccess(checkIn(draft, task.id, now));
       remaining -= count;
     }
     draft.settings = {
       ...originalSettings,
-      rewardName: `演示·${originalSettings.rewardName}`.slice(0, 30),
+      rewardName: `${originalSettings.rewardName}`.slice(0, 30),
     };
     requireSuccess(redeemTicket(draft, now));
     draft.settings = originalSettings;
 
     const goalExamples = [
       {
-        name: '演示·阅读积累',
+        name: '阅读积累',
         unit: '页',
         start: 0,
         step: 20,
         icon: '📖' as const,
       },
       {
-        name: '演示·健康体重',
+        name: '健康体重',
         unit: '斤',
         start: 150,
         step: 1,
         icon: '⚖️' as const,
       },
       {
-        name: '演示·储蓄计划',
+        name: '储蓄计划',
         unit: '元',
         start: 0,
         step: 100,
@@ -457,12 +455,7 @@ function seedPersonalHistory(state: AppState, now: Date) {
       }
       const ticket = draft.tickets.find((item) => item.goalId === goal.id)!;
       requireSuccess(
-        consumeTicket(
-          draft,
-          ticket.id,
-          dayAt(monday, -3),
-          '演示：首次达标的小庆祝',
-        ),
+        consumeTicket(draft, ticket.id, dayAt(monday, -3), '首次达标的小庆祝'),
       );
       if (index === 1)
         requireSuccess(setMilestoneEnabled(draft, goal.id, false));
@@ -482,23 +475,23 @@ function seedPersonalHistory(state: AppState, now: Date) {
       draft.giftState!.profile.id === 'demo-friend-account'
         ? 'demo-friend-account-two'
         : 'demo-friend-account';
-    requireSuccess(ensureGiftProfile(peer, { id: peerId, name: '演示好友' }));
+    requireSuccess(ensureGiftProfile(peer, { id: peerId, name: '小雨' }));
     const incoming = [
       {
         validity: 'week' as const,
         at: dayAt(monday, -10),
-        name: '演示·已过期下午茶',
+        name: '午后喝茶',
       },
       {
         validity: 'permanent' as const,
         at: dayAt(monday, -8),
-        name: '演示·电影之约',
+        name: '电影之约',
       },
-      { validity: 'week' as const, at: now, name: '演示·本周甜点' },
+      { validity: 'week' as const, at: now, name: '本周甜点' },
       {
         validity: 'permanent' as const,
         at: dayAt(monday, -4),
-        name: '演示·一起散步',
+        name: '一起散步',
       },
     ];
     incoming.forEach((example, index) => {
@@ -518,12 +511,7 @@ function seedPersonalHistory(state: AppState, now: Date) {
       ).ticket!;
       if (index === 1)
         requireSuccess(
-          consumeTicket(
-            draft,
-            ticket.id,
-            dayAt(monday, -1),
-            '演示：和好友看电影',
-          ),
+          consumeTicket(draft, ticket.id, dayAt(monday, -1), '和好友看电影'),
         );
     });
     for (let index = 0; index < 2; index += 1) {
@@ -531,7 +519,7 @@ function seedPersonalHistory(state: AppState, now: Date) {
         createGift(
           draft,
           {
-            name: index === 0 ? '演示·请你喝杯茶' : '演示·待领取心意',
+            name: index === 0 ? '请你喝杯茶' : '冰淇淋',
             validity: index === 0 ? 'permanent' : 'week',
           },
           {
@@ -617,14 +605,12 @@ function activeMember(now: Date): GroupPeer {
     initializeSync(createInitialState(now), clock),
     clock,
     (draft) => {
-      saveProfile(draft, '演示成员', 'sun');
+      saveProfile(draft, '阿树', 'sun');
       requireSuccess(joinGroup(draft, DEMO_INVITE));
       requireSuccess(
-        updateSettings(draft, { threshold: 1, rewardName: '演示·散步奖励' }),
+        updateSettings(draft, { threshold: 1, rewardName: '散步奖励' }),
       );
-      requireSuccess(
-        addTask(draft, { name: '演示·练琴', target: 3, icon: '🎹' }),
-      );
+      requireSuccess(addTask(draft, { name: '练琴', target: 3, icon: '🎹' }));
       const piano = draft.tasks[draft.tasks.length - 1];
       requireSuccess(checkIn(draft, 'task-1', dayAt(now, -21)));
       requireSuccess(checkIn(draft, 'task-2', dayAt(now, -14)));
@@ -633,12 +619,12 @@ function activeMember(now: Date): GroupPeer {
       requireSuccess(redeemTicket(draft, dayAt(now, -21)));
       const used = requireSuccess(redeemTicket(draft, dayAt(now, -14))).ticket!;
       requireSuccess(
-        consumeTicket(draft, used.id, dayAt(now, -14), '演示：周末看电影'),
+        consumeTicket(draft, used.id, dayAt(now, -14), '周末看电影'),
       );
       requireSuccess(redeemTicket(draft, now));
       const goal = requireSuccess(
         addMilestoneGoal(draft, {
-          name: '演示·阅读页',
+          name: '阅读页',
           unit: '页',
           startWeight: 0,
           step: 20,
@@ -659,7 +645,7 @@ function departedMember(now: Date): GroupPeer {
     initializeSync(createInitialState(now), clock),
     clock,
     (draft) => {
-      saveProfile(draft, '演示已离开', 'moon');
+      saveProfile(draft, '小树', 'moon');
       requireSuccess(joinGroup(draft, DEMO_INVITE));
       requireSuccess(checkIn(draft, 'task-2', dayAt(now, -1)));
     },

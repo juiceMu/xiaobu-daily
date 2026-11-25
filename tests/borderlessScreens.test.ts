@@ -6,7 +6,7 @@ import ts from 'typescript';
 const read = (path: string) =>
   readFileSync(new URL(path, import.meta.url), 'utf8');
 
-test('所有页面输入复用无描边填色控件，标签和既有属性不丢失', () => {
+test('所有页面输入复用共享控件，标签和既有属性不丢失', () => {
   for (const name of [
     'TodayScreen',
     'TicketsScreen',
@@ -41,12 +41,10 @@ test('所有页面输入复用无描边填色控件，标签和既有属性不�
   assert.ok(input.includes("typeof ref === 'function'"));
   assert.ok(input.includes('ref.current = instance'));
   assert.ok(
-    input.includes('outlineStyle={[outlineStyle, { borderWidth: 0 }]}'),
+    input.includes('borderWidth: error || (focused && !quietField) ? 2 : 1'),
   );
-  assert.ok(input.includes('theme.colors.surfaceVariant'));
-  assert.ok(
-    input.replace(/\s+/g, '').includes('focused?colors.primaryContainer'),
-  );
+  assert.ok(input.includes('theme.colors.surfaceDisabled'));
+  assert.ok(input.includes('readOnly={readonly}'));
   assert.ok(input.includes('onFocus?.(event)'));
   assert.ok(input.includes('onBlur?.(event)'));
   assert.ok(input.includes('label={undefined}'));
@@ -55,7 +53,7 @@ test('所有页面输入复用无描边填色控件，标签和既有属性不�
   assert.ok(input.includes("typeof label === 'string' ? label : undefined"));
   assert.ok(input.includes('inputRef.current?.focus()'));
   assert.ok(input.includes('if (!props.disabled)'));
-  assert.ok(input.includes('fontSize: 12'));
+  assert.ok(input.includes('fontSize: font[12]'));
   assert.ok(input.includes('lineHeight: 18'));
   assert.ok(input.includes('alert-circle-outline'));
   assert.ok(input.includes('error={error}'));
@@ -81,7 +79,7 @@ test('底栏与任务菜单无装饰边框，周历使用选中填色且保留�
   assert.equal(menu.includes('borderColor'), false);
   const strip = today.slice(
     today.indexOf('stats.days.map'),
-    today.indexOf('每 {state.settings.threshold}'),
+    today.indexOf('testID="reward-progress-track"'),
   );
   assert.equal(strip.includes('borderWidth'), false);
   assert.ok(strip.includes('selected: calendar.isSelected'));

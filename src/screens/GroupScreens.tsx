@@ -37,6 +37,7 @@ import { useAndroidMountReady } from '../ui/useAndroidMountReady';
 import { CopyCodeButton } from '../ui/CopyCodeButton';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { useGroupView } from '../ui/GroupViewProvider';
+import { space } from '../ui/uiTokens';
 import { formatDate, useScreenStyles } from './shared';
 
 const INVITE_QR_ERROR = '二维码暂时无法显示，请点击「复制邀请码」。';
@@ -50,6 +51,7 @@ function memberTasks(app: AppState, date: string, today: string) {
 export function GroupScreen() {
   const mountReady = useAndroidMountReady(600);
   const styles = useScreenStyles();
+  const { colors } = useAppTheme();
   const { state, busy, syncing, syncStatus, run, syncGroup } = useApp();
   const { error: viewError } = useGroupView();
   const [name, setName] = useState(state.groupOwned?.name ?? '我们家');
@@ -101,7 +103,7 @@ export function GroupScreen() {
               <SectionTitle title={state.groupLink.name} />
               <Text style={styles.muted}>
                 {peers.length
-                  ? `已有 ${peers.length} 位其他成员的副本`
+                  ? `已同步 ${peers.length} 位成员的数据`
                   : '还没有其他成员的记录。双方都打开应用后点同步。'}
               </Text>
               {state.groupOwned ? (
@@ -150,14 +152,14 @@ export function GroupScreen() {
                   void syncGroup();
                 }}
               >
-                {syncing ? '同步中' : '同步'}
+                同步
               </ActionButton>
               {syncStatus ? (
                 <Text accessibilityLiveRegion="polite" style={styles.muted}>
                   {syncStatus}
                 </Text>
               ) : null}
-              <ActionButton mode="contained-tonal" onPress={showInvite}>
+              <ActionButton mode="outlined" tone="neutral" onPress={showInvite}>
                 显示邀请二维码
               </ActionButton>
               {QrView ? (
@@ -167,15 +169,28 @@ export function GroupScreen() {
                   errorMessage={INVITE_QR_ERROR}
                 />
               ) : null}
-              <CopyCodeButton value={inviteCode} label="邀请码" compactHeight />
-              <ActionButton
-                mode="text"
-                tone="danger"
-                disabled={busy}
-                onPress={() => setLeaving(true)}
+              <CopyCodeButton
+                value={inviteCode}
+                label="邀请码"
+                compactHeight
+                outlined
+              />
+              <View
+                style={{
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border,
+                  paddingTop: space[4],
+                }}
               >
-                离开小组
-              </ActionButton>
+                <ActionButton
+                  mode="text"
+                  tone="danger"
+                  disabled={busy}
+                  onPress={() => setLeaving(true)}
+                >
+                  离开小组
+                </ActionButton>
+              </View>
             </Panel>
           ) : state.pendingGroupDeparture ? (
             <Panel>

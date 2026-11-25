@@ -13,13 +13,12 @@ const activity = readFileSync(
 );
 
 test('今日页分区切换保留原有任务、日期、兑换和成员区域', () => {
-  assert.match(today, /accessibilityRole="tablist"/);
-  assert.match(today, /accessibilityRole="tab"/);
   assert.match(
     today,
-    /accessibilityState=\{\{ selected: section === item \}\}/,
+    /<HistoryTabs[\s\S]*?testID="today-section"[\s\S]*?value=\{section\}/,
   );
-  assert.match(today, /'我的打卡' : '小组动态'/);
+  assert.match(today, /value: 'mine', label: '我的打卡'/);
+  assert.match(today, /value: 'activity', label: '小组动态'/);
   assert.match(today, /section === 'activity' \? \(/);
   assert.match(today, /<GroupActivityView/);
   assert.match(today, /<FlatList/);
@@ -34,11 +33,10 @@ test('今日页分区切换保留原有任务、日期、兑换和成员区域',
   assert.match(today, /section === 'activity' && state.groupLink/);
   assert.ok(
     today.indexOf('testID="redeem-companion-button"') <
-      today.indexOf('accessibilityRole="tablist"'),
+      today.indexOf('<HistoryTabs'),
   );
   assert.ok(
-    today.indexOf('accessibilityRole="tablist"') <
-      today.indexOf('<GroupActivityView'),
+    today.indexOf('<HistoryTabs') < today.indexOf('<GroupActivityView'),
   );
   assert.match(today, /data=\{section === 'mine' \? tasks : \[\]\}/);
   assert.doesNotMatch(activity, /<ScrollView/);
@@ -48,12 +46,17 @@ test('今日页分区切换保留原有任务、日期、兑换和成员区域',
 test('小组动态支持当前周和历史周切换，并使用选中周统计', () => {
   assert.match(today, /key=\{weekKey\(selectedNow\)\}/);
   assert.match(today, /selectedNow=\{selectedNow\}/);
-  assert.match(today, /shiftLocalDate\(selectedDate, -7\)/);
-  assert.match(today, /shiftLocalDate\(selectedDate, 7\)/);
+  assert.match(
+    today,
+    /shiftLocalDate\(\s*selectedDate,\s*previous \? -7 : 7,?\s*\)/,
+  );
   assert.match(today, /changePickedDate\(null\)/);
   assert.match(activity, /getGroupActivity\([\s\S]*?selectedNow/);
-  assert.match(today, /disabled=\{busy \|\| !historicalWeek\}/);
-  assert.match(today, /disabled=\{busy \|\| selectedDate === '0001-01-01'\}/);
+  assert.match(
+    today,
+    /const disabled =\s*busy \|\|\s*\(previous\s*\? selectedDate === '0001-01-01'\s*:\s*!historicalWeek\)/,
+  );
+  assert.match(today, /disabled=\{disabled\}/);
   assert.match(today, /historicalWeek \? '所选周已兑' : '本周已兑'/);
 });
 
@@ -84,19 +87,21 @@ test('排行榜名次与头像间隔12dp且名次按内容伸展', () => {
   );
 });
 
-test('时间轴按日分组用节点连线，标签下划线且成员卡不重复任务清单', () => {
+test('时间轴三列按日分组且同日节点之间连线', () => {
   assert.match(activity, /testID="timeline-date-heading"/);
   assert.match(
     activity,
-    /quiet\s*\? utilityColors\.timelineRule\s*:\s*colors\.primaryContainer/,
+    /testID="timeline-time"[\s\S]*?testID="timeline-axis"[\s\S]*?timelineStyles.card/,
   );
-  assert.match(activity, /testID="timeline-date-divider"/);
-  assert.match(activity, /!quiet \|\| continuesDay/);
+  assert.match(activity, /TIME_WIDTH = 38/);
+  assert.match(activity, /AXIS_WIDTH = space\[16\]/);
+  assert.match(activity, /DOT_TOP = 13/);
   assert.match(
     activity,
-    /\{!startsDay \? \([\s\S]*?top: 0,[\s\S]*?height: 9,[\s\S]*?width: quiet \? 1 : 2,[\s\S]*?backgroundColor: quiet\s*\? utilityColors\.timelineRule\s*:\s*colors\.primaryContainer/,
+    /time: \{[\s\S]*?width: TIME_WIDTH,[\s\S]*?textAlign: 'right'/,
   );
-  assert.doesNotMatch(activity, /quiet && !startsDay/);
+  assert.match(activity, /!startsDay &&[\s\S]*?timelineStyles.lineAbove/);
+  assert.match(activity, /continuesDay &&[\s\S]*?timelineStyles.lineBelow/);
   assert.match(
     activity,
     /index === 0 \|\| activity\.timeline\[index - 1\]\.date !== entry\.date/,
@@ -106,19 +111,11 @@ test('时间轴按日分组用节点连线，标签下划线且成员卡不重�
     /activity\.timeline\[index \+ 1\]\?\.date === entry\.date/,
   );
   assert.match(activity, /index \+ 1 < visibleCount/);
-  assert.match(activity, /width: quiet \? 1 : 2/);
-  assert.match(activity, /borderColor: colors\.primary/);
   assert.match(
     activity,
-    /backgroundColor:\s*quiet\s*\? colors\.background\s*:\s*colors\.primary/,
-  );
-  assert.match(
-    activity,
-    /entry\.dailyTaskCount > 1\s*\? ` · 当天第 \$\{entry\.sequence\} 次`\s*: ''/,
+    /entry\.dailyTaskCount > 1 &&[\s\S]*?当天第 \{entry\.sequence\} 次/,
   );
   assert.match(activity, /打卡了「/);
-  assert.match(today, /borderBottomColor:/);
-  assert.match(today, /minHeight: 48/);
   assert.match(today, /now=\{now\}/);
   assert.doesNotMatch(today, /peerTasks\.map/);
   assert.match(today, /screen: 'member'/);

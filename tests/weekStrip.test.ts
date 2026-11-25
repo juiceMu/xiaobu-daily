@@ -45,7 +45,7 @@ test('日期条展示日号和今天而非每日次数，原进度条6dp约束�
   );
   const strip = source.slice(
     source.indexOf('stats.days.map'),
-    source.indexOf('每 {state.settings.threshold}'),
+    source.indexOf('testID="reward-progress-track"'),
   );
   assert.ok(strip.includes('{calendar.dayNumber}'));
   assert.ok(strip.includes('{calendar.label}'));
@@ -64,9 +64,9 @@ test('日期条展示日号和今天而非每日次数，原进度条6dp约束�
     normalized.includes("showSelection?colors.primaryContainer:'transparent'"),
   );
   assert.ok(strip.includes('week-date-circle'));
-  assert.ok(strip.includes('minWidth: 32'));
-  assert.ok(strip.includes('minHeight: 32'));
-  assert.ok(strip.includes('borderRadius: 999'));
+  assert.ok(strip.includes('minWidth: control[28]'));
+  assert.ok(strip.includes('minHeight: control[28]'));
+  assert.ok(strip.includes('borderRadius: radius.full'));
   assert.equal(strip.includes(' ✓'), false);
   assert.ok(strip.includes('已选'));
   assert.equal(strip.includes('borderWidth'), false);

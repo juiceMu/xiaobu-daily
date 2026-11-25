@@ -90,10 +90,10 @@ test('奖券图标文字使用按钮同一横行，紧凑卡片不设固定高�
   assert.equal(parent, row);
   const panel = row.parent;
   assert.ok(ts.isJsxElement(panel));
-  assert.equal(panel.openingElement.tagName.getText(source), 'Panel');
+  assert.equal(panel.openingElement.tagName.getText(source), 'TicketContainer');
   const style = attribute(panel, 'style')?.initializer?.getText(source) ?? '';
-  assert.ok(style.includes('padding: 12'));
-  assert.ok(style.includes('gap: 6'));
+  assert.ok(style.includes('padding: space[12]'));
+  assert.ok(style.includes('gap: space[6]'));
   assert.equal(style.includes('height:'), false);
   assert.ok(
     attribute(row, 'style')
@@ -180,32 +180,27 @@ test('奖券标题两行省略保留全文读屏，状态来源获得时间紧�
   );
 });
 
-test('每张非可用奖券的状态是右上角角标，不单独占一行', () => {
-  const text = readFileSync(
-    new URL('../src/ui/TicketStatusBadge.tsx', import.meta.url),
-    'utf8',
-  );
+test('归档奖券只显示纯文字状态，无独立阴影或操作入口', () => {
   const row = byId('ticket-main-row');
   assert.ok(ts.isJsxElement(row));
-  assert.equal(
-    row.getText(source).includes('<TicketStatusBadge status={status} />'),
-    false,
-  );
   const panel = row.parent;
   assert.ok(ts.isJsxElement(panel));
-  assert.ok(
-    panel.getText(source).includes('<TicketStatusBadge status={status} />'),
+  const archive = byId('ticket-archived-label');
+  assert.equal(opening(archive).tagName.getText(source), 'Text');
+  assert.match(
+    panel.getText(source),
+    /archive[d] \? \{ 'aria-disabled': true \}/,
   );
-  assert.ok(text.includes("if (status === 'available') return null"));
-  assert.ok(text.includes("used ? '已使用' : '已过期'"));
-  assert.ok(
-    text.includes("used ? 'check-circle-outline' : 'clock-alert-outline'"),
+  assert.match(
+    panel.getText(source),
+    /backgroundColor: theme.colors.surfaceDisabled/,
   );
-  assert.ok(text.includes('accessibilityLabel={label}'));
-  assert.ok(text.includes("position: 'absolute'"));
-  assert.ok(text.includes('top: 0'));
-  assert.ok(text.includes('right: 0'));
-  assert.ok(text.includes('borderBottomLeftRadius: 10'));
+  assert.match(source.text, /const TicketContainer = archived \? View : Panel/);
+  assert.match(
+    source.text,
+    /const archivedLabel = status === 'used' \? '已使用' : '已过期'/,
+  );
+  assert.doesNotMatch(source.text, /TicketStatusBadge/);
   assert.ok(source.text.includes("status === 'available'"));
   assert.ok(source.text.includes('owned?.person.own === false'));
 });

@@ -4,7 +4,12 @@ import { Text } from 'react-native-paper';
 import { startCompanionUse } from '../domain/companion';
 import type { Ticket } from '../domain/types';
 import { useApp } from '../state/AppProvider';
-import { discardDraft, ErrorText, useScreenStyles } from '../screens/shared';
+import {
+  CouponRuleDetails,
+  discardDraft,
+  ErrorText,
+  useScreenStyles,
+} from '../screens/shared';
 import { AppTextInput } from './AppTextInput';
 import { ActionButton } from './components';
 import { ConfirmationDialog } from './ConfirmationDialog';
@@ -69,21 +74,20 @@ export function CompanionUseDialog({
   return (
     <ConfirmationDialog
       visible
-      title={companion ? '找伙伴一起用' : '邀请同行'}
+      title={`邀请同行 · ${ticket.name}`}
       busy={locked}
       onDismiss={dismiss}
     >
       <View style={styles.form}>
-        <Text style={styles.body}>我的券：{ticket.name}</Text>
-        <Text style={styles.muted}>
-          {companion
-            ? '选择另一人的打卡券、里程碑券或赠送券，双方各自确认。'
-            : '选择另一人的同行券。发送即授权使用自己的主券，对方确认后会在主券设备同步时联合使用。'}
-        </Text>
-        <Text style={styles.muted}>
-          成员奖券是上次同步的副本，发送和确认时会重新校验。请连接同一
-          WiFi，双方保持应用在前台；邀请 15 分钟内有效。
-        </Text>
+        <CouponRuleDetails
+          cost={`你和伙伴各用 1 张券。你的券为「${ticket.name}」。`}
+          condition={
+            companion
+              ? '选择伙伴的一张打卡券、里程碑券或赠送券'
+              : '选择伙伴的一张同行券'
+          }
+          rules="邀请 15 分钟内有效。请连接同一 WiFi，保持应用在前台。双方确认后同步结果，发送和确认时会重新检查奖券。"
+        />
         {Platform.OS === 'web' ? (
           <Text style={styles.muted}>
             网页版不支持局域网联合使用，请在手机上操作。同行券仍可正常兑换。

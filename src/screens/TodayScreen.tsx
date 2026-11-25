@@ -12,6 +12,7 @@ import {
   Pressable,
   ScrollView,
   useWindowDimensions,
+  type ViewStyle,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +24,7 @@ import {
 import { Icon, IconButton, Menu, Text } from 'react-native-paper';
 import { AppTextInput as TextInput } from '../ui/AppTextInput';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
+import { HistoryTabs } from '../ui/HistoryControls';
 import {
   addTask,
   archiveTask,
@@ -70,8 +72,10 @@ import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { GroupActivityView } from './GroupActivityView';
 import { openMemberRecord } from '../ui/openMemberRecord';
 import { TASK_MENU_ROW_HEIGHT, taskMenuLayout } from '../ui/taskMenuLayout';
+import { control, font, radius, space } from '../ui/uiTokens';
 
-const DATE_ACTION_THEME = { colors: { surfaceDisabled: 'transparent' } };
+const WEEK_PICKER_HEIGHT = 30;
+const WEEK_PICKER_INSET = (control[44] - WEEK_PICKER_HEIGHT) / 2;
 
 function hiddenDateActionProps(hidden: boolean) {
   return {
@@ -218,14 +222,14 @@ export function TodayScreen({
   calendarEnd.setMonth(calendarEnd.getMonth() + 1);
   calendarEnd.setDate(0);
   const calendarLength = calendarEnd.getDate();
-  const dateNavigationSize = 28;
+  const dateNavigationSize = control[44];
   const dateNavigationIconSize = 22;
   const disabledDateColor = theme.colors.onSurfaceDisabled;
   const dateNavigationStyle = {
     margin: 0,
     width: dateNavigationSize,
     height: dateNavigationSize,
-    borderRadius: dateNavigationSize / 2,
+    borderRadius: radius.full,
   };
   const weekRangeLabel = (() => {
     const start = stats.days[0].date;
@@ -289,6 +293,10 @@ export function TodayScreen({
   function dateNavigationProps(id: string, disabled: boolean) {
     return {
       ...hiddenDateActionProps(disabled),
+      'aria-disabled': disabled,
+      theme: disabled
+        ? { colors: { onSurfaceDisabled: 'transparent' } }
+        : undefined,
       onFocus: () => {
         keyboardFocus.onFocus();
         setFocusedAction(id);
@@ -310,7 +318,6 @@ export function TodayScreen({
         {
           alignItems: 'center' as const,
           justifyContent: 'center' as const,
-          opacity: disabled ? 0 : 1,
           backgroundColor: 'transparent',
           borderWidth:
             !disabled && keyboardFocus.focusVisible && focusedAction === id
@@ -321,7 +328,7 @@ export function TodayScreen({
       ],
     };
   }
-  const taskActionSize = Platform.OS === 'web' ? 36 : 44;
+  const taskActionSize = control[44];
   const [initialForm, setInitialForm] = useState('');
   const [confirm, setConfirm] = useState<{
     type: 'archive' | 'delete' | 'undo' | 'redeem' | 'companion';
@@ -414,115 +421,199 @@ export function TodayScreen({
           <View style={[styles.column, styles.listHeader]}>
             <Panel style={styles.card}>
               <View
+                testID="week-navigation"
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 8,
+                  gap: space[6],
                 }}
               >
                 <View
+                  testID="week-picker"
                   style={{
+                    flex: 1,
+                    minWidth: 0,
                     flexDirection: 'row',
                     alignItems: 'center',
-                    flexShrink: 1,
-                    minWidth: 0,
                   }}
                 >
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="查看上一周"
-                    disabled={busy || selectedDate === '0001-01-01'}
-                    onPress={() =>
-                      changePickedDate(shiftLocalDate(selectedDate, -7))
-                    }
-                    {...dateNavigationProps(
-                      'previous-week',
-                      busy || selectedDate === '0001-01-01',
-                    )}
-                  >
-                    <Icon
-                      source="chevron-left"
-                      size={dateNavigationIconSize}
-                      color={
-                        busy || selectedDate === '0001-01-01'
-                          ? disabledDateColor
-                          : colors.primary
-                      }
-                    />
-                  </Pressable>
-                  <Text
-                    numberOfLines={1}
+                  <View
+                    aria-hidden
                     style={{
-                      flexShrink: 1,
-                      fontSize: 13,
-                      lineHeight: 18,
-                      fontWeight: '500',
-                      color: colors.ink,
+                      position: 'absolute',
+                      top: WEEK_PICKER_INSET,
+                      bottom: WEEK_PICKER_INSET,
+                      left: 0,
+                      right: 0,
+                      backgroundColor: colors.surface,
+                      borderRadius: radius[8],
+                      borderWidth: 1,
+                      borderColor: colors.border,
                     }}
-                  >
-                    {weekRangeLabel}
-                  </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="查看下一周"
-                    disabled={busy || !historicalWeek}
-                    onPress={() => {
-                      const next = shiftLocalDate(selectedDate, 7);
-                      changePickedDate(
-                        next > dateKey(now) ? dateKey(now) : next,
+                  />
+                  {(['previous-week', 'next-week'] as const).map(
+                    (id, index) => {
+                      const previous = index === 0;
+                      const disabled =
+                        busy ||
+                        (previous
+                          ? selectedDate === '0001-01-01'
+                          : !historicalWeek);
+                      return (
+                        <React.Fragment key={id}>
+                          {!previous && (
+                            <View
+                              style={{
+                                flex: 1,
+                                minWidth: 0,
+                                minHeight: WEEK_PICKER_HEIGHT,
+                                justifyContent: 'center',
+                                borderLeftWidth: 1,
+                                borderRightWidth: 1,
+                                borderColor: colors.border,
+                              }}
+                            >
+                              <Text
+                                numberOfLines={1}
+                                accessibilityLabel={weekRangeLabel}
+                                style={{
+                                  color: colors.ink,
+                                  fontSize: font[12],
+                                  textAlign: 'center',
+                                }}
+                              >
+                                {weekRangeLabel}
+                              </Text>
+                            </View>
+                          )}
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              previous ? '查看上一周' : '查看下一周'
+                            }
+                            disabled={disabled}
+                            aria-disabled={disabled}
+                            onPress={() => {
+                              if (disabled) return;
+                              const next = shiftLocalDate(
+                                selectedDate,
+                                previous ? -7 : 7,
+                              );
+                              changePickedDate(
+                                next > dateKey(now) ? dateKey(now) : next,
+                              );
+                            }}
+                            onFocus={() => {
+                              keyboardFocus.onFocus();
+                              setFocusedAction(id);
+                            }}
+                            onBlur={() => {
+                              keyboardFocus.onBlur();
+                              setFocusedAction(null);
+                            }}
+                            style={{
+                              minWidth: control[44],
+                              minHeight: control[44],
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              ...(Platform.OS === 'web' && {
+                                outlineWidth:
+                                  !disabled &&
+                                  keyboardFocus.focusVisible &&
+                                  focusedAction === id
+                                    ? 2
+                                    : 0,
+                                outlineColor: colors.primary,
+                                outlineStyle: 'solid',
+                                outlineOffset: 2,
+                                cursor: (disabled
+                                  ? 'not-allowed'
+                                  : 'pointer') as ViewStyle['cursor'],
+                              }),
+                            }}
+                          >
+                            <Icon
+                              source={
+                                previous ? 'chevron-left' : 'chevron-right'
+                              }
+                              size={font[16]}
+                              color={disabled ? colors.border : colors.primary}
+                            />
+                          </Pressable>
+                        </React.Fragment>
                       );
+                    },
+                  )}
+                </View>
+                <Pressable
+                  testID="week-date"
+                  disabled={busy}
+                  aria-disabled={busy}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    if (busy) return;
+                    setDateInput(selectedDate);
+                    setCalendarMonth(selectedDate.slice(0, 7) + '-01');
+                    setCalendarView('day');
+                    setDateError('');
+                    setDatePickerVisible(true);
+                  }}
+                  onFocus={() => {
+                    keyboardFocus.onFocus();
+                    setFocusedAction('pick-date');
+                  }}
+                  onBlur={() => {
+                    keyboardFocus.onBlur();
+                    setFocusedAction(null);
+                  }}
+                  style={{
+                    minHeight: control[44],
+                    minWidth: control[44],
+                    justifyContent: 'center',
+                  }}
+                >
+                  <View
+                    style={{
+                      minHeight: WEEK_PICKER_HEIGHT,
+                      paddingHorizontal: space[6],
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: radius[8],
+                      backgroundColor: busy
+                        ? theme.colors.surfaceDisabled
+                        : colors.surface,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: space[4],
+                      ...(Platform.OS === 'web' && {
+                        outlineWidth:
+                          !busy &&
+                          keyboardFocus.focusVisible &&
+                          focusedAction === 'pick-date'
+                            ? 2
+                            : 0,
+                        outlineColor: colors.primary,
+                        outlineStyle: 'solid',
+                        outlineOffset: 2,
+                      }),
                     }}
-                    {...dateNavigationProps(
-                      'next-week',
-                      busy || !historicalWeek,
-                    )}
                   >
                     <Icon
-                      source="chevron-right"
-                      size={dateNavigationIconSize}
-                      color={
-                        busy || !historicalWeek
-                          ? disabledDateColor
-                          : colors.primary
-                      }
+                      source="calendar-month-outline"
+                      size={font[13]}
+                      color={colors.muted}
                     />
-                  </Pressable>
-                </View>
-                <View style={[styles.row, { flexShrink: 0 }]}>
-                  <ActionButton
-                    compact
-                    mode="text"
-                    theme={DATE_ACTION_THEME}
-                    disabled={busy}
-                    icon="calendar-month-outline"
-                    onPress={() => {
-                      setDateInput(selectedDate);
-                      setCalendarMonth(selectedDate.slice(0, 7) + '-01');
-                      setCalendarView('day');
-                      setDateError('');
-                      setDatePickerVisible(true);
-                    }}
-                  >
-                    选日期
-                  </ActionButton>
-                  <ActionButton
-                    compact
-                    mode="text"
-                    theme={DATE_ACTION_THEME}
-                    disabled={busy || isToday}
-                    {...hiddenDateActionProps(isToday)}
-                    style={{ opacity: isToday ? 0 : 1 }}
-                    onPress={() => changePickedDate(null)}
-                  >
-                    回今天
-                  </ActionButton>
-                </View>
+                    <Text style={{ fontSize: font[11], color: colors.muted }}>
+                      选日期
+                    </Text>
+                  </View>
+                </Pressable>
               </View>
               <View style={[styles.row, { alignItems: 'stretch' }]}>
                 <View style={[styles.stat, summaryCardStyle]}>
                   <Text style={styles.muted}>
-                    {historicalWeek ? '所选周打卡' : '本周打卡'}
+                    {historicalWeek ? '该周打卡' : '本周打卡'}
                   </Text>
                   <Text style={styles.number}>
                     {stats.total}
@@ -594,7 +685,7 @@ export function TodayScreen({
               <View
                 style={[
                   styles.row,
-                  { gap: 4, justifyContent: 'space-between' },
+                  { gap: 0, justifyContent: 'space-between' },
                 ]}
               >
                 {stats.days.map((day, index) => {
@@ -664,10 +755,10 @@ export function TodayScreen({
                       <View
                         testID="week-date-circle"
                         style={{
-                          minWidth: 32,
-                          minHeight: 32,
-                          padding: 4,
-                          borderRadius: 999,
+                          minWidth: control[28],
+                          minHeight: control[28],
+                          padding: space[4],
+                          borderRadius: radius.full,
                           alignItems: 'center',
                           justifyContent: 'center',
                           backgroundColor: showSelection
@@ -694,10 +785,27 @@ export function TodayScreen({
                   );
                 })}
               </View>
-              <Text style={styles.muted}>
-                已选 {Number(selectedDate.slice(5, 7))}月
-                {Number(selectedDate.slice(8, 10))}日
-              </Text>
+              <View
+                style={[
+                  styles.row,
+                  { justifyContent: 'space-between', flexWrap: 'wrap' },
+                ]}
+              >
+                <Text style={styles.muted}>
+                  已选 {Number(selectedDate.slice(5, 7))}月
+                  {Number(selectedDate.slice(8, 10))}日
+                </Text>
+                {!isToday && (
+                  <ActionButton
+                    size="sm"
+                    mode="text"
+                    disabled={busy}
+                    onPress={() => changePickedDate(null)}
+                  >
+                    回今天
+                  </ActionButton>
+                )}
+              </View>
               {!isToday && (
                 <Text style={styles.muted}>
                   {historicalWeek
@@ -706,9 +814,6 @@ export function TodayScreen({
                   已归档任务可补历史记录，次数按当前任务目标上限。
                 </Text>
               )}
-              <Text style={styles.body}>
-                每 {state.settings.threshold} 次，换一点小快乐
-              </Text>
               <View
                 testID="reward-progress-track"
                 accessible
@@ -800,7 +905,7 @@ export function TodayScreen({
                 }}
               >
                 <Text style={[styles.muted, { flex: 1, minWidth: 160 }]}>
-                  1 次打卡换 1 张同行券，仅能随另一人的奖券一起使用。
+                  同行券需搭配伙伴的奖券使用
                   {busy
                     ? ' 正在保存，请稍候。'
                     : historicalWeek
@@ -828,47 +933,20 @@ export function TodayScreen({
                 </ActionButton>
               </View>
             </Panel>
-            <View
-              accessibilityRole="tablist"
-              style={{
-                flexDirection: 'row',
-                borderBottomWidth: 1,
-                borderBottomColor: colors.border,
-                gap: 24,
+            <HistoryTabs
+              testID="today-section"
+              label="今日打卡视图"
+              options={[
+                { value: 'mine', label: '我的打卡' },
+                { value: 'activity', label: '小组动态' },
+              ]}
+              value={section}
+              onChange={(item) => {
+                memberIntent.current += 1;
+                setMemberError('');
+                setSection(item);
               }}
-            >
-              {(['mine', 'activity'] as const).map((item) => (
-                <Pressable
-                  key={item}
-                  testID={`today-section-${item}`}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: section === item }}
-                  onPress={() => {
-                    memberIntent.current += 1;
-                    setMemberError('');
-                    setSection(item);
-                  }}
-                  style={{
-                    minHeight: 48,
-                    paddingHorizontal: 12,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderBottomWidth: 2,
-                    borderBottomColor:
-                      section === item ? colors.primary : 'transparent',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: section === item ? colors.primary : colors.ink,
-                      fontWeight: section === item ? '700' : '400',
-                    }}
-                  >
-                    {item === 'mine' ? '我的打卡' : '小组动态'}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            />
             {section === 'activity' ? (
               <GroupActivityView
                 key={weekKey(selectedNow)}
@@ -882,14 +960,16 @@ export function TodayScreen({
               <SectionTitle
                 title={isToday ? '今日小任务' : selectedDate + ' 的任务'}
                 action={
-                  <ActionButton
-                    icon="plus"
-                    mode="text"
-                    disabled={busy}
-                    onPress={() => edit()}
-                  >
-                    新增
-                  </ActionButton>
+                  tasks.length ? (
+                    <ActionButton
+                      icon="plus"
+                      mode="text"
+                      disabled={busy}
+                      onPress={() => edit()}
+                    >
+                      新增
+                    </ActionButton>
+                  ) : undefined
                 }
               />
             ) : null}
@@ -898,7 +978,7 @@ export function TodayScreen({
         ListFooterComponent={
           section === 'activity' && state.groupLink ? (
             <View style={[styles.column, { marginTop: 12 }]}>
-              <Text style={styles.heading}>成员概览</Text>
+              <Text style={styles.heading}>成员记录</Text>
               <Text style={styles.muted}>点击成员查看最近同步的只读记录</Text>
               <ErrorText message={memberError} />
               {peers.length ? (
@@ -989,9 +1069,7 @@ export function TodayScreen({
                   );
                 })
               ) : (
-                <Text style={styles.muted}>
-                  同步后可以看到其他成员。打开应用不会自动同步。
-                </Text>
+                <Text style={styles.muted}>同步后即可查看成员记录。</Text>
               )}
             </View>
           ) : null
@@ -1000,7 +1078,17 @@ export function TodayScreen({
           section === 'mine' ? (
             <Empty
               title="从一个小任务开始"
-              description="点右上方新增，为今天安排一点喜欢的事。"
+              description="新增任务后，可在这里记录打卡。"
+              action={
+                <ActionButton
+                  mode="contained"
+                  icon="plus"
+                  disabled={busy}
+                  onPress={() => edit()}
+                >
+                  新增任务
+                </ActionButton>
+              }
             />
           ) : null
         }
@@ -1583,7 +1671,7 @@ export function TodayScreen({
                         }}
                         style={{
                           width: '14.285714%',
-                          minHeight: Platform.OS === 'web' ? 40 : 44,
+                          minHeight: control[44],
                           alignItems: 'center',
                           justifyContent: 'center',
                           backgroundColor: 'transparent',
@@ -1592,10 +1680,10 @@ export function TodayScreen({
                         <View
                           testID="month-date-circle"
                           style={{
-                            minWidth: 32,
-                            minHeight: 32,
-                            padding: 4,
-                            borderRadius: 999,
+                            minWidth: control[28],
+                            minHeight: control[28],
+                            padding: space[4],
+                            borderRadius: radius.full,
                             alignItems: 'center',
                             justifyContent: 'center',
                             backgroundColor: showSelection
@@ -1703,7 +1791,7 @@ export function TodayScreen({
                     }}
                     style={{
                       width: '25%',
-                      minHeight: Platform.OS === 'web' ? 40 : 44,
+                      minHeight: control[44],
                       alignItems: 'center',
                       justifyContent: 'center',
                       backgroundColor: 'transparent',
@@ -1816,7 +1904,11 @@ export function TodayScreen({
                       ['浅绿', '奶杏', '雾蓝', '淡紫'][index] +
                       (form.color === color ? '，已选' : '')
                     }
-                    accessibilityState={{ selected: form.color === color }}
+                    accessibilityState={{
+                      selected: form.color === color,
+                      disabled: busy,
+                    }}
+                    aria-disabled={busy}
                     disabled={busy}
                     style={({ pressed }) => ({
                       minWidth: 48,
@@ -1825,7 +1917,7 @@ export function TodayScreen({
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: 4,
-                      opacity: busy ? 0.4 : pressed ? 0.7 : 1,
+                      opacity: !busy && pressed ? 0.7 : 1,
                     })}
                     onPress={() => setForm({ ...form, color })}
                   >
@@ -1834,7 +1926,9 @@ export function TodayScreen({
                         width: 24,
                         height: 24,
                         borderRadius: 12,
-                        backgroundColor: tint(color, colors),
+                        backgroundColor: busy
+                          ? theme.colors.surfaceDisabled
+                          : tint(color, colors),
                       }}
                     />
                     <Text
@@ -1893,23 +1987,38 @@ export function TodayScreen({
           confirm?.type === 'companion'
             ? '兑换一张同行券？'
             : confirm?.type === 'redeem'
-              ? '兑换一张奖券？'
+              ? `兑换「${state.settings.rewardName}」？`
               : confirm?.type === 'archive'
                 ? '归档这个任务？'
                 : confirm?.type === 'delete'
                   ? '删除这个任务？'
                   : '撤销最近一次打卡？'
         }
-        description={
+        couponRule={
           confirm?.type === 'companion'
-            ? '消耗本周 1 次未兑换打卡，与普通奖券共用打卡余额和有效期设置。同行券不能单独使用，也不能搭配自己的券；须与另一人的打卡券、里程碑券或赠送券共同确认使用。'
+            ? {
+                cost: '本周 1 次未兑换打卡',
+                condition: '同行券需搭配伙伴的奖券使用',
+                rules:
+                  '同行券与普通奖券共用打卡余额和到期规则。可搭配另一人的打卡券、里程碑券或赠送券，双方确认后使用。',
+              }
             : confirm?.type === 'redeem'
-              ? `消耗本周 ${state.settings.threshold} 次未兑换打卡。未兑换的打卡次数不会结转下周。`
-              : confirm?.type === 'archive'
-                ? `「${confirm.task?.name}」会移至更多中的归档任务，历史记录保留，可随时恢复。`
-                : confirm?.type === 'delete'
-                  ? `「${confirm.task?.name}」删除后不会出现在归档任务，也不能恢复。历史打卡仍计入周统计。`
-                  : `仅撤销 ${confirm?.date} 最近一次记录。已用于兑换的次数不能撤销。`
+              ? {
+                  cost: `本周 ${state.settings.threshold} 次未兑换打卡`,
+                  condition: '本周剩余可兑换的打卡次数足够',
+                  rules:
+                    '未兑换的打卡次数不会结转下周。发券时按当前到期规则确定有效期。',
+                }
+              : undefined
+        }
+        description={
+          confirm?.type === 'archive'
+            ? `「${confirm.task?.name}」会移至更多中的归档任务，历史记录保留，可随时恢复。`
+            : confirm?.type === 'delete'
+              ? `「${confirm.task?.name}」删除后不会出现在归档任务，也不能恢复。历史打卡仍计入周统计。`
+              : confirm?.type === 'undo'
+                ? `仅撤销 ${confirm.date} 最近一次记录。已用于兑换的次数不能撤销。`
+                : undefined
         }
         busy={busy}
         error={error}

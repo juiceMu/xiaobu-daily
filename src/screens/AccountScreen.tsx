@@ -288,11 +288,14 @@ function AvatarChoice({
   onPress: () => void;
 }) {
   const focus = useKeyboardFocus();
+  const { colors, theme } = useAppTheme();
+  const ink = disabled ? colors.muted : color;
   // Android 不用 Paper TouchableRipple / radio，降低进页原生无障碍竞态。
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      aria-disabled={disabled}
       onFocus={focus.onFocus}
       onBlur={focus.onBlur}
       accessibilityRole="radio"
@@ -306,8 +309,8 @@ function AvatarChoice({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: fill,
-        opacity: disabled ? 0.5 : pressed ? 0.72 : 1,
+        backgroundColor: disabled ? theme.colors.surfaceDisabled : fill,
+        ...(pressed && !disabled ? { opacity: 0.82 } : null),
         ...(Platform.OS === 'web'
           ? {
               outlineWidth: focus.focusVisible ? 2 : 0,
@@ -318,8 +321,8 @@ function AvatarChoice({
           : null),
       })}
     >
-      <Icon source={icon} size={18} color={color} />
-      <Text style={{ fontSize: 12, lineHeight: 18, color }}>{label}</Text>
+      <Icon source={icon} size={18} color={ink} />
+      <Text style={{ fontSize: 12, lineHeight: 18, color: ink }}>{label}</Text>
     </Pressable>
   );
 }

@@ -76,7 +76,7 @@ test('预设头像选项保留原生触控高度和按压禁用反馈', () => {
   );
   const choice = source.slice(source.indexOf('function AvatarChoice('));
   assert.match(choice, /minHeight: 48/);
-  assert.match(choice, /opacity: disabled \? 0\.5 : pressed \? 0\.72 : 1/);
+  assert.match(choice, /pressed && !disabled \? \{ opacity: 0\.82 \}/);
   assert.match(
     choice,
     /accessibilityState=\{\{ checked: selected, disabled \}\}/,

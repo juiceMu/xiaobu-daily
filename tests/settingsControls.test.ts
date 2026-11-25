@@ -62,27 +62,28 @@ test('时间值严格限制HH:mm，边界正确，空白非法不能形成设置
   assert.equal(formatTime(23, 59), '23:59');
 });
 
-test('开关本体不被48dp样式拉伸，触控留白由父容器提供', () => {
+test('关闭到期仍保留设置入口，Web 开关使用真实按钮和对称轨道', () => {
   const source = parse('../src/screens/MoreScreens.tsx');
-  const switches = find(source, 'Switch');
+  const switches = find(source, 'CompactSwitch');
   assert.equal(switches.length, 1);
-  const control = switches[0];
-  assert.equal(attr(control, 'style', source), undefined);
-  assert.equal(expr(control, 'disabled', source), 'busy');
-  assert.equal(expr(control, 'onValueChange', source), 'setExpiryEnabled');
-  assert.ok(ts.isJsxElement(control.parent));
-  const parent = control.parent;
-  assert.equal(parent.openingElement.tagName.getText(source), 'View');
-  const style = expr(parent, 'style', source);
-  assert.ok(style.includes('minHeight: 48'));
-  assert.ok(style.includes('minWidth: 48'));
-  assert.ok(style.includes("alignItems: 'center'"));
-  assert.ok(style.includes("justifyContent: 'center'"));
+  assert.equal(expr(switches[0], 'disabled', source), 'busy');
+  assert.equal(expr(switches[0], 'onValueChange', source), 'setExpiryEnabled');
   assert.equal(find(source, 'TimeField').length, 1);
   assert.match(
     expr(find(source, 'TimeField')[0], 'onChange', source),
     /if \(!expiryLocked\) setExpiryTime\(value\)/,
   );
+  const web = parse('../src/ui/CompactSwitch.web.tsx');
+  const button = find(web, 'button')[0];
+  assert.equal(expr(button, 'aria-checked', web), 'value');
+  for (const prop of ['disabled', 'aria-disabled']) {
+    assert.equal(expr(button, prop, web), 'disabled');
+  }
+  const outer = expr(button, 'style', web);
+  assert.match(outer, /height: control\[44\]/);
+  const track = expr(find(web, 'span')[0], 'style', web);
+  assert.match(track, /width: 38[\s\S]*height: 22[\s\S]*border: 0/);
+  assert.match(track, /boxShadow: disabled/);
 });
 
 test('Web使用小时分钟选择弹窗，不用系统time输入，仅确认提交时间', () => {

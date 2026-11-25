@@ -1,6 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
-import { FlatList, Modal, Platform, View } from 'react-native';
+import {
+  FlatList,
+  Modal,
+  Platform,
+  Pressable,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Icon,
@@ -38,11 +46,14 @@ import {
 } from '../ui/components';
 import { iconName } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
+import { control, font, radius, space } from '../ui/uiTokens';
 import { milestoneRewardExpiries, unlockedRewards } from '../ui/rewardHistory';
 import { formatTicketExpiry } from '../ui/ticketLabels';
 import { milestoneGroups, selectMilestone } from '../ui/milestoneSelection';
 import { milestoneUnitError } from '../domain/milestoneUnit.mjs';
 import { Confirm, discardDraft, ErrorText, useScreenStyles } from './shared';
+
+const MILESTONES_PER_PAGE = 2;
 
 type GoalForm = {
   id?: string;
@@ -57,15 +68,17 @@ type GoalForm = {
 function MilestoneTab({
   item,
   selected,
+  alternate,
   disabled,
   onPress,
 }: {
   item: MilestoneGoal;
   selected: boolean;
+  alternate: boolean;
   disabled: boolean;
   onPress: () => void;
 }) {
-  const { colors, quiet } = useAppTheme();
+  const { colors } = useAppTheme();
   const keyboardFocus = useKeyboardFocus();
   return (
     <TouchableRipple
@@ -75,18 +88,20 @@ function MilestoneTab({
       rippleColor={'transparent'}
       onFocus={keyboardFocus.onFocus}
       onBlur={keyboardFocus.onBlur}
-      accessibilityRole="tab"
+      accessibilityRole="button"
       accessibilityState={{ selected, disabled }}
-      aria-selected={selected}
+      aria-pressed={selected}
+      aria-disabled={disabled}
       accessibilityLabel={
         item.name +
         (item.archived ? '，已归档' : item.enabled ? '，进行中' : '，已暂停')
       }
       style={{
-        borderRadius: 16,
-        minHeight: 48,
+        flex: 1,
+        minWidth: 0,
+        minHeight: control[44],
+        borderRadius: radius[10],
         justifyContent: 'center',
-        overflow: 'hidden',
         backgroundColor: 'transparent',
       }}
     >
@@ -95,39 +110,106 @@ function MilestoneTab({
           {
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 6,
-            minHeight: 34,
-            borderRadius: 16,
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderWidth: quiet ? 1 : 0,
-            borderColor: selected && quiet ? colors.primary : 'transparent',
-            backgroundColor: selected
-              ? colors.primaryContainer
-              : colors.surface,
+            gap: space[6],
+            minHeight: control[44],
+            borderRadius: radius[10],
+            paddingHorizontal: space[10],
+            paddingVertical: space[6],
+            borderWidth: 1,
+            borderColor: selected && !disabled ? colors.primary : colors.border,
+            backgroundColor: disabled
+              ? colors.field
+              : alternate
+                ? colors.purple
+                : colors.peach,
           },
           Platform.OS === 'web' && {
             outlineWidth: !disabled && keyboardFocus.focusVisible ? 2 : 0,
             outlineStyle: 'solid',
             outlineColor: colors.primary,
-            outlineOffset: -2,
+            outlineOffset: 2,
           },
         ]}
       >
-        <Icon source={iconName(item.icon)} size={18} color={colors.primary} />
+        <Icon
+          source={iconName(item.icon)}
+          size={font[18]}
+          color={disabled ? colors.muted : colors.primary}
+        />
         <Text
           numberOfLines={1}
           style={{
-            maxWidth: 120,
-            fontSize: 14,
-            lineHeight: 20,
-            color: colors.ink,
+            flex: 1,
+            minWidth: 0,
+            fontSize: font[13],
+            fontWeight: selected ? '600' : '400',
+            color: disabled ? colors.muted : colors.ink,
           }}
         >
           {item.name}
         </Text>
+        {selected && (
+          <Icon
+            source="check"
+            size={font[14]}
+            color={disabled ? colors.muted : colors.primary}
+          />
+        )}
       </View>
     </TouchableRipple>
+  );
+}
+function MilestonePageDot({
+  label,
+  selected,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useAppTheme();
+  const focus = useKeyboardFocus();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected, disabled }}
+      aria-pressed={selected}
+      aria-disabled={disabled}
+      disabled={disabled}
+      onPress={onPress}
+      onFocus={focus.onFocus}
+      onBlur={focus.onBlur}
+      style={{
+        width: control[44],
+        height: control[44],
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: space[8],
+          height: space[8],
+          borderRadius: radius.full,
+          borderWidth: 1,
+          borderColor: colors.muted,
+          backgroundColor:
+            selected && !disabled ? colors.primary : colors.surface,
+          ...(focus.focusVisible && !disabled && Platform.OS === 'web'
+            ? {
+                outlineWidth: 2,
+                outlineColor: colors.primary,
+                outlineStyle: 'solid',
+                outlineOffset: 2,
+              }
+            : {}),
+        }}
+      />
+    </Pressable>
   );
 }
 const rewardButtonContent = {
@@ -212,17 +294,30 @@ export function MilestonesScreen() {
     selectedId,
     search,
   );
-  const tabList = useRef<FlatList<MilestoneGoal>>(null);
+  const tabList = useRef<FlatList<MilestoneGoal[]>>(null);
+  const [pagerWidth, setPagerWidth] = useState(0);
   const selectedIndex = visibleGoals.findIndex((item) => item.id === goal?.id);
+  const selectedPage = Math.max(
+    0,
+    Math.floor(selectedIndex / MILESTONES_PER_PAGE),
+  );
+  const pages = Array.from(
+    { length: Math.ceil(visibleGoals.length / MILESTONES_PER_PAGE) },
+    (_, page) =>
+      visibleGoals.slice(
+        page * MILESTONES_PER_PAGE,
+        (page + 1) * MILESTONES_PER_PAGE,
+      ),
+  );
   const isArchived = goal?.archived === true;
   useEffect(() => {
-    if (selectedIndex >= 0)
-      tabList.current?.scrollToIndex({
-        index: selectedIndex,
+    if (pagerWidth > 0 && selectedIndex >= 0) {
+      tabList.current?.scrollToOffset({
+        offset: selectedPage * pagerWidth,
         animated: false,
-        viewPosition: 0.5,
       });
-  }, [selectedIndex, archiveFilter, search]);
+    }
+  }, [pagerWidth, selectedIndex, selectedPage, archiveFilter, search]);
   const rewards = goal ? unlockedRewards(goal) : [];
   const rewardExpiries = goal
     ? milestoneRewardExpiries(state.tickets, goal.id)
@@ -239,6 +334,19 @@ export function MilestonesScreen() {
     name: string;
   } | null>(null);
   const [initialForm, setInitialForm] = useState('');
+  function selectPage(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (pagerWidth <= 0 || busy) return;
+    const position = event.nativeEvent.contentOffset.x;
+    const nextPage = Math.round(position / pagerWidth);
+    // Web 只派发滚动事件。等页面吸附到位后再更新选择。
+    if (Platform.OS === 'web' && Math.abs(position - nextPage * pagerWidth) > 1)
+      return;
+    const nextGoal = pages[nextPage]?.[0];
+    if (nextGoal && nextPage !== selectedPage) {
+      setSelectedId(nextGoal.id);
+      setError('');
+    }
+  }
   function openForm(current?: MilestoneGoal) {
     setError('');
     const next: GoalForm = current
@@ -399,69 +507,83 @@ export function MilestonesScreen() {
         />
       )}
       {visibleGoals.length > 0 && (
-        <View style={{ gap: 4 }}>
-          <FlatList
-            ref={tabList}
-            testID="milestone-inline-tabs"
-            horizontal
-            data={visibleGoals}
-            keyExtractor={(item) => item.id}
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            extraData={goal?.id}
-            onScrollToIndexFailed={({ index, averageItemLength }) =>
-              tabList.current?.scrollToOffset({
-                offset: averageItemLength * index,
-                animated: false,
-              })
-            }
-            contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
-            renderItem={({ item }) => (
-              <MilestoneTab
-                item={item}
-                selected={goal?.id === item.id}
-                disabled={busy}
-                onPress={() => {
-                  setSelectedId(item.id);
-                  setError('');
-                }}
-              />
-            )}
-          />
-          <View
-            style={[
-              styles.row,
-              { justifyContent: 'space-between', flexWrap: 'wrap' },
-            ]}
-          >
-            <Text style={styles.muted}>
-              {selectedIndex + 1} / {visibleGoals.length} 个 · 左右滑动切换
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <ActionButton
-                mode="text"
-                accessibilityLabel="上一个里程碑"
-                disabled={busy || selectedIndex <= 0}
-                onPress={() => {
-                  setSelectedId(visibleGoals[selectedIndex - 1].id);
-                  setError('');
-                }}
-              >
-                上一项
-              </ActionButton>
-              <ActionButton
-                mode="text"
-                accessibilityLabel="下一个里程碑"
-                disabled={busy || selectedIndex >= visibleGoals.length - 1}
-                onPress={() => {
-                  setSelectedId(visibleGoals[selectedIndex + 1].id);
-                  setError('');
-                }}
-              >
-                下一项
-              </ActionButton>
+        <View
+          style={{ gap: space[4] }}
+          onLayout={({ nativeEvent }) =>
+            setPagerWidth(nativeEvent.layout.width)
+          }
+        >
+          {pagerWidth > 0 && (
+            <FlatList
+              ref={tabList}
+              testID="milestone-inline-tabs"
+              accessibilityLabel="选择里程碑"
+              scrollEnabled={!busy}
+              horizontal
+              pagingEnabled
+              data={pages}
+              keyExtractor={(items) => items[0].id}
+              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
+              extraData={goal?.id}
+              getItemLayout={(_, index) => ({
+                length: pagerWidth,
+                offset: pagerWidth * index,
+                index,
+              })}
+              onScroll={Platform.OS === 'web' ? selectPage : undefined}
+              onMomentumScrollEnd={selectPage}
+              renderItem={({ item }) => (
+                <View
+                  style={{
+                    width: pagerWidth,
+                    flexDirection: 'row',
+                    gap: space[8],
+                  }}
+                >
+                  {item.map((member, index) => (
+                    <MilestoneTab
+                      key={member.id}
+                      item={member}
+                      selected={goal?.id === member.id}
+                      alternate={index === 1}
+                      disabled={busy}
+                      onPress={() => {
+                        setSelectedId(member.id);
+                        setError('');
+                      }}
+                    />
+                  ))}
+                  {item.length === 1 && <View style={{ flex: 1 }} />}
+                </View>
+              )}
+            />
+          )}
+          {pages.length > 1 && (
+            <View
+              testID="milestone-page-dots"
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              {pages.map((items, index) => (
+                <MilestonePageDot
+                  key={items[0].id}
+                  label={`第 ${index + 1} 页，共 ${pages.length} 页`}
+                  selected={index === selectedPage}
+                  disabled={busy}
+                  onPress={() => {
+                    if (index !== selectedPage) {
+                      setSelectedId(items[0].id);
+                      setError('');
+                    }
+                  }}
+                />
+              ))}
             </View>
-          </View>
+          )}
         </View>
       )}
       {!goal ? (

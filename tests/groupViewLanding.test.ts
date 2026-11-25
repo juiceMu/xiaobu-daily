@@ -584,10 +584,7 @@ test('奖券页使用本页意图、筛选与反馈，切换控件遵守覆盖�
   assert.match(control, /minHeight: 30,\s*paddingHorizontal: 8/);
   assert.match(control, /accessibilityRole="radiogroup"/);
   assert.match(control, /accessibilityRole="radio"/);
-  assert.match(
-    control,
-    /accessibilityState=\{\{ selected, disabled: busy \|\| disabled \}\}/,
-  );
+  assert.match(control, /aria-checked=\{selected\}/);
   assert.match(control, /flexDirection: 'row', gap: 8/);
   assert.match(control, /if \(!state\.groupLink\) return null/);
   assert.match(

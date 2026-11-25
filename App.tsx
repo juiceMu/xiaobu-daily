@@ -39,6 +39,7 @@ import {
   ArchivedScreen,
   AccountScreen,
   GrowthScreen,
+  MonthReviewScreen,
   GiftsScreen,
   MilestonesScreen,
   MoreScreen,
@@ -59,6 +60,7 @@ type MoreStackParams = {
   index: undefined;
   milestones: undefined;
   growth: undefined;
+  month: undefined;
   archived: undefined;
   settings: undefined;
   gifts: undefined;
@@ -118,6 +120,7 @@ const linking = {
               index: '',
               milestones: 'milestones',
               growth: 'growth',
+              month: 'month',
               archived: 'archived',
               settings: 'settings',
               gifts: 'gifts',
@@ -246,6 +249,11 @@ function MoreNavigator() {
         name="growth"
         component={GrowthScreen}
         options={{ title: '成长记录' }}
+      />
+      <Stack.Screen
+        name="month"
+        component={MonthReviewScreen}
+        options={{ title: '月度回顾' }}
       />
       <Stack.Screen
         name="archived"
