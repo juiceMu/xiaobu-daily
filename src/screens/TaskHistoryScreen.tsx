@@ -17,6 +17,7 @@ import {
 } from '../domain/taskHistory';
 import { useApp } from '../state/AppProvider';
 import { ActionButton } from '../ui/components';
+import { formatCalendarDate, formatCalendarRange } from '../ui/displayDate';
 import {
   HistoryPanel,
   HistoryPeriodArrow,
@@ -40,16 +41,10 @@ function dateParts(date: string) {
   };
 }
 
-function dayLabel(date: string, withYear = false) {
-  const { year, month, day } = dateParts(date);
-  return `${withYear ? `${year}年` : ''}${month}月${day}日`;
-}
-
 function periodLabel(period: HistoryPeriod, start: string, end: string) {
+  if (period === 'week') return formatCalendarRange(start, end);
   const { year, month } = dateParts(start);
-  if (period === 'month') return `${year} 年 ${month} 月`;
-  const crossesYear = start.slice(0, 4) !== end.slice(0, 4);
-  return `${dayLabel(start, crossesYear)} – ${dayLabel(end, crossesYear)}`;
+  return `${year}年${month}月`;
 }
 
 export function TaskHistoryScreen({
@@ -296,7 +291,7 @@ function HistoryDay({
 }) {
   const { colors, theme } = useAppTheme();
   const label = [
-    dayLabel(day.date, true),
+    formatCalendarDate(day.date, true),
     `星期${weekday}`,
     day.isToday ? '今天' : '',
     day.count ? `打卡 ${day.count} 次` : day.isFuture ? '未来日期' : '未打卡',

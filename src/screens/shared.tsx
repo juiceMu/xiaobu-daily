@@ -6,14 +6,9 @@ import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { useAppTheme } from '../ui/ThemeProvider';
 import type { AppColors } from '../ui/themeCatalog';
 import { space } from '../ui/uiTokens';
+import { formatChineseDateTime } from '../ui/displayDate';
 
-export const formatDate = (value: string) =>
-  new Date(value).toLocaleString('zh-CN', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+export const formatDate = (value: string) => formatChineseDateTime(value);
 export function discardDraft(dirty: boolean, close: () => void) {
   if (!dirty) {
     close();

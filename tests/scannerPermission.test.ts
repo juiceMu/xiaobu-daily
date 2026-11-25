@@ -8,6 +8,7 @@ function scannerHarness(
   pauseMode: 'resolve' | 'reject' | 'throw' = 'resolve',
   initialState = 'active',
   backgroundBeforeSubscribe = false,
+  dedicatedPage = false,
 ) {
   const source = ts.createSourceFile(
     'GiftScanner.tsx',
@@ -28,6 +29,8 @@ function scannerHarness(
   let closed = 0;
   let requests = 0;
   let pauses = 0;
+  let settingsOpens = 0;
+  let permissionReads = 0;
   let permission = { granted: false, canAskAgain: true };
   let resolvePermission!: (result: typeof permission) => void;
   let rejectPermission!: (error: Error) => void;
@@ -39,6 +42,10 @@ function scannerHarness(
   let onScan = (value: string) => scanned.push(value);
   let subscriptions = 0;
   let attachedCameraRef: unknown;
+  const readPermission = async () => {
+    permissionReads += 1;
+    return permission;
+  };
   const appState = {
     currentState: initialState,
     addEventListener: (_: string, next: typeof listener) => {
@@ -90,6 +97,7 @@ function scannerHarness(
     'Text',
     'ActionButton',
     'useAppTheme',
+    'Linking',
     ts.transpileModule(
       `${component.getText(source).replace(/^export\s+/, '')};return GiftScanner;`,
       {
@@ -162,10 +170,16 @@ function scannerHarness(
           rejectPermission = reject;
         });
       },
+      readPermission,
     ],
     'Text',
     'ActionButton',
     () => ({ colors: { muted: 'muted', danger: 'danger' } }),
+    {
+      async openSettings() {
+        settingsOpens += 1;
+      },
+    },
   );
   type Element = {
     type: unknown;
@@ -177,6 +191,7 @@ function scannerHarness(
     return renderComponent({
       onClose,
       onScan,
+      wrapPreview: dedicatedPage ? (preview: unknown) => preview : undefined,
     }) as Element;
   }
   function nodes(root: unknown, type: string): Element[] {
@@ -207,9 +222,21 @@ function scannerHarness(
       assert.ok(button);
       (button.props.onPress as () => void)();
     },
-    resolve(granted: boolean) {
-      resolvePermission({ granted, canAskAgain: true });
+    resolve(granted: boolean, canAskAgain = true) {
+      resolvePermission({ granted, canAskAgain });
     },
+    setPermission(granted: boolean) {
+      permission = { granted, canAskAgain: granted };
+    },
+    settings() {
+      const button = nodes(render(), 'ActionButton').find((node) =>
+        node.children.includes('去系统设置开启相机'),
+      );
+      assert.ok(button);
+      (button.props.onPress as () => void)();
+    },
+    settingsOpens: () => settingsOpens,
+    permissionReads: () => permissionReads,
     reject() {
       rejectPermission(new Error('synthetic permission error'));
     },
@@ -512,3 +539,25 @@ for (const pauseMode of ['resolve', 'reject', 'throw'] as const) {
     }
   });
 }
+
+test('独立扫码页拒绝授权后打开系统设置，返回刷新权限并等用户继续', async () => {
+  const scanner = scannerHarness('resolve', 'active', false, true);
+  scanner.request();
+  scanner.resolve(false, false);
+  await Promise.resolve();
+  assert.equal(scanner.cameras(), 0);
+  scanner.settings();
+  scanner.settings();
+  assert.equal(scanner.settingsOpens(), 1);
+  scanner.change('background');
+  assert.equal(scanner.closed(), 0);
+  scanner.setPermission(true);
+  scanner.change('active');
+  await Promise.resolve();
+  assert.equal(scanner.permissionReads(), 1);
+  assert.equal(scanner.cameras(), 0);
+  scanner.request();
+  assert.equal(scanner.cameras(), 1);
+  scanner.change('background');
+  assert.equal(scanner.closed(), 1);
+});

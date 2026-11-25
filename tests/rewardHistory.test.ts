@@ -45,7 +45,7 @@ test('使用日期本地周分组覆盖跨月跨年，周和券均按使用时�
     groups.map((group) => group.key),
     ['2026-01-05', '2025-12-29', '2025-12-22'],
   );
-  assert.equal(groups[1].title, '2025-12-29 — 2026-01-04');
+  assert.equal(groups[1].title, '2025年12月29日 — 2026年1月4日');
   assert.deepEqual(
     groups[1].tickets.map((item) => item.id),
     ['sunday', 'monday'],

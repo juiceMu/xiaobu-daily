@@ -22,6 +22,7 @@ import {
   getThemeOption,
   type ThemeOption,
 } from '../ui/themeCatalog';
+import { control, font, radius, space } from '../ui/uiTokens';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
 import { TimeField } from '../ui/TimeField';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
@@ -335,7 +336,11 @@ export function SettingsScreen() {
                 <View
                   accessibilityRole="radiogroup"
                   accessibilityLabel="外观主题"
-                  style={styles.column}
+                  style={{
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: space[6],
+                  }}
                 >
                   {themeOptions.map((option) => (
                     <ThemeChoice
@@ -479,12 +484,12 @@ function ThemeChoice({
   onPress: () => void;
 }) {
   const { colors } = useAppTheme();
-  const styles = useScreenStyles();
   const focus = useKeyboardFocus();
   return (
     <TouchableRipple
       onPress={onPress}
       disabled={disabled}
+      aria-disabled={disabled}
       rippleColor="transparent"
       onFocus={focus.onFocus}
       onBlur={focus.onBlur}
@@ -492,22 +497,32 @@ function ThemeChoice({
       accessibilityLabel={option.name + '，' + option.description}
       accessibilityState={{ checked: selected, disabled }}
       style={{
-        borderRadius: 12,
-        overflow: 'hidden',
-        minHeight: 48,
-        borderWidth: 0,
-        backgroundColor: selected ? colors.primaryContainer : colors.field,
-
+        flexBasis: '31%',
+        flexGrow: 1,
+        minHeight: control[44],
+        minWidth: control[44],
+        borderRadius: radius[8],
+        borderWidth: 1,
+        borderColor: selected ? colors.primary : colors.border,
+        backgroundColor: selected ? colors.primaryContainer : colors.surface,
         outlineWidth: focus.focusVisible ? 2 : 0,
         outlineStyle: 'solid',
         outlineColor: colors.primary,
-        outlineOffset: -2,
+        outlineOffset: 2,
       }}
     >
-      <View style={[styles.row, { padding: 10 }]}>
+      <View
+        style={{
+          alignItems: 'center',
+          gap: space[4],
+          padding: space[6],
+          minWidth: 0,
+        }}
+      >
         <View
-          style={{ flexDirection: 'row', gap: 3 }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}
           accessible={false}
+          aria-hidden
           importantForAccessibility="no-hide-descendants"
         >
           {[
@@ -518,23 +533,26 @@ function ThemeChoice({
             <View
               key={index}
               style={{
-                width: 14,
-                height: 24,
-                borderRadius: 6,
+                width: space[8],
+                height: space[8],
+                borderRadius: radius.full,
                 backgroundColor: color,
               }}
             />
           ))}
+          {selected ? (
+            <Icon source="check" size={font[12]} color={colors.primary} />
+          ) : null}
         </View>
-        <View style={styles.grow}>
-          <Text style={styles.heading}>{option.name}</Text>
-          <Text style={styles.muted}>{option.description}</Text>
-        </View>
-        <Icon
-          source={selected ? 'radiobox-marked' : 'radiobox-blank'}
-          size={20}
-          color={colors.primary}
-        />
+        <Text
+          style={{
+            fontSize: font[11],
+            textAlign: 'center',
+            color: disabled ? colors.muted : colors.ink,
+          }}
+        >
+          {option.name}
+        </Text>
       </View>
     </TouchableRipple>
   );

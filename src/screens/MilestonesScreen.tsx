@@ -49,6 +49,7 @@ import { useAppTheme } from '../ui/ThemeProvider';
 import { control, font, radius, space } from '../ui/uiTokens';
 import { milestoneRewardExpiries, unlockedRewards } from '../ui/rewardHistory';
 import { formatTicketExpiry } from '../ui/ticketLabels';
+import { formatCalendarDate } from '../ui/displayDate';
 import { milestoneGroups, selectMilestone } from '../ui/milestoneSelection';
 import { milestoneUnitError } from '../domain/milestoneUnit.mjs';
 import { Confirm, discardDraft, ErrorText, useScreenStyles } from './shared';
@@ -809,7 +810,9 @@ export function MilestonesScreen() {
                           { justifyContent: 'space-between', flexWrap: 'wrap' },
                         ]}
                       >
-                        <Text style={styles.muted}>{entry.date}</Text>
+                        <Text style={styles.muted}>
+                          {formatCalendarDate(entry.date, true)}
+                        </Text>
                         <Text style={styles.body}>
                           {entry.weight} {goal.unit}
                         </Text>

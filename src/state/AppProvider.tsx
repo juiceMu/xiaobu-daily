@@ -33,10 +33,11 @@ export interface AppContextValue {
   busy: boolean;
   syncing: boolean;
   syncStatus: string;
+  syncFailed: boolean;
   now: Date;
   run: (mutation: Mutation) => Promise<ActionResult>;
   previewDemoHistory: () => Promise<ActionResult>;
-  syncGroup: () => Promise<void>;
+  syncGroup: (inline?: boolean) => Promise<void>;
   message: string;
   clearMessage: () => void;
 }
@@ -67,6 +68,7 @@ export function AppProvider({
   const [message, setMessage] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
+  const [syncFailed, setSyncFailed] = useState(false);
   const [appActive, setAppActive] = useState(
     NativeAppState.currentState === 'active',
   );
@@ -243,68 +245,73 @@ export function AppProvider({
     return stop;
   }, [appActive, listenerGroupId, sessionOptions, store, lanEnabled]);
 
-  const syncGroup = useCallback(async () => {
-    if (!lanEnabled) {
-      setMessage('此独立夹具入口已禁用局域网，不会同步记录');
-      return;
-    }
-    const current = store.getSnapshot();
-    if (
-      !current.state ||
-      (!current.state.groupLink && !current.state.pendingGroupDeparture)
-    ) {
-      setMessage('还没有加入小组');
-      return;
-    }
-    if (current.busy || manualSyncActive.current) {
-      setMessage('正在保存，请稍后再试');
-      return;
-    }
-    manualSyncActive.current = true;
-    setSyncing(true);
-    setSyncStatus('正在同一 WiFi 下寻找其他手机…');
-    peerDidNotStoreJournal.current = false;
-    setMessage('正在同一 WiFi 下寻找其他手机…');
-    try {
-      await syncCompanionRounds(
-        () => store.getSnapshot().state,
-        async (state) => {
-          const membership = state.groupLink ?? state.pendingGroupDeparture;
-          if (!membership || !state.sync) throw new Error('还没有加入小组');
-          await exchangeOnLan(
-            {
-              groupId: membership.groupId,
-              secret: membership.secret,
-              accountId: state.sync.accountId,
-              journals: journalsForSend(state),
-            },
-            sessionOptions(),
-            setSyncStatus,
-          );
-        },
-      );
-      const latest = store.getSnapshot().state;
-      const resultMessage = peerDidNotStoreJournal.current
-        ? '已收到对方离组通知；对方未保存本机记录'
-        : latest && hasPendingCompanionUse(latest)
-          ? '记录已同步，同行确认尚未完成；请查看同行邀请或继续同步核对'
-          : '局域网同步完成';
-      setSyncStatus(resultMessage);
-      setMessage(resultMessage);
-    } catch (error) {
-      const latest = store.getSnapshot().state;
-      const detail = error instanceof Error ? error.message : '同步没有完成';
-      const resultMessage =
-        latest && hasPendingCompanionUse(latest)
-          ? `${detail}。已保存的同行记录保留，请重新同步核对`
-          : detail;
-      setSyncStatus(resultMessage);
-      setMessage(resultMessage);
-    } finally {
-      manualSyncActive.current = false;
-      setSyncing(false);
-    }
-  }, [sessionOptions, store, lanEnabled]);
+  const syncGroup = useCallback(
+    async (inline = false) => {
+      const publish = (message: string, failed = false) => {
+        setSyncFailed(failed);
+        setSyncStatus(message);
+        if (!inline) setMessage(message);
+      };
+      if (!lanEnabled) {
+        publish('此独立夹具入口已禁用局域网，不会同步记录', true);
+        return;
+      }
+      const current = store.getSnapshot();
+      if (
+        !current.state ||
+        (!current.state.groupLink && !current.state.pendingGroupDeparture)
+      ) {
+        publish('还没有加入小组', true);
+        return;
+      }
+      if (current.busy || manualSyncActive.current) {
+        publish('正在保存，请稍后再试', true);
+        return;
+      }
+      manualSyncActive.current = true;
+      setSyncing(true);
+      publish('正在同一 WiFi 下寻找其他手机…');
+      peerDidNotStoreJournal.current = false;
+      try {
+        await syncCompanionRounds(
+          () => store.getSnapshot().state,
+          async (state) => {
+            const membership = state.groupLink ?? state.pendingGroupDeparture;
+            if (!membership || !state.sync) throw new Error('还没有加入小组');
+            await exchangeOnLan(
+              {
+                groupId: membership.groupId,
+                secret: membership.secret,
+                accountId: state.sync.accountId,
+                journals: journalsForSend(state),
+              },
+              sessionOptions(),
+              setSyncStatus,
+            );
+          },
+        );
+        const latest = store.getSnapshot().state;
+        const resultMessage = peerDidNotStoreJournal.current
+          ? '已收到对方离组通知；对方未保存本机记录'
+          : latest && hasPendingCompanionUse(latest)
+            ? '记录已同步，同行确认尚未完成；请查看同行邀请或继续同步核对'
+            : '同步完成，可以查看成员记录';
+        publish(resultMessage);
+      } catch (error) {
+        const latest = store.getSnapshot().state;
+        const detail = error instanceof Error ? error.message : '同步没有完成';
+        const resultMessage =
+          latest && hasPendingCompanionUse(latest)
+            ? `${detail}。已保存的同行记录保留，请重新同步核对`
+            : detail;
+        publish(resultMessage, true);
+      } finally {
+        manualSyncActive.current = false;
+        setSyncing(false);
+      }
+    },
+    [sessionOptions, store, lanEnabled],
+  );
 
   if (!snapshot.state) {
     return (
@@ -345,6 +352,7 @@ export function AppProvider({
         busy: snapshot.busy,
         syncing,
         syncStatus,
+        syncFailed,
         now,
         run,
         previewDemoHistory,

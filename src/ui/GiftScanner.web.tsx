@@ -6,7 +6,11 @@ import { ActionButton } from './components';
 import { useAppTheme } from './ThemeProvider';
 import type { GiftScannerProps } from './GiftScanner';
 
-export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
+export function GiftScanner({
+  onScan,
+  onClose,
+  wrapPreview,
+}: GiftScannerProps) {
   const { colors } = useAppTheme();
   const video = useRef<HTMLVideoElement>(null);
   const onScanRef = useRef(onScan);
@@ -16,8 +20,10 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
     onCloseRef.current = onClose;
   }, [onScan, onClose]);
   const [error, setError] = useState('');
+  const [allowed, setAllowed] = useState(!wrapPreview);
   const [retry, setRetry] = useState(0);
   useEffect(() => {
+    if (!allowed) return;
     let cancelled = false;
     let completed = false;
     let controls: { stop: () => void } | undefined;
@@ -57,7 +63,9 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
       } catch {
         release();
         if (!cancelled)
-          setError('相机未能打开，请允许权限后重试，或关闭后粘贴券码。');
+          setError(
+            '相机未能打开。请点击地址栏旁的站点设置，允许相机后重试，或粘贴券码。',
+          );
       }
     }
     function pauseWhenHidden() {
@@ -75,23 +83,31 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
       release();
       document.removeEventListener('visibilitychange', pauseWhenHidden);
     };
-  }, [retry]);
+  }, [allowed, retry]);
+  const camera = allowed ? (
+    <video
+      ref={video}
+      muted
+      autoPlay
+      playsInline
+      aria-label="扫码相机预览"
+      style={{
+        width: '100%',
+        height: wrapPreview ? '100%' : 280,
+        objectFit: 'cover',
+        borderRadius: 16,
+        background: utilityColors.cameraSurface,
+      }}
+    />
+  ) : null;
   return (
     <View style={{ gap: 8 }}>
-      <video
-        ref={video}
-        muted
-        autoPlay
-        playsInline
-        aria-label="扫码相机预览"
-        style={{
-          width: '100%',
-          height: 280,
-          objectFit: 'cover',
-          borderRadius: 16,
-          background: utilityColors.cameraSurface,
-        }}
-      />
+      {wrapPreview ? wrapPreview(camera) : camera}
+      {!allowed && (
+        <ActionButton mode="contained" onPress={() => setAllowed(true)}>
+          允许使用相机
+        </ActionButton>
+      )}
       <Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted }}>
         将镜头对准赠券二维码。无法扫码时，可关闭并粘贴完整券码。
       </Text>

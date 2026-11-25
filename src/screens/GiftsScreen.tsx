@@ -4,20 +4,12 @@ import { Keyboard, Platform, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import * as Crypto from 'expo-crypto';
 import {
-  useIsFocused,
+  StackActions,
   useNavigation,
   usePreventRemove,
   type NavigationProp,
 } from '@react-navigation/native';
-import {
-  createGift,
-  exportGift,
-  previewGift,
-  receiveGift,
-  exportGiftReceipt,
-  parseGiftReceipt,
-  recordGiftReceipt,
-} from '../domain/engine';
+import { createGift, exportGift, exportGiftReceipt } from '../domain/engine';
 import type { GiftEnvelope, GiftReceipt } from '../domain/types';
 import { useApp } from '../state/AppProvider';
 import {
@@ -29,7 +21,7 @@ import {
 } from '../ui/components';
 import { AppTextInput } from '../ui/AppTextInput';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
-import type { GiftScannerProps } from '../ui/GiftScanner';
+import { GiftClaimDialogs, useGiftClaim } from './GiftClaimFlow';
 import { useAndroidMountReady } from '../ui/useAndroidMountReady';
 import { CopyCodeButton } from '../ui/CopyCodeButton';
 import { useAppTheme } from '../ui/ThemeProvider';
@@ -53,7 +45,6 @@ export function GiftsScreen() {
     paddingVertical: 8,
   };
   const navigation = useNavigation<NavigationProp<{ account: undefined }>>();
-  const focused = useIsFocused();
   const mountReady = useAndroidMountReady();
   const profile = state.giftState?.profile;
   const [savedGiftName, setSavedGiftName] = useState(
@@ -61,22 +52,15 @@ export function GiftsScreen() {
   );
   const [giftName, setGiftName] = useState(savedGiftName);
   const [validity, setValidity] = useState<'week' | 'permanent'>('week');
-  const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const [scanner, setScanner] = useState(false);
-  const [ScannerView, setScannerView] =
-    useState<ComponentType<GiftScannerProps> | null>(null);
+  const claim = useGiftClaim(setError);
+  const { code, preview, changeCode, receivedMessage } = claim;
   const [QrView, setQrView] = useState<ComponentType<{
     value: string;
   }> | null>(null);
   const [selected, setSelected] = useState<GiftEnvelope | null>(null);
-  const [incoming, setIncoming] = useState<GiftEnvelope | null>(null);
   const [receiptQr, setReceiptQr] = useState<GiftReceipt | null>(null);
-  const [incomingReceipt, setIncomingReceipt] = useState<GiftReceipt | null>(
-    null,
-  );
   const [confirmCreate, setConfirmCreate] = useState(false);
-  const [receivedMessage, setReceivedMessage] = useState('');
   const dirty = giftName !== savedGiftName || !!code;
   usePreventRemove(dirty || busy, ({ data }) => {
     if (!busy)
@@ -115,53 +99,6 @@ export function GiftsScreen() {
       setSavedGiftName(result.gift.name);
       setSelected(result.gift);
       setError('');
-    } else setError(result.message);
-  }
-  function preview(raw = code) {
-    setCode(raw);
-    setReceivedMessage('');
-    setIncomingReceipt(null);
-    try {
-      const receipt = parseGiftReceipt(raw);
-      setIncomingReceipt(receipt);
-      setIncoming(null);
-      setError('');
-      return;
-    } catch {
-      /* 不是回执时继续按赠券校验，详细错误由预览返回。 */
-    }
-    const result = previewGift(state, raw, new Date());
-    if (result.ok && result.gift) {
-      setIncoming(result.gift);
-      setError('');
-      setScanner(false);
-    } else {
-      setIncoming(null);
-      setError(result.message);
-    }
-  }
-  async function receive() {
-    if (!incoming) return;
-    const result = await run((draft) =>
-      receiveGift(draft, incoming, new Date()),
-    );
-    if (result.ok) {
-      setIncoming(null);
-      setCode('');
-      setError('');
-      setReceivedMessage('已保存到本机「我的奖券」，可以去使用啦。');
-    } else setError(result.message);
-  }
-  async function confirmReceipt() {
-    if (!incomingReceipt) return;
-    const result = await run((draft) =>
-      recordGiftReceipt(draft, incomingReceipt),
-    );
-    if (result.ok) {
-      setIncomingReceipt(null);
-      setCode('');
-      setError('');
-      setReceivedMessage('对方的领取回执已记录到本机。');
     } else setError(result.message);
   }
   return (
@@ -250,26 +187,14 @@ export function GiftsScreen() {
               icon="qrcode-scan"
               mode="contained-tonal"
               disabled={!profile || busy}
-              onPress={() => {
-                setError('');
-                void import('../ui/GiftScanner')
-                  .then((module) => {
-                    setScannerView(() => module.GiftScanner);
-                    setScanner(true);
-                  })
-                  .catch(() => setError('暂时无法打开相机，请改用粘贴券码。'));
-              }}
+              onPress={() => navigation.dispatch(StackActions.push('scan'))}
             >
-              打开相机扫码
+              扫码领取
             </ActionButton>
             <AppTextInput
               label="也可以粘贴完整券码或回执码"
               value={code}
-              onChangeText={(value) => {
-                setCode(value);
-                setIncoming(null);
-                setIncomingReceipt(null);
-              }}
+              onChangeText={changeCode}
               multiline
               disabled={busy}
               style={{ minHeight: 88 }}
@@ -375,23 +300,7 @@ export function GiftsScreen() {
               </Text>
             )}
           </Panel>
-          <Confirm
-            visible={!!incomingReceipt}
-            title="记录领取回执？"
-            description={
-              incomingReceipt
-                ? `「${incomingReceipt.recipient.name}」在 ${formatDate(incomingReceipt.receivedAt)} 领取了「${incomingReceipt.gift.name}」。此操作只把回执记录到本机。`
-                : ''
-            }
-            busy={busy}
-            error={error}
-            onDismiss={() => {
-              if (!busy) setIncomingReceipt(null);
-            }}
-            onConfirm={() => {
-              void confirmReceipt();
-            }}
-          />
+          <GiftClaimDialogs claim={claim} error={error} />
           <FormModal
             visible={!!receiptQr}
             title="请赠送方扫描回执"
@@ -439,28 +348,6 @@ export function GiftsScreen() {
             }}
             tone="reward"
           />
-          <Confirm
-            visible={!!incoming}
-            title="领取赠券？"
-            details={
-              incoming ? (
-                <CouponRuleDetails
-                  cost="无需消耗奖券"
-                  condition={`「${incoming.issuer.name}」赠送的「${incoming.name}」 · ${formatTicketExpiry(incoming.expiresAt)}`}
-                  rules="确认后奖券保存到我的奖券。同一设备只能领取一次。"
-                />
-              ) : undefined
-            }
-            busy={busy}
-            error={error}
-            onDismiss={() => {
-              if (!busy) setIncoming(null);
-            }}
-            onConfirm={() => {
-              void receive();
-            }}
-            tone="reward"
-          />
           <FormModal
             visible={!!selected}
             title="让对方扫码领取"
@@ -488,21 +375,6 @@ export function GiftsScreen() {
                   相机不便使用时，点击「复制券码」后粘贴发送给对方。
                 </Text>
               </View>
-            )}
-          </FormModal>
-          <FormModal
-            visible={scanner && focused}
-            title="扫描赠券"
-            onDismiss={() => setScanner(false)}
-          >
-            {scanner && focused && ScannerView && (
-              <ScannerView
-                onScan={(value) => {
-                  setScanner(false);
-                  preview(value);
-                }}
-                onClose={() => setScanner(false)}
-              />
             )}
           </FormModal>
         </>

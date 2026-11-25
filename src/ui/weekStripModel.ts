@@ -1,4 +1,5 @@
 import { dateKey } from '../domain/engine';
+import { formatCalendarDate } from './displayDate';
 
 export function localDateFromKey(key: string): Date | null {
   if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(key) || key < '0001-01-01')
@@ -34,6 +35,6 @@ export function weekStripDay(
     weekday,
     dayNumber,
     label: isToday ? '今天' : weekday,
-    accessibilityLabel: `${date}，${weekday}${isToday ? '，今天' : ''}`,
+    accessibilityLabel: `${formatCalendarDate(date, true)}，${weekday}${isToday ? '，今天' : ''}`,
   };
 }

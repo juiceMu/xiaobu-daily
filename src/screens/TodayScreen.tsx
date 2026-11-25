@@ -73,6 +73,13 @@ import { GroupActivityView } from './GroupActivityView';
 import { openMemberRecord } from '../ui/openMemberRecord';
 import { TASK_MENU_ROW_HEIGHT, taskMenuLayout } from '../ui/taskMenuLayout';
 import { control, font, radius, space } from '../ui/uiTokens';
+import { calendarRowHeight } from '../ui/calendarLayout';
+import {
+  formatCalendarDate,
+  formatCalendarRange,
+  formatChineseDate,
+} from '../ui/displayDate';
+import { utilityColors } from '../ui/themeCatalog';
 
 const WEEK_PICKER_HEIGHT = 30;
 const WEEK_PICKER_INSET = (control[44] - WEEK_PICKER_HEIGHT) / 2;
@@ -231,15 +238,10 @@ export function TodayScreen({
     height: dateNavigationSize,
     borderRadius: radius.full,
   };
-  const weekRangeLabel = (() => {
-    const start = stats.days[0].date;
-    const end = stats.days[6].date;
-    const short = (key: string) =>
-      `${Number(key.slice(5, 7))}/${Number(key.slice(8, 10))}`;
-    return start.slice(0, 4) === end.slice(0, 4)
-      ? `${short(start)} — ${short(end)}`
-      : `${start.slice(0, 4)}/${short(start)} — ${end.slice(0, 4)}/${short(end)}`;
-  })();
+  const weekRangeLabel = formatCalendarRange(
+    stats.days[0].date,
+    stats.days[6].date,
+  );
   const [form, setForm] = useState<{
     id?: string;
     name: string;
@@ -252,7 +254,11 @@ export function TodayScreen({
   const [menuAnchorTop, setMenuAnchorTop] = useState(0);
   const menuAnchors = useRef(new Map<string, View>());
   const { height: windowHeight } = useWindowDimensions();
-  const { top: safeTop } = useSafeAreaInsets();
+  const { top: safeTop, bottom: safeBottom } = useSafeAreaInsets();
+  const monthCellHeight = calendarRowHeight(
+    windowHeight - safeTop - safeBottom,
+    Math.ceil((calendarOffset + calendarLength) / 7),
+  );
   const menuLayout = taskMenuLayout(
     menuAnchorTop,
     windowHeight,
@@ -385,11 +391,7 @@ export function TodayScreen({
   return (
     <Page
       title={isToday ? '今日打卡' : '历史补卡'}
-      subtitle={selectedNow.toLocaleDateString('zh-CN', {
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long',
-      })}
+      subtitle={formatChineseDate(selectedNow, { weekday: true })}
       scroll={false}
     >
       <FlatList
@@ -792,8 +794,7 @@ export function TodayScreen({
                 ]}
               >
                 <Text style={styles.muted}>
-                  已选 {Number(selectedDate.slice(5, 7))}月
-                  {Number(selectedDate.slice(8, 10))}日
+                  已选 {formatCalendarDate(selectedDate)}
                 </Text>
                 {!isToday && (
                   <ActionButton
@@ -947,6 +948,18 @@ export function TodayScreen({
                 setSection(item);
               }}
             />
+            {section === 'mine' && (
+              <ActionButton
+                size="sm"
+                mode="text"
+                icon="qrcode-scan"
+                style={{ alignSelf: 'flex-start' }}
+                disabled={busy}
+                onPress={() => navigation.dispatch(StackActions.push('scan'))}
+              >
+                扫码领取
+              </ActionButton>
+            )}
             {section === 'activity' ? (
               <GroupActivityView
                 key={weekKey(selectedNow)}
@@ -1455,17 +1468,31 @@ export function TodayScreen({
                           ask('archive', item);
                         }}
                       />
-                      <View style={[styles.separator, { height: 1 }]} />
+                      <View
+                        style={[
+                          styles.separator,
+                          { height: 1, backgroundColor: colors.border },
+                        ]}
+                      />
                       <Menu.Item
                         dense
-                        style={{ height: TASK_MENU_ROW_HEIGHT }}
-                        titleStyle={{ fontSize: 13, lineHeight: 20 }}
+                        style={{
+                          height: TASK_MENU_ROW_HEIGHT,
+                          backgroundColor: busy
+                            ? theme.colors.surfaceDisabled
+                            : colors.danger,
+                        }}
+                        titleStyle={{
+                          fontSize: font[13],
+                          lineHeight: font[18],
+                          color: busy ? colors.muted : utilityColors.onSolid,
+                        }}
                         title="删除任务"
-                        leadingIcon={({ color }) => (
+                        leadingIcon={() => (
                           <Icon
                             source="trash-can-outline"
                             size={18}
-                            color={color}
+                            color={busy ? colors.muted : utilityColors.onSolid}
                           />
                         )}
                         disabled={busy}
@@ -1671,7 +1698,7 @@ export function TodayScreen({
                         }}
                         style={{
                           width: '14.285714%',
-                          minHeight: control[44],
+                          minHeight: monthCellHeight,
                           alignItems: 'center',
                           justifyContent: 'center',
                           backgroundColor: 'transparent',
@@ -1687,7 +1714,7 @@ export function TodayScreen({
                             alignItems: 'center',
                             justifyContent: 'center',
                             backgroundColor: showSelection
-                              ? colors.primaryContainer
+                              ? colors.primary
                               : 'transparent',
                             ...(key > todayKey
                               ? {
@@ -1701,8 +1728,12 @@ export function TodayScreen({
                           <Text
                             style={[
                               styles.body,
-                              (key > todayKey || (busy && !showSelection)) && {
-                                color: disabledDateColor,
+                              {
+                                color: showSelection
+                                  ? utilityColors.onSolid
+                                  : key > todayKey || busy
+                                    ? disabledDateColor
+                                    : colors.ink,
                               },
                             ]}
                           >
@@ -1828,8 +1859,7 @@ export function TodayScreen({
             </View>
           )}
           <Text style={styles.muted}>
-            已选 {dateInput}
-            。点击上方年月可切换；可选今天或过去日期，历史周只补记录，不结转本周。
+            已选 {formatCalendarDate(dateInput, true)}。可切换年月，未来不可选。
           </Text>
           <ErrorText message={dateError} />
           <View style={styles.actions}>
@@ -2017,7 +2047,7 @@ export function TodayScreen({
             : confirm?.type === 'delete'
               ? `「${confirm.task?.name}」删除后不会出现在归档任务，也不能恢复。历史打卡仍计入周统计。`
               : confirm?.type === 'undo'
-                ? `仅撤销 ${confirm.date} 最近一次记录。已用于兑换的次数不能撤销。`
+                ? `仅撤销 ${formatCalendarDate(confirm.date, true)} 最近一次记录。已用于兑换的次数不能撤销。`
                 : undefined
         }
         busy={busy}

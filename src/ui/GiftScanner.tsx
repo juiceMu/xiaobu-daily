@@ -1,5 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, View } from 'react-native';
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { AppState, Linking, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Text } from 'react-native-paper';
 import { ActionButton } from './components';
@@ -8,10 +14,15 @@ import { useAppTheme } from './ThemeProvider';
 export type GiftScannerProps = {
   onScan: (value: string) => void;
   onClose: () => void;
+  wrapPreview?: (preview?: ReactNode) => ReactNode;
 };
-export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
+export function GiftScanner({
+  onScan,
+  onClose,
+  wrapPreview,
+}: GiftScannerProps) {
   const { colors } = useAppTheme();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, getPermission] = useCameraPermissions();
   const [error, setError] = useState('');
   const [requesting, setRequesting] = useState(false);
   const [cameraEnabled, setCameraEnabled] = useState(
@@ -21,6 +32,7 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
   const scanned = useRef(false);
   const closedRef = useRef(false);
   const requestingRef = useRef(false);
+  const openingSettingsRef = useRef(false);
   const permissionPausedRef = useRef(false);
   const activeRef = useRef(AppState.currentState === 'active');
   const cameraEnabledRef = useRef(AppState.currentState === 'active');
@@ -73,6 +85,18 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
     const handleAppStateChange = (status: string) => {
       activeRef.current = status === 'active';
       setActive(status === 'active');
+      if (status === 'active' && openingSettingsRef.current) {
+        openingSettingsRef.current = false;
+        void getPermission().then(
+          (next) => {
+            if (next.granted && !closedRef.current) setError('');
+          },
+          () => {
+            if (!closedRef.current)
+              setError('无法读取相机权限，请重试或粘贴券码。');
+          },
+        );
+      }
       if (status === 'background') {
         cameraEnabledRef.current = false;
         void pauseCameraPreview();
@@ -80,7 +104,7 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
         if (requestingRef.current) {
           // Android系统授权Activity也会触发background；暂挂镜头，返回后由用户明确继续。
           permissionPausedRef.current = true;
-        } else if (!closedRef.current) {
+        } else if (!openingSettingsRef.current && !closedRef.current) {
           closedRef.current = true;
           requestIdRef.current += 1;
           onCloseRef.current();
@@ -102,7 +126,7 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
       void pauseCameraPreview();
       subscription.remove();
     };
-  }, [pauseCameraPreview]);
+  }, [getPermission, pauseCameraPreview]);
 
   async function allowCamera() {
     if (requestingRef.current || closedRef.current || !activeRef.current)
@@ -142,39 +166,60 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
       }
     }
   }
+  async function openCameraSettings() {
+    if (openingSettingsRef.current || closedRef.current) return;
+    openingSettingsRef.current = true;
+    try {
+      await Linking.openSettings();
+    } catch {
+      openingSettingsRef.current = false;
+      if (!closedRef.current)
+        setError('无法打开设置。请在系统设置中找到小步日常，并允许使用相机。');
+    }
+  }
+
+  const cameraVisible =
+    permission?.granted && active && cameraEnabled && !requesting;
+  const camera = cameraVisible ? (
+    <CameraView
+      ref={cameraAttachment}
+      facing="back"
+      style={{ height: wrapPreview ? '100%' : 280, width: '100%' }}
+      barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+      onMountError={() => {
+        if (
+          !closedRef.current &&
+          cameraEnabledRef.current &&
+          cameraVersion === cameraVersionRef.current
+        ) {
+          cameraEnabledRef.current = false;
+          setCameraEnabled(false);
+          setError('相机暂时无法打开，请重试或改用粘贴券码。');
+        }
+      }}
+      onBarcodeScanned={({ data }) => {
+        if (
+          !scanned.current &&
+          !closedRef.current &&
+          activeRef.current &&
+          cameraVersion === cameraVersionRef.current &&
+          cameraEnabledRef.current
+        ) {
+          scanned.current = true;
+          if (wrapPreview) {
+            cameraEnabledRef.current = false;
+            void pauseCameraPreview();
+            setCameraEnabled(false);
+          }
+          onScanRef.current(data);
+        }
+      }}
+    />
+  ) : null;
   return (
     <View style={{ gap: 8 }}>
-      {permission?.granted && active && cameraEnabled && !requesting ? (
-        <CameraView
-          ref={cameraAttachment}
-          facing="back"
-          style={{ height: 280, width: '100%', borderRadius: 16 }}
-          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-          onMountError={() => {
-            if (
-              !closedRef.current &&
-              cameraEnabledRef.current &&
-              cameraVersion === cameraVersionRef.current
-            ) {
-              cameraEnabledRef.current = false;
-              setCameraEnabled(false);
-              setError('相机暂时无法打开，请重试或改用粘贴券码。');
-            }
-          }}
-          onBarcodeScanned={({ data }) => {
-            if (
-              !scanned.current &&
-              !closedRef.current &&
-              activeRef.current &&
-              cameraVersion === cameraVersionRef.current &&
-              cameraEnabledRef.current
-            ) {
-              scanned.current = true;
-              onScanRef.current(data);
-            }
-          }}
-        />
-      ) : (
+      {wrapPreview ? wrapPreview(camera) : camera}
+      {!cameraVisible && (
         <>
           <Text style={{ color: colors.muted, fontSize: 12, lineHeight: 18 }}>
             {permission?.granted
@@ -182,7 +227,11 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
               : '允许使用相机后，将镜头对准对方的二维码。也可以关闭后粘贴券码。'}
           </Text>
           <ActionButton
-            disabled={requesting || !active}
+            disabled={
+              requesting ||
+              !active ||
+              (permission?.canAskAgain === false && !permission.granted)
+            }
             loading={requesting}
             onPress={() => {
               void allowCamera();
@@ -203,6 +252,16 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
         >
           {error}
         </Text>
+      )}
+      {wrapPreview && permission && !permission.granted && (
+        <ActionButton
+          mode="text"
+          tone="neutral"
+          disabled={requesting || !active}
+          onPress={() => void openCameraSettings()}
+        >
+          去系统设置开启相机
+        </ActionButton>
       )}
       <ActionButton tone="neutral" onPress={closeScanner}>
         关闭扫码

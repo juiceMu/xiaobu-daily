@@ -373,6 +373,8 @@ export function SectionTitle({
     </View>
   );
 }
+const INITIAL_ICON_COUNT = 8;
+
 export function IconPicker({
   value,
   onChange,
@@ -382,16 +384,16 @@ export function IconPicker({
 }) {
   const styles = useStyles();
   const [expanded, setExpanded] = useState(
-    iconOptions.findIndex(([key]) => key === value) >= 16,
+    iconOptions.findIndex(([key]) => key === value) >= INITIAL_ICON_COUNT,
   );
   const selectedExtraIcon = iconOptions
-    .slice(16)
+    .slice(INITIAL_ICON_COUNT)
     .find(([key]) => key === value);
   // 表单复用时也展示当前选中项，主动收起不会把它藏起来。
   const visibleIcons = expanded
     ? iconOptions
     : [
-        ...iconOptions.slice(0, 16),
+        ...iconOptions.slice(0, INITIAL_ICON_COUNT),
         ...(selectedExtraIcon ? [selectedExtraIcon] : []),
       ];
   return (

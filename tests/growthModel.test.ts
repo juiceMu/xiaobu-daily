@@ -4,6 +4,7 @@ import {
   buildGrowthProgress,
   growthPeriod,
   moveGrowthOffset,
+  weeklyChartScale,
 } from '../src/ui/growthModel';
 import type { Checkin, Task } from '../src/domain/types';
 
@@ -100,4 +101,31 @@ test('周期两视图使用同一组实际记录，月历区分四态并保留�
     empty.days.map(({ status }) => status),
     ['empty', 'empty', 'empty', 'future'],
   );
+});
+
+test('每周柱图按实际打卡及正在进行的日目标共用刻度', () => {
+  const archived = task('old', 99, { archived: true });
+  const deleted = task('deleted', 99, { deleted: true });
+  const empty = weeklyChartScale([archived, deleted], [{ count: 0 }]);
+  assert.deepEqual(empty, { target: null, ceiling: 9, ticks: [0, 3, 6, 9] });
+  const small = weeklyChartScale(
+    [task('reading', 2), task('running', 1), archived],
+    [{ count: 6 }],
+  );
+  assert.deepEqual(small, { target: 3, ceiling: 9, ticks: [0, 3, 6, 9] });
+  const highTarget = weeklyChartScale(
+    [task('reading', 12)],
+    [{ count: 0 }, { count: 6 }],
+  );
+  assert.deepEqual(highTarget, {
+    target: 12,
+    ceiling: 18,
+    ticks: [0, 6, 12, 18],
+  });
+  const highActual = weeklyChartScale([], [{ count: 47 }]);
+  assert.deepEqual(highActual, {
+    target: null,
+    ceiling: 54,
+    ticks: [0, 18, 36, 54],
+  });
 });

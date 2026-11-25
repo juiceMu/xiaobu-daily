@@ -1,4 +1,5 @@
 import type { MilestoneGoal, Ticket } from '../domain/types';
+import { formatChineseDate } from './displayDate';
 
 export interface UsedTicketWeek {
   key: string;
@@ -25,7 +26,10 @@ export function groupUsedTickets(tickets: Ticket[]): UsedTicketWeek[] {
     if (!groups.has(key))
       groups.set(key, {
         key,
-        title: localDate(start) + ' — ' + localDate(end),
+        title:
+          formatChineseDate(start, { year: true }) +
+          ' — ' +
+          formatChineseDate(end, { year: true }),
         tickets: [],
       });
     groups.get(key)!.tickets.push(ticket);

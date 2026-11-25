@@ -1,4 +1,5 @@
 import { formatTicketExpiry } from '../ui/ticketLabels';
+import { formatCalendarDate } from '../ui/displayDate';
 import React, { useState, type ComponentType } from 'react';
 import { View } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -52,7 +53,8 @@ export function GroupScreen() {
   const mountReady = useAndroidMountReady(600);
   const styles = useScreenStyles();
   const { colors } = useAppTheme();
-  const { state, busy, syncing, syncStatus, run, syncGroup } = useApp();
+  const { state, busy, syncing, syncStatus, syncFailed, run, syncGroup } =
+    useApp();
   const { error: viewError } = useGroupView();
   const [name, setName] = useState(state.groupOwned?.name ?? '我们家');
   const [code, setCode] = useState('');
@@ -90,8 +92,30 @@ export function GroupScreen() {
       .then((module) => setQrView(() => module.GiftQrCode))
       .catch(() => setError(INVITE_QR_ERROR));
   }
+  const syncFeedback = syncStatus ? (
+    <View
+      accessibilityLiveRegion="polite"
+      style={
+        syncFailed
+          ? {
+              padding: space[8],
+              backgroundColor: colors.field,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }
+          : undefined
+      }
+    >
+      <Text
+        accessibilityRole={syncFailed ? 'alert' : undefined}
+        style={styles.muted}
+      >
+        {syncStatus}
+      </Text>
+    </View>
+  ) : null;
   return (
-    <Page title="小组" subtitle="每个人记自己的账，点同步才交换。">
+    <Page title="小组" subtitle="同步后即可查看成员记录">
       {!mountReady ? (
         <View collapsable={false} style={{ minHeight: 160 }} />
       ) : (
@@ -149,16 +173,12 @@ export function GroupScreen() {
                 loading={syncing}
                 disabled={busy || syncing}
                 onPress={() => {
-                  void syncGroup();
+                  void syncGroup(true);
                 }}
               >
-                同步
+                {syncFailed ? '重试' : '同步'}
               </ActionButton>
-              {syncStatus ? (
-                <Text accessibilityLiveRegion="polite" style={styles.muted}>
-                  {syncStatus}
-                </Text>
-              ) : null}
+              {syncFeedback}
               <ActionButton mode="outlined" tone="neutral" onPress={showInvite}>
                 显示邀请二维码
               </ActionButton>
@@ -203,14 +223,12 @@ export function GroupScreen() {
                 loading={syncing}
                 disabled={busy || syncing}
                 onPress={() => {
-                  void syncGroup();
+                  void syncGroup(true);
                 }}
               >
-                同步离开通知
+                {syncFailed ? '重试' : '同步离开通知'}
               </ActionButton>
-              {syncStatus ? (
-                <Text style={styles.muted}>{syncStatus}</Text>
-              ) : null}
+              {syncFeedback}
             </Panel>
           ) : (
             <Panel>
@@ -356,7 +374,8 @@ export function MemberScreen({
         <View style={styles.row}>
           <ProfileAvatar avatar={peer.avatar} size={40} />
           <Text style={[styles.body, styles.grow]}>
-            {date} · 可用 {available} · 本周已兑 {redeemed} · 已使用 {used}
+            {formatCalendarDate(date, true)} · 可用 {available} · 本周已兑{' '}
+            {redeemed} · 已使用 {used}
           </Text>
         </View>
         <Text style={styles.muted}>这一周打卡 {stats.total} 次</Text>

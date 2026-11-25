@@ -52,6 +52,7 @@ import {
 } from './src/screens';
 import { GroupViewProvider } from './src/ui/GroupViewProvider';
 import { ThemeProvider, useAppTheme } from './src/ui/ThemeProvider';
+import { ScanScreen } from './src/screens/ScanScreen';
 import { TaskHistoryScreen } from './src/screens/TaskHistoryScreen';
 
 import { bottomNavigationHeight } from './src/ui/taskMenuLayout';
@@ -77,6 +78,7 @@ type TabsParams = {
 type RootStackParams = {
   tabs: NavigatorScreenParams<TabsParams> | undefined;
   taskHistory: { taskId: string; initialDate?: string };
+  scan: undefined;
 };
 type GetTabsState = () => NonNullable<
   ReturnType<NavigationContainerRef<RootStackParams>['getRootState']>
@@ -158,6 +160,7 @@ function TabBar({
         backgroundColor: colors.surface,
       }}
       activeColor={colors.primary}
+      activeIndicatorStyle={{ backgroundColor: colors.primaryAccent }}
       inactiveColor={colors.muted}
       getLabelText={({ route }) => tabLabels[route.name]}
       getAccessibilityLabel={({ route }) => tabLabels[route.name]}
@@ -380,6 +383,14 @@ function Navigation() {
             >
               {({ route }) => <TaskHistoryScreen {...route.params} />}
             </RootStack.Screen>
+            <RootStack.Screen
+              name="scan"
+              component={ScanScreen}
+              options={{
+                title: '扫码领取',
+                headerBackButtonDisplayMode: 'minimal',
+              }}
+            />
           </RootStack.Navigator>
         </NavigationContainer>
       </SafeAreaView>

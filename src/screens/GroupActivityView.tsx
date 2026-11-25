@@ -13,6 +13,7 @@ import { ActionButton, Panel } from '../ui/components';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { font, radius, space } from '../ui/uiTokens';
+import { formatChineseDate, formatChineseTime } from '../ui/displayDate';
 import { formatDate, useScreenStyles } from './shared';
 
 type Activity = ReturnType<typeof getGroupActivity>;
@@ -44,7 +45,7 @@ export function GroupActivityView({
         </Text>
       ) : activity.rankings.length === 1 ? (
         <Text style={styles.muted}>
-          暂无其他成员数据，同步后可查看成员打卡。
+          暂无其他成员记录。同步后即可查看成员记录。
         </Text>
       ) : (
         <Text style={styles.muted}>
@@ -116,13 +117,7 @@ export function GroupActivityView({
           {activity.timeline.slice(0, visibleCount).map((entry, index) => {
             const recordedAt = new Date(entry.createdAt);
             const validTime = !Number.isNaN(recordedAt.getTime());
-            const recordedLabel = !validTime
-              ? entry.createdAt
-              : recordedAt.toLocaleTimeString('zh-CN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: false,
-                });
+            const recordedLabel = formatChineseTime(recordedAt);
             const isBackfill = validTime && dateKey(recordedAt) !== entry.date;
             const startsDay =
               index === 0 || activity.timeline[index - 1].date !== entry.date;
@@ -209,7 +204,7 @@ export function GroupActivityView({
                     )}
                     {isBackfill && (
                       <Text style={styles.muted}>
-                        补卡 · 操作于 {recordedAt.toLocaleDateString('zh-CN')}
+                        补卡 · 操作于 {formatChineseDate(recordedAt)}
                       </Text>
                     )}
                   </View>

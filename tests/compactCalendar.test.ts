@@ -45,7 +45,7 @@ test('周月日期独立28起步圆形选中，列透明且不插入勾号', () 
       'minHeight: control[28]',
       'padding: space[4]',
       'borderRadius: radius.full',
-      'colors.primaryContainer',
+      id === 'week-date-circle' ? 'colors.primaryContainer' : 'colors.primary',
     ])
       assert.ok(style.includes(value), value);
     assert.equal(style.includes('height: 32,'), false);
@@ -152,12 +152,20 @@ test('日历边界箭头占位隐藏，周选择器保持禁用箭头可见，�
   assert.match(header, /disabled=\{disabled\}/);
   assert.doesNotMatch(header, /aria-hidden=\{disabled\}/);
   assert.match(text, /!isToday[^]*changePickedDate\(null\)/);
-  for (const id of ['week-date-circle', 'month-date-circle']) {
-    assert.match(
-      element(id).openingElement.getText(source),
-      /backgroundColor: showSelection\s*\? colors\.primaryContainer\s*: 'transparent'/,
-    );
-  }
+  assert.match(
+    element('week-date-circle').openingElement.getText(source),
+    /backgroundColor: showSelection\s*\? colors\.primaryContainer\s*: 'transparent'/,
+  );
+  const month = element('month-date-circle');
+  assert.match(
+    month.openingElement.getText(source),
+    /backgroundColor: showSelection\s*\? colors\.primary\s*: 'transparent'/,
+  );
+  assert.ok(ts.isJsxElement(month.parent));
+  assert.match(
+    month.parent.openingElement.getText(source),
+    /minHeight: monthCellHeight/,
+  );
   for (const condition of [
     'busy || calendar.isFuture',
     'busy || key > todayKey',

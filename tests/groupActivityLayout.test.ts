@@ -63,7 +63,8 @@ test('小组动态支持当前周和历史周切换，并使用选中周统计',
 test('小组动态说明同步、空态和打卡日期与操作时间', () => {
   assert.match(activity, /打卡足迹/);
   assert.match(activity, /尚未加入小组/);
-  assert.match(activity, /暂无其他成员数据/);
+  assert.match(activity, /暂无其他成员记录/);
+  assert.match(activity, /同步后即可查看成员记录/);
   assert.match(activity, /最近一次同步/);
   assert.match(activity, /这一周还没有打卡记录/);
   assert.match(activity, /撤销的打卡不会显示/);

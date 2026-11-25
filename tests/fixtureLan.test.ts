@@ -54,6 +54,8 @@ test('LAN默认开启；夹具关闭时不监听、不交换且不显示同步�
     let stopped = 0;
     let exchanges = 0;
     const messages: string[] = [];
+    const statuses: string[] = [];
+    const failures: boolean[] = [];
     const deps = {
       lanEnabled,
       store: {
@@ -79,7 +81,8 @@ test('LAN默认开启；夹具关闭时不监听、不交换且不显示同步�
       manualSyncActive: { current: false },
       peerDidNotStoreJournal: { current: false },
       setSyncing: () => {},
-      setSyncStatus: () => {},
+      setSyncStatus: (value: string) => statuses.push(value),
+      setSyncFailed: (value: boolean) => failures.push(value),
       syncCompanionRounds: async (
         getState: () => unknown,
         exchange: (state: unknown) => Promise<void>,
@@ -97,7 +100,19 @@ test('LAN默认开启；夹具关闭时不监听、不交换且不显示同步�
     assert.equal(exchanges, lanEnabled ? 1 : 0);
     if (!lanEnabled)
       assert.deepEqual(messages, ['此独立夹具入口已禁用局域网，不会同步记录']);
-    else assert.equal(messages.at(-1), '局域网同步完成');
+    else assert.equal(messages.at(-1), '同步完成，可以查看成员记录');
+    if (lanEnabled) {
+      messages.length = 0;
+      await make(sync!, {
+        ...deps,
+        exchangeOnLan: async () => {
+          throw new Error('同步传输超时');
+        },
+      })(true);
+      assert.deepEqual(messages, []);
+      assert.equal(statuses.at(-1), '同步传输超时');
+      assert.equal(failures.at(-1), true);
+    }
     cleanup?.();
     assert.equal(stopped, lanEnabled ? 1 : 0);
   }

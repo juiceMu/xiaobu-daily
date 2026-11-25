@@ -9,6 +9,8 @@ import {
 import { Icon, Text } from 'react-native-paper';
 import { dateKey } from '../domain/engine';
 import { buildTaskHistoryIndex } from '../domain/taskHistory';
+import type { Task } from '../domain/types';
+import { formatCalendarDate, formatCalendarRange } from '../ui/displayDate';
 import { useApp } from '../state/AppProvider';
 import {
   ActionButton,
@@ -22,6 +24,7 @@ import {
   GROWTH_LOOKBACK,
   growthPeriod,
   moveGrowthOffset,
+  weeklyChartScale,
 } from '../ui/growthModel';
 import { HistoryPanel, HistoryTabs } from '../ui/HistoryControls';
 import { iconName, tint } from '../ui/theme';
@@ -166,11 +169,6 @@ function PeriodNavigation({
   );
 }
 
-function periodDate(key: string, withYear: boolean) {
-  const [year, month, day] = key.split('-').map(Number);
-  return (withYear ? year + '年' : '') + month + '月' + day + '日';
-}
-
 function MonthLink() {
   const link = useLinkProps<{ month: undefined }>({
     screen: 'month',
@@ -307,46 +305,157 @@ function ProgressCard({
   );
 }
 
-function WeeklyChart({ summary }: { summary: GrowthProgress }) {
+const CHART_TRACK_HEIGHT = control[44] * 2;
+const CHART_LABEL_HEIGHT = space[16];
+const CHART_DASH_COUNT = 28;
+const TARGET_LINE_OPACITY = 0.5;
+
+function ChartDash({
+  color,
+  legend = false,
+}: {
+  color: string;
+  legend?: boolean;
+}) {
+  return (
+    <View style={styles.chartDashRow}>
+      {Array.from({ length: legend ? 3 : CHART_DASH_COUNT }, (_, index) => (
+        <View
+          key={index}
+          style={[styles.chartDash, { backgroundColor: color }]}
+        />
+      ))}
+    </View>
+  );
+}
+
+function WeeklyChart({
+  summary,
+  tasks,
+  historical,
+}: {
+  summary: GrowthProgress;
+  tasks: readonly Task[];
+  historical: boolean;
+}) {
   const { colors } = useAppTheme();
   const screen = useScreenStyles();
-  const max = Math.max(1, ...summary.days.map((entry) => entry.count));
+  const { target, ceiling, ticks } = weeklyChartScale(tasks, summary.days);
+  const toHeight = (value: number) => (value / ceiling) * CHART_TRACK_HEIGHT;
+  const targetLabel = historical
+    ? '每日任务目标（按当前设置）'
+    : '每日任务目标';
   return (
     <Panel style={screen.card}>
       <Text style={screen.number}>
         {summary.total}
         <Text style={screen.body}> 次打卡</Text>
       </Text>
-      <View style={styles.barRow}>
-        {summary.days.map((entry, index) => (
-          <View
-            key={entry.date}
-            style={styles.barColumn}
-            accessible
-            accessibilityLabel={
-              '周' + WEEKDAYS[index] + '，' + entry.count + '次打卡'
-            }
-          >
-            <Text style={screen.body}>{entry.count}</Text>
-            <View style={styles.barTrack}>
-              <View
-                style={[
-                  styles.barFill,
-                  {
-                    height: Math.max(
-                      space[4],
-                      (entry.count / max) * control[44] * 2,
-                    ),
-                    backgroundColor: colors.primary,
-                  },
-                ]}
-              />
+      <View style={styles.chart} testID="growth-week-chart">
+        <View style={styles.chartGrid} pointerEvents="none" aria-hidden>
+          {ticks.map((tick) => (
+            <View
+              key={tick}
+              style={[
+                styles.chartGridLine,
+                {
+                  bottom:
+                    CHART_LABEL_HEIGHT +
+                    toHeight(tick) -
+                    CHART_LABEL_HEIGHT / 2,
+                },
+              ]}
+            >
+              <Text style={[styles.chartTick, { color: colors.muted }]}>
+                {tick}
+              </Text>
+              <ChartDash color={colors.border} />
             </View>
-            <Text style={screen.muted}>{WEEKDAYS[index]}</Text>
-          </View>
-        ))}
+          ))}
+          {target !== null && (
+            <View
+              testID="growth-week-chart-target"
+              style={[
+                styles.chartTarget,
+                {
+                  bottom: CHART_LABEL_HEIGHT + toHeight(target),
+                },
+              ]}
+            >
+              <ChartDash color={colors.primary} />
+            </View>
+          )}
+        </View>
+        <View style={styles.barRow}>
+          {summary.days.map((entry, index) => {
+            const zero = entry.count === 0;
+            return (
+              <View
+                key={entry.date}
+                style={styles.barColumn}
+                accessible
+                accessibilityLabel={
+                  '周' + WEEKDAYS[index] + '，' + entry.count + '次打卡'
+                }
+              >
+                <View style={styles.barTrack}>
+                  <Text
+                    style={[
+                      styles.chartValue,
+                      {
+                        bottom: Math.max(space[2], toHeight(entry.count)),
+                        color: colors.ink,
+                      },
+                    ]}
+                  >
+                    {entry.count}
+                  </Text>
+                  <View
+                    testID={zero ? 'weekly-chart-zero' : 'weekly-chart-bar'}
+                    style={[
+                      styles.barFill,
+                      {
+                        height: zero ? space[2] : toHeight(entry.count),
+                        backgroundColor: zero ? colors.muted : colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.chartWeekday, { color: colors.muted }]}>
+                  {WEEKDAYS[index]}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
       </View>
-      <Text style={screen.muted}>横轴：周一至周日 · 数字为每日打卡次数</Text>
+      <View style={styles.calendarLegend}>
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.chartLegendMark,
+              { backgroundColor: colors.primary },
+            ]}
+          />
+          <Text style={screen.muted}>每日打卡次数</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View
+            style={[styles.chartLegendMark, { backgroundColor: colors.muted }]}
+          />
+          <Text style={screen.muted}>0 次</Text>
+        </View>
+        {target !== null && (
+          <View style={styles.legendItem}>
+            <View style={styles.chartTargetLegend}>
+              <ChartDash color={colors.primary} legend />
+            </View>
+            <Text style={screen.muted}>
+              {targetLabel}：{target} 次
+            </Text>
+          </View>
+        )}
+      </View>
     </Panel>
   );
 }
@@ -370,13 +479,11 @@ export function GrowthScreen() {
     [state.tasks, state.checkins],
   );
   const isWeekly = view === 'weekly';
-  const showYearStart =
-    period.start.slice(0, 4) !== period.end.slice(0, 4) ||
-    period.year !== now.getFullYear();
-  const range =
-    periodDate(period.start, showYearStart) +
-    ' — ' +
-    periodDate(period.end, period.start.slice(0, 4) !== period.end.slice(0, 4));
+  const range = formatCalendarRange(
+    period.start,
+    period.end,
+    now.getFullYear(),
+  );
   const progress = isWeekly
     ? summary.progress.filter((item) => item.total > 0)
     : [...summary.progress].sort(
@@ -423,7 +530,11 @@ export function GrowthScreen() {
           ListHeaderComponent={
             isWeekly ? (
               <View style={[screen.column, screen.listHeader]}>
-                <WeeklyChart summary={summary} />
+                <WeeklyChart
+                  summary={summary}
+                  tasks={state.tasks}
+                  historical={offset < 0}
+                />
                 <SectionTitle title="每个任务的小积累" />
               </View>
             ) : null
@@ -560,7 +671,7 @@ function MonthCalendar({
                 key={day.date}
                 accessible
                 accessibilityLabel={
-                  periodDate(day.date, false) +
+                  formatCalendarDate(day.date) +
                   '，' +
                   MONTH_STATES[day.status] +
                   '，' +
@@ -752,14 +863,72 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     borderWidth: 1,
   },
-  barRow: { flexDirection: 'row', alignItems: 'flex-end', gap: space[4] },
-  barColumn: { flex: 1, minWidth: 0, alignItems: 'center', gap: space[8] },
-  barTrack: {
-    height: control[44] * 2,
-    justifyContent: 'flex-end',
-    width: '65%',
+  chart: {
+    position: 'relative',
+    paddingTop: CHART_LABEL_HEIGHT,
   },
-  barFill: { borderRadius: radius[6] },
+  chartGrid: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 },
+  chartGridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: CHART_LABEL_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chartTick: {
+    width: control[28],
+    paddingRight: space[4],
+    fontSize: font[10],
+    textAlign: 'right',
+  },
+  chartDashRow: { height: 1, flexDirection: 'row', flex: 1, gap: space[4] },
+  chartDash: { flex: 1 },
+  chartTarget: {
+    position: 'absolute',
+    left: control[28],
+    right: 0,
+    height: 1,
+    flexDirection: 'row',
+    opacity: TARGET_LINE_OPACITY,
+  },
+  chartValue: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    lineHeight: CHART_LABEL_HEIGHT,
+    textAlign: 'center',
+    fontSize: font[10],
+  },
+  chartWeekday: {
+    lineHeight: CHART_LABEL_HEIGHT,
+    fontSize: font[10],
+    textAlign: 'center',
+  },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginLeft: control[28],
+    gap: space[4],
+  },
+  barColumn: { flex: 1, minWidth: 0, alignItems: 'center' },
+  barTrack: {
+    height: CHART_TRACK_HEIGHT,
+    width: '65%',
+    justifyContent: 'flex-end',
+  },
+  barFill: { borderRadius: radius[4] },
+  chartLegendMark: {
+    width: space[12],
+    height: space[2],
+    borderRadius: radius[4],
+  },
+  chartTargetLegend: {
+    width: space[16],
+    height: 1,
+    flexDirection: 'row',
+    opacity: TARGET_LINE_OPACITY,
+  },
   calendar: { gap: space[4], marginTop: space[8] },
   calendarRow: { flexDirection: 'row', gap: space[4] },
   calendarPosition: { flex: 1, minWidth: 0, minHeight: control[26] },
