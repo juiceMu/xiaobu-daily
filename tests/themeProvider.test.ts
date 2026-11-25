@@ -140,7 +140,7 @@ test('主题加载完成前不可选择；持久化完成才提交并同步防�
   const saving = app.select('mint');
   assert.equal(app.state.busy, true);
   assert.equal(app.state.themeId, 'lavender');
-  assert.equal(await app.select('peach'), false);
+  assert.equal(await app.select('iris'), false);
   assert.deepEqual(saves, ['mint']);
   assert.ok(resolveSave);
   resolveSave();
@@ -160,14 +160,14 @@ test('主题保存失败保留旧主题并解锁，重试成功后才发布', as
   });
   app.load();
   await settle();
-  assert.equal(await app.select('peach'), false);
+  assert.equal(await app.select('iris'), false);
   assert.equal(app.state.themeId, 'mint');
   assert.match(app.state.error, /保存失败/);
   assert.equal(app.state.busy, false);
   assert.equal(app.changing.current, false);
   fails = false;
-  assert.equal(await app.select('peach'), true);
-  assert.equal(app.state.themeId, 'peach');
+  assert.equal(await app.select('iris'), true);
+  assert.equal(app.state.themeId, 'iris');
   assert.equal(app.state.error, '');
 });
 
@@ -193,7 +193,7 @@ test('主题读取失败不写默认值，可重选当前主题修复；卸载�
   assert.equal(await app.select('warm'), true);
   assert.equal(saves, 1);
   const unmounted = harness({
-    load: async () => 'peach',
+    load: async () => 'iris',
     save: async () => {},
   });
   unmounted.load()();

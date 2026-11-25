@@ -1,14 +1,5 @@
 export const DEFAULT_THEME_ID = 'warm';
-export type ThemeId =
-  | 'warm'
-  | 'mint'
-  | 'lavender'
-  | 'peach'
-  | 'white'
-  | 'apricot'
-  | 'forest'
-  | 'sea'
-  | 'iris';
+export type ThemeId = 'warm' | 'mint' | 'lavender' | 'forest' | 'sea' | 'iris';
 
 // 旧版默认值保持不变；任务色键及操作语义色不随装饰主题改变。
 export const defaultColors = {
@@ -94,69 +85,6 @@ export const themeOptions: readonly ThemeOption[] = [
       primaryAccent: '#E6D9F0',
       border: '#DDD0E6',
       selectedIcon: '#78548E',
-    },
-  },
-  {
-    id: 'peach',
-    name: '蜜桃粉',
-    description: '温柔明亮的小小心情',
-    colors: {
-      ...defaultColors,
-      background: '#FFF7F5',
-      surface: '#FFFEFD',
-      field: '#FCECE7',
-      ink: '#4C3335',
-      muted: '#795E60',
-      brandFill: '#F0CEC7',
-      onBrand: '#6D4443',
-      primary: '#79504F',
-      primaryContainer: '#F9E4DE',
-      primaryAccent: '#F4DBD4',
-      border: '#EACFC7',
-      selectedIcon: '#9A5B69',
-    },
-  },
-  {
-    id: 'white',
-    name: '极简白',
-    description: '淡紫淡黄，干净轻盈',
-    colors: {
-      ...defaultColors,
-      background: '#FFFFFF',
-      // 卡片用淡紫灰，避免和纯白页底糊成一片。
-      surface: '#F6F3FB',
-      field: '#F8F1DC',
-      ink: '#3A3350',
-      muted: '#655C7A',
-      brandFill: '#E8E2F2',
-      onBrand: '#4A3870',
-      primary: '#65508A',
-      primaryContainer: '#F3EBD4',
-      primaryAccent: '#EFEAF6',
-      border: '#E4DEEC',
-      selectedIcon: '#65508A',
-    },
-  },
-  {
-    id: 'apricot',
-    name: '晨光暖杏',
-    description: '明亮杏黄，温暖轻快',
-    quiet: true,
-    signal: '#A87412',
-    colors: {
-      ...defaultColors,
-      background: '#FAFBFA',
-      surface: '#FFFFFF',
-      field: '#F4F5F4',
-      ink: '#3C362B',
-      muted: '#6D6454',
-      brandFill: '#FFF3D7',
-      onBrand: '#614C20',
-      primary: '#79591D',
-      primaryContainer: '#F5F6F5',
-      primaryAccent: '#FFF3D7',
-      border: '#DADFDA',
-      selectedIcon: '#79591D',
     },
   },
   {

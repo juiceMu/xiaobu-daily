@@ -156,6 +156,6 @@ test('不可用翻页箭头和今天的回今天控件占位隐藏，未来日�
   ]) {
     assert.ok(text.includes(`disabled={${condition}}`), condition);
   }
-  // 任务操作按九主题无底契约显示，仍保留没有记录时不可撤销的业务禁用条件。
+  // 各主题任务操作均无底色，仍保留没有记录时不可撤销的禁用条件。
   assert.match(text, /disabled=\{busy \|\| !count\}/);
 });

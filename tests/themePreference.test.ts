@@ -14,7 +14,7 @@ import {
   THEME_STORAGE_KEY,
 } from '../src/state/themePreference';
 
-test('旧五套主题所有颜色保持原样', () => {
+test('暖灰米、薄荷花园和柔雾紫的颜色保持原样', () => {
   const original = {
     background: '#FFFCF8',
     surface: '#FFFFFF',
@@ -82,42 +82,6 @@ test('旧五套主题所有颜色保持原样', () => {
         selectedIcon: '#78548E',
       },
     ],
-    [
-      '蜜桃粉',
-      {
-        ...original,
-        background: '#FFF7F5',
-        surface: '#FFFEFD',
-        field: '#FCECE7',
-        ink: '#4C3335',
-        muted: '#795E60',
-        brandFill: '#F0CEC7',
-        onBrand: '#6D4443',
-        primary: '#79504F',
-        primaryContainer: '#F9E4DE',
-        primaryAccent: '#F4DBD4',
-        border: '#EACFC7',
-        selectedIcon: '#9A5B69',
-      },
-    ],
-    [
-      '极简白',
-      {
-        ...original,
-        background: '#FFFFFF',
-        surface: '#F6F3FB',
-        field: '#F8F1DC',
-        ink: '#3A3350',
-        muted: '#655C7A',
-        brandFill: '#E8E2F2',
-        onBrand: '#4A3870',
-        primary: '#65508A',
-        primaryContainer: '#F3EBD4',
-        primaryAccent: '#EFEAF6',
-        border: '#E4DEEC',
-        selectedIcon: '#65508A',
-      },
-    ],
   ] as const;
   for (const [index, [name, colors]] of originals.entries()) {
     assert.equal(themeOptions[index].name, name);
@@ -125,11 +89,13 @@ test('旧五套主题所有颜色保持原样', () => {
   }
 });
 
-test('四套新主题有独立稳定编号和名称', () => {
+test('只显示保留的六套主题，编号、名称与顺序不变', () => {
   assert.deepEqual(
-    themeOptions.slice(5).map(({ id, name }) => [id, name]),
+    themeOptions.map(({ id, name }) => [id, name]),
     [
-      ['apricot', '晨光暖杏'],
+      ['warm', '暖灰米'],
+      ['mint', '薄荷花园'],
+      ['lavender', '柔雾紫'],
       ['forest', '森林漫步'],
       ['sea', '晴空海盐'],
       ['iris', '暮色鸢尾'],
@@ -139,10 +105,6 @@ test('四套新主题有独立稳定编号和名称', () => {
 
 test('主题保留旧默认暖灰米、完整颜色键及独立业务语义', () => {
   assert.equal(DEFAULT_THEME_ID, 'warm');
-  assert.deepEqual(
-    themeOptions.slice(0, 5).map((option) => option.id),
-    ['warm', 'mint', 'lavender', 'peach', 'white'],
-  );
   assert.equal(getThemeOption('warm').colors, defaultColors);
   assert.equal(defaultColors.brandFill, '#DCCFBE');
   assert.equal(defaultColors.primary, '#625B53');
@@ -175,57 +137,37 @@ test('主题保留旧默认暖灰米、完整颜色键及独立业务语义', ()
         option.id + ':' + key,
       );
   }
-  for (const key of ['brandFill', 'primary', 'background', 'field'] as const)
+  for (const key of ['brandFill', 'primary'] as const)
     assert.equal(
-      new Set(themeOptions.slice(0, 5).map((option) => option.colors[key]))
-        .size,
-      5,
+      new Set(themeOptions.map((option) => option.colors[key])).size,
+      themeOptions.length,
       key,
     );
   for (const value of [null, undefined, true, {}, [], 'unknown', 'Warm', ''])
     assert.equal(isThemeId(value), false);
 });
 
-test('极简白保持纯白背景、淡紫淡黄层级及独立偏好往返', async () => {
-  const option = getThemeOption('white');
-  assert.equal(option.name, '极简白');
-  assert.equal(option.colors.background, '#FFFFFF');
-  assert.equal(option.colors.surface, '#F6F3FB');
-  assert.equal(option.colors.field, '#F8F1DC');
-  assert.equal(option.colors.brandFill, '#E8E2F2');
-  assert.equal(option.colors.primaryContainer, '#F3EBD4');
-  assert.equal(option.colors.primaryAccent, '#EFEAF6');
-  for (const key of [
-    'background',
-    'surface',
-    'field',
-    'ink',
-    'muted',
-    'brandFill',
-    'onBrand',
-    'primary',
-    'primaryContainer',
-    'primaryAccent',
-    'border',
-    'selectedIcon',
-  ] as const) {
-    assert.match(option.colors[key], /^#[0-9A-F]{6}$/);
+test('已移除的主题偏好回退暖灰米，保留原值直到主动切换', async () => {
+  for (const id of ['peach', 'white', 'apricot']) {
+    assert.equal(isThemeId(id), false);
+    const entries = new Map([
+      [THEME_STORAGE_KEY, JSON.stringify(id)],
+      ['sprout-native-sync-v1', '业务原始数据'],
+    ]);
+    const storage = {
+      getItem: (key: string) => entries.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        entries.set(key, value);
+      },
+    };
+    const repository = createThemePreferenceRepository(storage);
+    assert.equal(await repository.load(), DEFAULT_THEME_ID);
+    await assert.rejects(repository.save(id as ThemeId), /请选择有效的主题/);
+    assert.equal(entries.get(THEME_STORAGE_KEY), JSON.stringify(id));
+    await repository.save('iris');
+    assert.equal(await createThemePreferenceRepository(storage).load(), 'iris');
+    assert.equal(entries.get('sprout-native-sync-v1'), '业务原始数据');
   }
-  const entries = new Map<string, string>();
-  const storage = {
-    getItem: (key: string) => entries.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      entries.set(key, value);
-    },
-  };
-  await createThemePreferenceRepository(storage).save('white');
-  assert.equal(entries.get(THEME_STORAGE_KEY), JSON.stringify('white'));
-  assert.equal(
-    parseThemePreference(entries.get(THEME_STORAGE_KEY) ?? null),
-    'white',
-  );
-  assert.equal(await createThemePreferenceRepository(storage).load(), 'white');
-  assert.equal(DEFAULT_THEME_ID, 'warm');
 });
 
 test('无偏好或非法内容回退默认，不写回或污染原始存储', async () => {
@@ -261,7 +203,7 @@ test('无偏好或非法内容回退默认，不写回或污染原始存储', as
 
 test('偏好独立key支持同步和异步存储，所有主题重建仓库后重载', async () => {
   assert.equal(THEME_STORAGE_KEY, 'small-steps-theme-v1');
-  const entries = new Map([['sprout-native-web-v1', '业务原始数据']]);
+  const entries = new Map([['sprout-native-sync-v1', '业务原始数据']]);
   const storage = {
     async getItem(key: string) {
       return entries.get(key) ?? null;
@@ -278,7 +220,7 @@ test('偏好独立key支持同步和异步存储，所有主题重建仓库后�
       option.id,
     );
   }
-  assert.equal(entries.get('sprout-native-web-v1'), '业务原始数据');
+  assert.equal(entries.get('sprout-native-sync-v1'), '业务原始数据');
 });
 
 test('读取保存异常上抛、旧偏好保留，可恢复后重试；无效主题不写', async () => {
@@ -301,11 +243,11 @@ test('读取保存异常上抛、旧偏好保留，可恢复后重试；无效�
   assert.equal(raw, JSON.stringify('mint'));
   readFailure = false;
   assert.equal(await repository.load(), 'mint');
-  await assert.rejects(repository.save('peach'), /写入不可用/);
+  await assert.rejects(repository.save('iris'), /写入不可用/);
   assert.equal(await repository.load(), 'mint');
   await assert.rejects(repository.save('bad' as ThemeId));
   assert.equal(writes, 1);
   saveFailure = false;
-  await repository.save('peach');
-  assert.equal(await repository.load(), 'peach');
+  await repository.save('iris');
+  assert.equal(await repository.load(), 'iris');
 });

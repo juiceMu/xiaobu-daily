@@ -9,7 +9,7 @@ const themeText = readFileSync(
   new URL('../src/ui/theme.ts', import.meta.url),
   'utf8',
 );
-test('五套主题的禁用按钮使用统一中性灰背景与前景', () => {
+test('各主题的禁用按钮使用统一中性灰背景与前景', () => {
   const components = readFileSync(
     new URL('../src/ui/components.tsx', import.meta.url),
     'utf8',
@@ -54,7 +54,7 @@ test('新主题的进度填充与实际轨道有足够区分', () => {
     );
   }
 });
-test('赠券发出及收到记录使用主题行间分隔且文字在五主题可读', () => {
+test('赠券发出及收到记录使用主题行间分隔且文字在各主题可读', () => {
   const gifts = readFileSync(
     new URL('../src/screens/GiftsScreen.tsx', import.meta.url),
     'utf8',
@@ -106,7 +106,7 @@ test('共享主题填充色彼此区分，主题及禁用前景保持可辨', ()
   }
   assert.ok(contrast('#707570', '#E9EBE9') >= 3);
 });
-test('奖励按钮在四套新主题跟随主题，旧主题保留奖励配色', () => {
+test('奖励按钮在森林、海盐和鸢尾跟随主题，其他主题保留奖励配色', () => {
   const text = readFileSync(
     new URL('../src/ui/components.tsx', import.meta.url),
     'utf8',
@@ -181,11 +181,6 @@ test('浅暖灰米品牌填充与独立前景保持真实消费对比度', () =>
         `${option.id}: ${foreground}/${background} 对比度不足`,
       );
   }
-  const white = themeOptions.find(({ id }) => id === 'white')!.colors;
-  assert.equal(white.background, '#FFFFFF');
-  assert.equal(white.surface, '#F6F3FB');
-  assert.notEqual(white.field, white.surface);
-  assert.notEqual(white.primaryContainer, white.surface);
   for (const { id, colors: theme } of themeOptions) {
     const delta = Math.abs(
       luminance(theme.background) - luminance(theme.surface),
