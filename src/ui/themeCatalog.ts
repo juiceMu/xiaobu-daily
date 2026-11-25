@@ -1,5 +1,14 @@
 export const DEFAULT_THEME_ID = 'warm';
-export type ThemeId = 'warm' | 'mint' | 'lavender' | 'forest' | 'sea' | 'iris';
+export type ThemeId =
+  | 'warm'
+  | 'mint'
+  | 'lavender'
+  | 'forest'
+  | 'sea'
+  | 'iris'
+  | 'matcha'
+  | 'taro'
+  | 'blueberry';
 
 // 旧版默认值保持不变；任务色键及操作语义色不随装饰主题改变。
 export const defaultColors = {
@@ -64,6 +73,75 @@ export function resolveThemeColors(palette: AppColors): AppColors {
     purple: blendHex(palette.purple, palette.primaryAccent),
   };
 }
+type Tone = Readonly<{ solid: string; ink: string; soft: string }>;
+export type SoftPalette = Readonly<{
+  brand: Tone;
+  accent: Tone;
+  c3: Tone;
+  c4: Tone;
+}>;
+
+export const softThemeRoles = {
+  borderSoft: '#EBE7E0',
+  warning: '#825230',
+  warningSoft: '#F9E5D7',
+  success: '#367846',
+  info: '#385E8A',
+} as const;
+
+const softNeutral = {
+  background: '#FAF8F5',
+  surface: '#FFFFFF',
+  field: '#F1EFEA',
+  ink: '#2E2A26',
+  muted: '#6B655D',
+  border: '#928A7F',
+  selectedIcon: '#6B655D',
+  danger: '#A33E38',
+};
+const green = { solid: '#378149', ink: '#367846', soft: '#DDF3E3' };
+const yellow = { solid: '#8A7228', ink: '#7E692A', soft: '#F9EFD2' };
+const pink = { solid: '#BF4A6D', ink: '#88354E', soft: '#FAE1E8' };
+const purple = { solid: '#8D56BD', ink: '#663A8D', soft: '#EBDFF6' };
+const blue = { solid: '#4277B3', ink: '#385E8A', soft: '#DEEAF8' };
+const teal = { solid: '#367D7B', ink: '#347472', soft: '#DAF1F0' };
+
+function softTheme(
+  id: ThemeId,
+  name: string,
+  description: string,
+  palette: SoftPalette,
+): ThemeOption {
+  const { brand, accent, c3, c4 } = palette;
+
+  return {
+    id,
+    name,
+    description,
+    palette,
+    colors: {
+      ...defaultColors,
+      ...softNeutral,
+      brandFill: brand.soft,
+      onBrand: brand.ink,
+      primary: brand.solid,
+      primaryContainer: brand.soft,
+      primaryAccent: brand.soft,
+      selectedIcon: brand.ink,
+      green: brand.soft,
+      peach: accent.soft,
+      blue: c3.soft,
+      purple: c4.soft,
+      save: brand.soft,
+      onSave: brand.ink,
+      reward: accent.soft,
+      onReward: accent.ink,
+      archive: c4.soft,
+      onArchive: c4.ink,
+    },
+  };
+}
+
 export type ThemeOption = {
   id: ThemeId;
   name: string;
@@ -71,6 +149,7 @@ export type ThemeOption = {
   colors: AppColors;
   quiet?: boolean;
   signal?: string;
+  palette?: SoftPalette;
 };
 export const themeOptions: readonly ThemeOption[] = [
   {
@@ -185,10 +264,54 @@ export const themeOptions: readonly ThemeOption[] = [
       selectedIcon: '#665078',
     },
   },
+  softTheme('matcha', '抹茶拿铁', '清新 · 微甜', {
+    brand: green,
+    accent: yellow,
+    c3: pink,
+    c4: purple,
+  }),
+  softTheme('taro', '香芋啵啵', '绵密 · 温柔', {
+    brand: purple,
+    accent: pink,
+    c3: yellow,
+    c4: blue,
+  }),
+  softTheme('blueberry', '蓝莓酸奶', '清爽 · 酸甜', {
+    brand: blue,
+    accent: purple,
+    c3: pink,
+    c4: teal,
+  }),
 ];
 export function isThemeId(value: unknown): value is ThemeId {
   return themeOptions.some((option) => option.id === value);
 }
 export function getThemeOption(id: ThemeId): ThemeOption {
   return themeOptions.find((option) => option.id === id) ?? themeOptions[0];
+}
+
+export function applyTheme(id: ThemeId) {
+  const option = getThemeOption(id);
+  return {
+    option,
+    colors: option.palette ? option.colors : resolveThemeColors(option.colors),
+  };
+}
+
+export function categoryInk(
+  colorKey: string,
+  palette: SoftPalette | undefined,
+  fallback: string,
+) {
+  if (!palette) return fallback;
+  switch (colorKey) {
+    case 'peach':
+      return palette.accent.ink;
+    case 'blue':
+      return palette.c3.ink;
+    case 'purple':
+      return palette.c4.ink;
+    default:
+      return palette.brand.ink;
+  }
 }

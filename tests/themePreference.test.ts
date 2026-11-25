@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   defaultColors,
+  applyTheme,
   DEFAULT_THEME_ID,
   themeOptions,
   getThemeOption,
@@ -17,14 +18,16 @@ import {
 
 test('切换主题时四种分类同时更新，且原色板与任务色键保持可用', () => {
   const categories = ['green', 'peach', 'blue', 'purple'] as const;
-  const palettes = themeOptions.map(({ colors }) => resolveThemeColors(colors));
+  const palettes = themeOptions
+    .filter((option) => !option.palette)
+    .map(({ colors }) => resolveThemeColors(colors));
   assert.equal(palettes[0], defaultColors);
   for (const category of categories) {
     assert.equal(
       new Set(palettes.map((colors) => colors[category])).size,
       palettes.length,
     );
-    for (const option of themeOptions) {
+    for (const option of themeOptions.filter((option) => !option.palette)) {
       assert.equal(option.colors[category], defaultColors[category]);
     }
   }
@@ -111,7 +114,7 @@ test('暖灰米、薄荷花园和柔雾紫的颜色保持原样', () => {
   }
 });
 
-test('只显示保留的六套主题，编号、名称与顺序不变', () => {
+test('九套主题的编号、名称与顺序正确', () => {
   assert.deepEqual(
     themeOptions.map(({ id, name }) => [id, name]),
     [
@@ -121,6 +124,9 @@ test('只显示保留的六套主题，编号、名称与顺序不变', () => {
       ['forest', '森林漫步'],
       ['sea', '晴空海盐'],
       ['iris', '暮色鸢尾'],
+      ['matcha', '抹茶拿铁'],
+      ['taro', '香芋啵啵'],
+      ['blueberry', '蓝莓酸奶'],
     ],
   );
 });
@@ -152,7 +158,7 @@ test('主题保留旧默认暖灰米、完整颜色键及独立业务语义', ()
       Object.keys(option.colors).sort(),
       Object.keys(defaultColors).sort(),
     );
-    for (const key of stableKeys)
+    for (const key of option.palette ? [] : stableKeys)
       assert.equal(
         option.colors[key],
         defaultColors[key],
@@ -272,4 +278,25 @@ test('读取保存异常上抛、旧偏好保留，可恢复后重试；无效�
   saveFailure = false;
   await repository.save('iris');
   assert.equal(await repository.load(), 'iris');
+});
+
+test('三套柔彩主题直接应用四组配色，六套旧主题仍以原目录为来源', () => {
+  for (const { id, palette, colors } of themeOptions) {
+    const active = applyTheme(id);
+    if (!palette) {
+      assert.deepEqual(active.colors, resolveThemeColors(colors));
+      continue;
+    }
+    assert.equal(active.colors, colors);
+    assert.equal(active.colors.primary, palette.brand.solid);
+    assert.deepEqual(
+      [colors.green, colors.peach, colors.blue, colors.purple],
+      [
+        palette.brand.soft,
+        palette.accent.soft,
+        palette.c3.soft,
+        palette.c4.soft,
+      ],
+    );
+  }
 });

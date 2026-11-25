@@ -1,9 +1,14 @@
 import { MD3LightTheme } from 'react-native-paper';
-import { defaultColors, type AppColors } from './themeCatalog';
+import {
+  defaultColors,
+  softThemeRoles,
+  type AppColors,
+  type SoftPalette,
+} from './themeCatalog';
 import { ICON_OPTIONS } from '../domain/iconCatalog.mjs';
 
 export const colors = defaultColors;
-export function createAppTheme(colors: AppColors) {
+export function createAppTheme(colors: AppColors, palette?: SoftPalette) {
   return {
     ...MD3LightTheme,
     roundness: 4,
@@ -58,13 +63,13 @@ export function createAppTheme(colors: AppColors) {
       onTertiary: '#FFFFFF',
       tertiaryContainer: colors.purple,
       onTertiaryContainer: colors.ink,
-      surfaceDisabled: '#E9EBE9',
+      surfaceDisabled: palette ? colors.field : '#E9EBE9',
       onSurfaceDisabled: '#707570',
       onSurface: colors.ink,
       onBackground: colors.ink,
       onSurfaceVariant: colors.muted,
       outline: colors === defaultColors ? '#928A7F' : colors.muted,
-      outlineVariant: colors.border,
+      outlineVariant: palette ? softThemeRoles.borderSoft : colors.border,
       error: colors.danger,
       inverseSurface: colors.ink,
       inverseOnSurface: colors.surface,

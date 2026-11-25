@@ -19,7 +19,10 @@ test('各主题的禁用按钮使用统一中性灰背景与前景', () => {
     new URL('../src/ui/components.tsx', import.meta.url),
     'utf8',
   );
-  assert.match(themeText, /surfaceDisabled: '#E9EBE9'/);
+  assert.match(
+    themeText,
+    /surfaceDisabled: palette \? colors\.field : '#E9EBE9'/,
+  );
   assert.match(themeText, /onSurfaceDisabled: '#707570'/);
   assert.match(
     components,
@@ -104,7 +107,9 @@ test('各主题按钮的文字与语义填充达到正文对比度', () => {
   }
 });
 test('共享主题填充色彼此区分，主题及禁用前景保持可辨', () => {
-  for (const { id, colors } of themeOptions) {
+  for (const { id, colors } of themeOptions.filter(
+    (option) => !option.palette,
+  )) {
     assert.notEqual(colors.brandFill, colors.primaryContainer, id);
     assert.ok(contrast(colors.primary, colors.brandFill) >= 3, id);
     assert.ok(contrast(colors.primary, colors.primaryContainer) >= 3, id);
@@ -159,7 +164,7 @@ test('浅暖灰米品牌填充与独立前景保持真实消费对比度', () =>
   assert.equal(colors.brandFill, '#DCCFBE');
   assert.equal(colors.onBrand, '#514B44');
   assert.equal(colors.primary, '#625B53');
-  for (const option of themeOptions) {
+  for (const option of themeOptions.filter((option) => !option.palette)) {
     const colors = option.colors;
     for (const [foreground, background] of [
       [colors.onUsedBadge, colors.usedBadge],
@@ -188,7 +193,9 @@ test('浅暖灰米品牌填充与独立前景保持真实消费对比度', () =>
         `${option.id}: ${foreground}/${background} 对比度不足`,
       );
   }
-  for (const { id, colors: theme } of themeOptions) {
+  for (const { id, colors: theme } of themeOptions.filter(
+    (option) => !option.palette,
+  )) {
     const delta = Math.abs(
       luminance(theme.background) - luminance(theme.surface),
     );
@@ -348,4 +355,20 @@ test('共享按钮忙碌时锁定按压并保留原文，焦点与加载语义�
   assert.match(button, /reducedMotion[\s\S]*ActivityIndicator/);
   assert.match(button, /onFocus\?\.\(event\)/);
   assert.match(button, /onBlur\?\.\(event\)/);
+});
+
+test('三套柔彩主题的配色满足实色、浅底和控件轮廓对比度', () => {
+  for (const { id, palette, colors } of themeOptions) {
+    if (!palette) continue;
+    for (const tone of Object.values(palette)) {
+      assert.ok(contrast(utilityColors.onSolid, tone.solid) >= 4.5, id);
+      assert.ok(contrast(tone.ink, tone.soft) >= 4.5, id);
+    }
+    for (const bg of [colors.surface, colors.background, colors.field]) {
+      assert.ok(contrast(colors.ink, bg) >= 4.5, id);
+      assert.ok(contrast(colors.muted, bg) >= 4.5, id);
+    }
+    assert.ok(contrast(colors.border, colors.surface) >= 3, id);
+    assert.ok(contrast(colors.border, colors.background) >= 3, id);
+  }
 });

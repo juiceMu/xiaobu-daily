@@ -174,7 +174,7 @@ export const ActionButton = forwardRef<
   },
   ref,
 ) {
-  const { colors, quiet, theme } = useAppTheme();
+  const { colors, quiet, theme, palette } = useAppTheme();
   const keyboardFocus = useKeyboardFocus();
   const reducedMotion = useReducedMotion();
   const unavailable = !!disabled || loading;
@@ -193,13 +193,19 @@ export const ActionButton = forwardRef<
     archive: { fill: colors.archive, text: colors.onArchive },
     danger: { fill: colors.danger, text: utilityColors.onSolid },
   };
+  const softTone =
+    palette && actionTone !== 'neutral' && actionTone !== 'danger'
+      ? mode === 'contained'
+        ? { fill: palette.brand.solid, text: utilityColors.onSolid }
+        : { fill: palette.brand.soft, text: palette.brand.ink }
+      : undefined;
+  const activeTone = softTone ?? tones[actionTone];
   const fill =
     unavailable && !loading
       ? ghost
         ? 'transparent'
         : theme.colors.surfaceDisabled
-      : (buttonColor ??
-        (ghost || outlined ? 'transparent' : tones[actionTone].fill));
+      : (buttonColor ?? (ghost || outlined ? 'transparent' : activeTone.fill));
   const foreground =
     unavailable && !loading
       ? ghost
@@ -208,7 +214,7 @@ export const ActionButton = forwardRef<
       : (textColor ??
         (buttonColor === colors.danger
           ? utilityColors.onSolid
-          : tones[actionTone].text));
+          : activeTone.text));
   const label =
     typeof children === 'string' && uppercase
       ? children.toUpperCase()

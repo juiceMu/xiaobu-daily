@@ -28,7 +28,7 @@ import {
 } from '../ui/growthModel';
 import { HistoryPanel, HistoryTabs } from '../ui/HistoryControls';
 import { iconName, tint } from '../ui/theme';
-import { utilityColors } from '../ui/themeCatalog';
+import { categoryInk, utilityColors } from '../ui/themeCatalog';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { control, font, radius, space } from '../ui/uiTokens';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
@@ -464,7 +464,7 @@ export function GrowthScreen() {
   const [view, setView] = useState<GrowthView>('weekly');
   const [offset, setOffset] = useState(0);
   const navigation = useNavigation<NavigationProp<{ today: undefined }>>();
-  const { colors } = useAppTheme();
+  const { colors, palette } = useAppTheme();
   const screen = useScreenStyles();
   const { state, now } = useApp();
   const period = growthPeriod(now, 'week', offset);
@@ -570,7 +570,11 @@ export function GrowthScreen() {
                     <Icon
                       source={iconName(item.task.icon)}
                       size={control[24]}
-                      color={colors.primary}
+                      color={categoryInk(
+                        item.task.color,
+                        palette,
+                        colors.primary,
+                      )}
                     />
                   </View>
                   <View style={screen.grow}>
@@ -616,10 +620,10 @@ function MonthCalendar({
   days: GrowthProgress['days'];
   leading: number;
 }) {
-  const { colors } = useAppTheme();
+  const { colors, palette } = useAppTheme();
   const screen = useScreenStyles();
   const rows = Math.ceil((leading + days.length) / WEEKDAYS.length);
-  const palette = {
+  const cellColors = {
     full: {
       backgroundColor: colors.primary,
       borderColor: colors.primary,
@@ -628,7 +632,7 @@ function MonthCalendar({
     partial: {
       backgroundColor: colors.primaryContainer,
       borderColor: colors.primaryContainer,
-      color: colors.primary,
+      color: palette?.brand.ink ?? colors.primary,
     },
     empty: {
       backgroundColor: colors.field,
@@ -663,7 +667,7 @@ function MonthCalendar({
             const day = days[row * WEEKDAYS.length + column - leading];
             if (!day)
               return <View key={weekday} style={styles.calendarPosition} />;
-            const { color, ...paint } = palette[day.status];
+            const { color, ...paint } = cellColors[day.status];
             const future = day.status === 'future';
             const mark = MONTH_MARKS[day.status];
             return (
@@ -699,7 +703,7 @@ function MonthCalendar({
       <View style={styles.calendarLegend}>
         {Object.entries(MONTH_STATES).map(([key, label]) => {
           const status = key as keyof typeof MONTH_STATES;
-          const { color, ...paint } = palette[status];
+          const { color, ...paint } = cellColors[status];
           const mark = MONTH_MARKS[status];
           return (
             <View key={key} style={styles.legendItem}>

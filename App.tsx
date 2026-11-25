@@ -145,7 +145,7 @@ function TabBar({
 }: BottomTabBarProps & {
   getTabsState: GetTabsState;
 }) {
-  const { colors } = useAppTheme();
+  const { colors, palette } = useAppTheme();
   const { fontScale } = useWindowDimensions();
   const bottomInset = insets.bottom + 12;
   return (
@@ -159,7 +159,7 @@ function TabBar({
         height: bottomNavigationHeight(fontScale, insets.bottom),
         backgroundColor: colors.surface,
       }}
-      activeColor={colors.primary}
+      activeColor={palette?.brand.ink ?? colors.primary}
       activeIndicatorStyle={{ backgroundColor: colors.primaryAccent }}
       inactiveColor={colors.muted}
       getLabelText={({ route }) => tabLabels[route.name]}

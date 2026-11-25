@@ -9,12 +9,7 @@ import React, {
 } from 'react';
 import { themePreferenceRepository } from '../state/themeStorage';
 import { createAppTheme } from './theme';
-import {
-  DEFAULT_THEME_ID,
-  getThemeOption,
-  resolveThemeColors,
-  type ThemeId,
-} from './themeCatalog';
+import { DEFAULT_THEME_ID, applyTheme, type ThemeId } from './themeCatalog';
 
 function useThemeValue() {
   const [themeId, setThemeId] = useState<ThemeId>(DEFAULT_THEME_ID);
@@ -40,23 +35,23 @@ function useThemeValue() {
       active = false;
     };
   }, []);
-  const option = getThemeOption(themeId);
-  const colors = useMemo(
-    () => resolveThemeColors(option.colors),
-    [option.colors],
+  const { option, colors } = useMemo(() => applyTheme(themeId), [themeId]);
+  const theme = useMemo(
+    () => createAppTheme(colors, option.palette),
+    [colors, option.palette],
   );
-  const theme = useMemo(() => createAppTheme(colors), [colors]);
   async function selectTheme(id: ThemeId): Promise<boolean> {
     if (!themeReady || changing.current) return false;
     if (id === themeId && !themeError) return true;
     changing.current = true;
     setThemeBusy(true);
     setThemeError('');
+    setThemeId(id);
     try {
       await themePreferenceRepository.save(id);
-      setThemeId(id);
       return true;
     } catch {
+      setThemeId(themeId);
       setThemeError('主题保存失败，已保留当前主题。请检查存储空间后重试。');
       return false;
     } finally {
@@ -67,6 +62,7 @@ function useThemeValue() {
   return {
     themeId,
     colors,
+    palette: option.palette,
     quiet: option.quiet === true,
     signal: option.signal ?? option.colors.primary,
     theme,

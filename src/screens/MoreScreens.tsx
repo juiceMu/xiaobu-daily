@@ -20,6 +20,7 @@ import { useAppTheme } from '../ui/ThemeProvider';
 import {
   themeOptions,
   getThemeOption,
+  categoryInk,
   type ThemeOption,
 } from '../ui/themeCatalog';
 import { control, font, radius, space } from '../ui/uiTokens';
@@ -163,7 +164,7 @@ export function MoreScreen({
 }
 
 export function ArchivedScreen() {
-  const { colors } = useAppTheme();
+  const { colors, palette } = useAppTheme();
   const styles = useScreenStyles();
   const { state, run, busy } = useApp();
   const [selected, setSelected] = useState<Task | null>(null);
@@ -204,7 +205,7 @@ export function ArchivedScreen() {
                   <Icon
                     source={iconName(item.icon)}
                     size={24}
-                    color={colors.primary}
+                    color={categoryInk(item.color, palette, colors.primary)}
                   />
                 </View>
                 <View style={styles.grow}>
@@ -525,9 +526,18 @@ function ThemeChoice({
           importantForAccessibility="no-hide-descendants"
         >
           {[
-            option.colors.brandFill,
-            option.signal ?? option.colors.primaryContainer,
-            option.colors.primary,
+            ...(option.palette
+              ? [
+                  option.palette.brand.solid,
+                  option.palette.accent.solid,
+                  option.palette.c3.solid,
+                  option.palette.c4.solid,
+                ]
+              : [
+                  option.colors.brandFill,
+                  option.signal ?? option.colors.primaryContainer,
+                  option.colors.primary,
+                ]),
           ].map((color, index) => (
             <View
               key={index}

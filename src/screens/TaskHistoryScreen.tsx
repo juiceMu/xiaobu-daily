@@ -24,6 +24,7 @@ import {
   HistoryTabs,
 } from '../ui/HistoryControls';
 import { iconName, tint } from '../ui/theme';
+import { categoryInk } from '../ui/themeCatalog';
 import { useAppTheme } from '../ui/ThemeProvider';
 
 const HISTORY_PERIODS = [
@@ -55,7 +56,7 @@ export function TaskHistoryScreen({
   initialDate?: string;
 }) {
   const { state, now } = useApp();
-  const { colors } = useAppTheme();
+  const { colors, palette } = useAppTheme();
   const { width } = useWindowDimensions();
   const [period, setPeriod] = useState<HistoryPeriod>('month');
   const [pickedAnchor, setPickedAnchor] = useState<string | null>();
@@ -122,7 +123,7 @@ export function TaskHistoryScreen({
             <Icon
               source={iconName(task.icon)}
               size={20}
-              color={colors.primary}
+              color={categoryInk(task.color, palette, colors.primary)}
             />
           </View>
           <Text

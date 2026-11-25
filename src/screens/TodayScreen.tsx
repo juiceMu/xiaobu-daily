@@ -53,6 +53,7 @@ import {
   SectionTitle,
 } from '../ui/components';
 import { iconName, tint } from '../ui/theme';
+
 import { useAppTheme } from '../ui/ThemeProvider';
 import {
   localDateFromKey,
@@ -79,7 +80,7 @@ import {
   formatCalendarRange,
   formatChineseDate,
 } from '../ui/displayDate';
-import { utilityColors } from '../ui/themeCatalog';
+import { categoryInk, utilityColors } from '../ui/themeCatalog';
 
 const WEEK_PICKER_HEIGHT = 30;
 const WEEK_PICKER_INSET = (control[44] - WEEK_PICKER_HEIGHT) / 2;
@@ -99,7 +100,7 @@ export function TodayScreen({
 }: {
   navigationHeight: number;
 }) {
-  const { colors, quiet, signal, theme } = useAppTheme();
+  const { colors, quiet, signal, theme, palette } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, busy, run } = useApp();
   const navigation = useNavigation();
@@ -613,11 +614,22 @@ export function TodayScreen({
                 </Pressable>
               </View>
               <View style={[styles.row, { alignItems: 'stretch' }]}>
-                <View style={[styles.stat, summaryCardStyle]}>
+                <View
+                  style={[
+                    styles.stat,
+                    summaryCardStyle,
+                    palette && { backgroundColor: palette.accent.soft },
+                  ]}
+                >
                   <Text style={styles.muted}>
                     {historicalWeek ? '该周打卡' : '本周打卡'}
                   </Text>
-                  <Text style={styles.number}>
+                  <Text
+                    style={[
+                      styles.number,
+                      palette && { color: palette.accent.ink },
+                    ]}
+                  >
                     {stats.total}
                     <Text style={styles.body}> 次</Text>
                   </Text>
@@ -639,13 +651,18 @@ export function TodayScreen({
                     summaryCardStyle,
                     quiet
                       ? { backgroundColor: 'transparent' }
-                      : { backgroundColor: colors.peach },
+                      : { backgroundColor: palette?.c3.soft ?? colors.peach },
                   ]}
                 >
                   <Text style={styles.muted}>
                     {historicalWeek ? '历史已兑换' : '可兑换'}
                   </Text>
-                  <Text style={styles.number}>
+                  <Text
+                    style={[
+                      styles.number,
+                      palette && { color: palette.c3.ink },
+                    ]}
+                  >
                     {historicalWeek
                       ? state.redemptions.filter(
                           (entry) => entry.week === weekKey(selectedNow),
@@ -671,12 +688,15 @@ export function TodayScreen({
                     summaryCardStyle,
                     quiet
                       ? { backgroundColor: 'transparent' }
-                      : { backgroundColor: colors.blue },
+                      : { backgroundColor: palette?.c4.soft ?? colors.blue },
                   ]}
                 >
                   <Text style={styles.muted}>可用奖券</Text>
                   <Text
-                    style={styles.number}
+                    style={[
+                      styles.number,
+                      palette && { color: palette.c4.ink },
+                    ]}
                     accessibilityLabel={`当前可用奖券 ${availableTickets} 张`}
                   >
                     {availableTickets}
@@ -776,7 +796,8 @@ export function TodayScreen({
                               color:
                                 calendar.isFuture || (busy && !showSelection)
                                   ? disabledDateColor
-                                  : colors.ink,
+                                  : (showSelection && palette?.brand.ink) ||
+                                    colors.ink,
                             },
                           ]}
                         >
@@ -1133,7 +1154,7 @@ export function TodayScreen({
                   <Icon
                     source={iconName(item.icon)}
                     size={18}
-                    color={colors.primary}
+                    color={categoryInk(item.color, palette, colors.primary)}
                   />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>

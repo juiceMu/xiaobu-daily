@@ -57,7 +57,7 @@ function MemberFilter({
   selected: boolean;
   onPress: () => void;
 }) {
-  const { colors, quiet } = useAppTheme();
+  const { colors, quiet, palette } = useAppTheme();
   const focus = useKeyboardFocus();
   return (
     <Pressable
@@ -102,7 +102,7 @@ function MemberFilter({
             fontSize: 12,
             lineHeight: 18,
             fontWeight: selected ? '600' : '400',
-            color: colors.ink,
+            color: selected ? (palette?.brand.ink ?? colors.ink) : colors.ink,
           }}
         >
           {name}

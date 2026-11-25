@@ -119,7 +119,7 @@ function harness(repository: {
 }
 const settle = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-test('主题加载完成前不可选择；持久化完成才提交并同步防连点', async () => {
+test('主题加载完成前不可选择；选择立即预览并同步防连点', async () => {
   let resolveSave: (() => void) | undefined;
   const saves: ThemeId[] = [];
   const app = harness({
@@ -139,7 +139,7 @@ test('主题加载完成前不可选择；持久化完成才提交并同步防�
   assert.equal(app.state.ready, true);
   const saving = app.select('mint');
   assert.equal(app.state.busy, true);
-  assert.equal(app.state.themeId, 'lavender');
+  assert.equal(app.state.themeId, 'mint');
   assert.equal(await app.select('iris'), false);
   assert.deepEqual(saves, ['mint']);
   assert.ok(resolveSave);

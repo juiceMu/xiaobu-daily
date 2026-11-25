@@ -96,7 +96,7 @@ function HistoryTab({
   ref?: React.Ref<View>;
   testID?: string;
 }) {
-  const { colors } = useAppTheme();
+  const { colors, palette } = useAppTheme();
   const focus = useKeyboardFocus();
   // RN Web 支持 onKeyDown，原生 Pressable 的公共类型未声明此事件。
   const webProps = onKeyDown
@@ -127,7 +127,7 @@ function HistoryTab({
         style={[
           styles.tabLabel,
           {
-            color: selected ? colors.ink : colors.muted,
+            color: selected ? (palette?.brand.ink ?? colors.ink) : colors.muted,
             fontWeight: selected ? '700' : '400',
           },
         ]}

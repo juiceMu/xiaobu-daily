@@ -36,6 +36,7 @@ import type { GiftQrCodeProps } from '../ui/GiftQrCode';
 import type { GiftScannerProps } from '../ui/GiftScanner';
 import { useAndroidMountReady } from '../ui/useAndroidMountReady';
 import { CopyCodeButton } from '../ui/CopyCodeButton';
+import { softThemeRoles } from '../ui/themeCatalog';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { useGroupView } from '../ui/GroupViewProvider';
 import { space } from '../ui/uiTokens';
@@ -52,7 +53,7 @@ function memberTasks(app: AppState, date: string, today: string) {
 export function GroupScreen() {
   const mountReady = useAndroidMountReady(600);
   const styles = useScreenStyles();
-  const { colors } = useAppTheme();
+  const { colors, palette } = useAppTheme();
   const { state, busy, syncing, syncStatus, syncFailed, run, syncGroup } =
     useApp();
   const { error: viewError } = useGroupView();
@@ -99,7 +100,9 @@ export function GroupScreen() {
         syncFailed
           ? {
               padding: space[8],
-              backgroundColor: colors.field,
+              backgroundColor: palette
+                ? softThemeRoles.warningSoft
+                : colors.field,
               borderWidth: 1,
               borderColor: colors.border,
             }
@@ -108,7 +111,10 @@ export function GroupScreen() {
     >
       <Text
         accessibilityRole={syncFailed ? 'alert' : undefined}
-        style={styles.muted}
+        style={[
+          styles.muted,
+          palette && syncFailed ? { color: softThemeRoles.warning } : undefined,
+        ]}
       >
         {syncStatus}
       </Text>
@@ -204,7 +210,7 @@ export function GroupScreen() {
               >
                 <ActionButton
                   mode="text"
-                  tone="danger"
+                  textColor={colors.danger}
                   disabled={busy}
                   onPress={() => setLeaving(true)}
                 >
