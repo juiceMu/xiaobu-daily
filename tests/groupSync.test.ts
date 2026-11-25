@@ -9,6 +9,7 @@ import {
   getTicketStatus,
   migrateState,
   recordMilestoneValue,
+  redeemTicket,
   updateSettings,
 } from '../src/domain/engine';
 import {
@@ -316,59 +317,82 @@ test('较短、相同和任意顺序的创建者日志均保留最新组名和�
   assert.equal(withImpostor.groupLink?.ownerAccountId, owner.sync.accountId);
 });
 
-test('新里程碑奖券按取得时的设置到期，同版同步与本地重载保留日期和历史无日期状态', () => {
-  const goalRule = {
+test('同步日志和本地重载保留永久里程碑券与打卡券的签发有效期', () => {
+  const now = new Date(2026, 11, 30, 13);
+  const expected = new Date(2027, 0, 10, 23, 59).toISOString();
+  const original = createInitialState(now);
+  const goal = addMilestoneGoal(original, {
     name: '阅读',
     unit: '页',
     startWeight: 0,
     step: 1,
     direction: 'increase',
-  } as const;
-  const now = new Date(2026, 11, 30, 13);
-  const expected = new Date(2027, 0, 10, 23, 59).toISOString();
-  const original = createInitialState(now);
-  const goal = addMilestoneGoal(original, goalRule);
-  assert.ok(goal.goal);
-  assert.ok(recordMilestoneValue(original, goal.goal.id, 1, now).ok);
-  // 模拟升级前已发奖券的无日期快照。
-  original.tickets[0].expiresAt = null;
+  }).goal!;
+  assert.ok(recordMilestoneValue(original, goal.id, 1, now).ok);
   let board = initializeSync(migrateState(original), clock('expiry'));
   board = change(board, (draft) => {
-    assert.ok(updateSettings(draft, { expiryDay: 7, expiryTime: '23:59' }).ok);
-    assert.ok(recordMilestoneValue(draft, goal.goal!.id, 2, now).ok);
+    assert.ok(
+      updateSettings(draft, { threshold: 1, expiryDay: 7, expiryTime: '23:59' })
+        .ok,
+    );
+    assert.ok(recordMilestoneValue(draft, goal.id, 2, now).ok);
+    assert.ok(checkIn(draft, draft.tasks[0].id, now).ok);
+    assert.ok(redeemTicket(draft, now).ok);
   });
   board = change(board, (draft) => {
     assert.ok(updateSettings(draft, { expiryEnabled: false }).ok);
-    assert.ok(recordMilestoneValue(draft, goal.goal!.id, 3, now).ok);
+    assert.ok(recordMilestoneValue(draft, goal.id, 3, now).ok);
+    assert.ok(checkIn(draft, draft.tasks[1].id, now).ok);
+    assert.ok(redeemTicket(draft, now).ok);
   });
-  assert.deepEqual(
-    board.tickets.map((ticket) => ticket.expiresAt),
-    [null, expected, null],
-  );
+  board = change(board, (draft) => {
+    assert.ok(
+      updateSettings(draft, {
+        expiryEnabled: true,
+        expiryDay: 2,
+        expiryTime: '12:30',
+      }).ok,
+    );
+  });
   for (const returned of [
     migrateState(structuredClone(board)),
     journalState(exportAccountJournal(board)),
   ]) {
-    const limited = returned.tickets.find(
-      (ticket) => ticket.expiresAt === expected,
-    )!;
-    assert.equal(
-      getTicketStatus(limited, returned, new Date(Date.parse(expected) - 1)),
-      'available',
-    );
-    assert.equal(
-      getTicketStatus(limited, returned, new Date(expected)),
-      'expired',
+    const deadline = new Date(expected);
+    const milestoneTickets = returned.tickets.filter(
+      (ticket) => ticket.source === 'weight',
     );
     assert.deepEqual(
-      returned.tickets
-        .map((ticket) => [ticket.milestone, ticket.expiresAt])
-        .sort((a, b) => Number(a[0]) - Number(b[0])),
-      [
-        [1, null],
-        [2, expected],
-        [3, null],
-      ],
+      milestoneTickets
+        .map((ticket) => ticket.milestone)
+        .sort((a, b) => Number(a) - Number(b)),
+      [1, 2, 3],
+    );
+    for (const ticket of milestoneTickets) {
+      assert.equal(ticket.expiresAt, null);
+      assert.equal(
+        getTicketStatus(ticket, returned, new Date(2030, 0, 1)),
+        'available',
+      );
+    }
+    const redeemed = returned.tickets.filter(
+      (ticket) => ticket.source !== 'weight',
+    );
+    assert.equal(redeemed.length, 2);
+    const limited = redeemed.find((ticket) => ticket.expiresAt === expected);
+    const withoutDeadline = redeemed.find(
+      (ticket) => ticket.expiresAt === null,
+    );
+    assert.ok(limited);
+    assert.ok(withoutDeadline);
+    assert.equal(
+      getTicketStatus(limited, returned, new Date(deadline.getTime() - 1)),
+      'available',
+    );
+    assert.equal(getTicketStatus(limited, returned, deadline), 'expired');
+    assert.equal(
+      getTicketStatus(withoutDeadline, returned, deadline),
+      'available',
     );
   }
 });

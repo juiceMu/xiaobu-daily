@@ -64,19 +64,3 @@ export function usedTicketRows(tickets: Ticket[]): TicketListRow[] {
 export function unlockedRewards(goal: MilestoneGoal): number[] {
   return [...goal.unlockedMilestones].reverse();
 }
-
-export function milestoneRewardExpiries(
-  tickets: readonly Ticket[],
-  goalId: string,
-): Map<number, string | null> {
-  const expiries = new Map<number, string | null>();
-  for (const ticket of tickets) {
-    if (
-      ticket.source === 'weight' &&
-      ticket.goalId === goalId &&
-      ticket.milestone !== undefined
-    )
-      expiries.set(ticket.milestone, ticket.expiresAt);
-  }
-  return expiries;
-}

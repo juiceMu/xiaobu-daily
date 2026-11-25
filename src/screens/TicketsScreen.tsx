@@ -18,7 +18,10 @@ import { ActionButton, Empty, Page, Panel } from '../ui/components';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { iconName } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
-import { formatMilestoneSource, formatTicketExpiry } from '../ui/ticketLabels';
+import {
+  formatMilestoneSource,
+  formatTicketValidity,
+} from '../ui/ticketLabels';
 import { font, radius, space } from '../ui/uiTokens';
 import { usedTicketRows, type TicketListRow } from '../ui/rewardHistory';
 import {
@@ -440,7 +443,7 @@ export function TicketsScreen() {
           const statusLabel =
             status === 'used'
               ? formatDate(item.usedAt!)
-              : formatTicketExpiry(item.expiresAt);
+              : formatTicketValidity(item);
           const activeCompanion = item.companionUses?.find(
             (session) => !['completed', 'cancelled'].includes(session.stage),
           );
@@ -546,7 +549,7 @@ export function TicketsScreen() {
                   >
                     获得于 {formatDate(item.createdAt)}
                     {status === 'used'
-                      ? ` · ${formatTicketExpiry(item.expiresAt)}`
+                      ? ` · ${formatTicketValidity(item)}`
                       : ''}
                   </Text>
                 </View>

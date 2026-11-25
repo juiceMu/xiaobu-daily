@@ -171,7 +171,7 @@ test('奖券标题两行省略保留全文读屏，状态来源获得时间紧�
     source.text.includes('formatMilestoneSource(item.goalName || goal?.name)'),
   );
   assert.ok(source.text.includes('formatDate(item.usedAt!)'));
-  assert.ok(source.text.includes('formatTicketExpiry(item.expiresAt)'));
+  assert.ok(source.text.includes('formatTicketValidity(item)'));
   assert.ok(source.text.includes('formatDate(item.createdAt)'));
   assert.equal(source.text.includes('永久有效 · 随时享受'), false);
   assert.ok(source.text.includes('<ConfirmationDialog'));

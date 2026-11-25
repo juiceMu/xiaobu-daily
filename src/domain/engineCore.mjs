@@ -138,7 +138,7 @@ export function migrateState(saved) {
     if (milestoneUnits.length !== Math.floor(reached / stepUnits)) invalid();
     const weightTickets = state.tickets.filter((ticket) => ticket.source === 'weight' && ticket.goalId === weight.id);
     if (weightTickets.some((ticket) => ticket.goalIcon !== undefined && (!validMilestoneIcon(ticket.goalIcon) || ticket.goalIcon !== (weight.icon || DEFAULT_MILESTONE_ICON)))) invalid();
-    if (weightTickets.length !== milestoneUnits.length || weightTickets.some((ticket) => (ticket.expiresAt !== null && Date.parse(ticket.expiresAt) <= Date.parse(ticket.createdAt)) || typeof ticket.milestone !== 'number' || !weight.unlockedMilestones.includes(ticket.milestone) || (ticket.goalName !== undefined && ticket.goalName !== weight.name) || (ticket.unit !== undefined && ticket.unit !== weight.unit))) invalid();
+    if (weightTickets.length !== milestoneUnits.length || weightTickets.some((ticket) => ticket.expiresAt !== null || typeof ticket.milestone !== 'number' || !weight.unlockedMilestones.includes(ticket.milestone) || (ticket.goalName !== undefined && ticket.goalName !== weight.name) || (ticket.unit !== undefined && ticket.unit !== weight.unit))) invalid();
     if (new Set(weightTickets.map((ticket) => ticket.milestone)).size !== weightTickets.length) invalid();
   }
   return state;
@@ -232,7 +232,7 @@ export function redeemCompanionTicket(state, now = new Date(), occurredDate) {
 
 export function getTicketStatus(ticket, state, now = new Date()) {
   if (ticket.usedAt) return 'used';
-  if (ticket.expiresAt && asDate(now).getTime() >= asDate(ticket.expiresAt).getTime()) return 'expired';
+  if (ticket.source !== 'weight' && ticket.expiresAt && asDate(now).getTime() >= asDate(ticket.expiresAt).getTime()) return 'expired';
   return 'available';
 }
 
@@ -393,7 +393,7 @@ export function recordMilestoneValue(state, id, weightValue, now = new Date()) {
   goal.entries.push({ id: makeId('weight'), date, weight: value, createdAt: asDate(now).toISOString() });
   for (const milestone of newMilestones) {
     goal.unlockedMilestones.push(milestone);
-    state.tickets.push({ id: makeId('ticket'), name: `${goal.name} · ${milestone}${goal.unit}里程碑奖券`, createdAt: asDate(now).toISOString(), week: weekKey(now), expiresAt: getExpiry(state.settings, now), usedAt: null, source: 'weight', milestone, goalId: goal.id, goalName: goal.name, unit: goal.unit, goalIcon: goal.icon || DEFAULT_MILESTONE_ICON });
+    state.tickets.push({ id: makeId('ticket'), name: `${goal.name} · ${milestone}${goal.unit}里程碑奖券`, createdAt: asDate(now).toISOString(), week: weekKey(now), expiresAt: null, usedAt: null, source: 'weight', milestone, goalId: goal.id, goalName: goal.name, unit: goal.unit, goalIcon: goal.icon || DEFAULT_MILESTONE_ICON });
   }
   return success(newMilestones.length ? `记录成功，解锁 ${newMilestones.length} 张奖券！` : `${goal.name}已记录，尚未达到新的里程碑`, { milestones: newMilestones });
 }

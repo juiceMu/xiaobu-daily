@@ -47,8 +47,7 @@ import {
 import { iconName } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { control, font, radius, space } from '../ui/uiTokens';
-import { milestoneRewardExpiries, unlockedRewards } from '../ui/rewardHistory';
-import { formatTicketExpiry } from '../ui/ticketLabels';
+import { unlockedRewards } from '../ui/rewardHistory';
 import { formatCalendarDate } from '../ui/displayDate';
 import { milestoneGroups, selectMilestone } from '../ui/milestoneSelection';
 import { milestoneUnitError } from '../domain/milestoneUnit.mjs';
@@ -218,15 +217,7 @@ const rewardButtonContent = {
   marginVertical: Platform.OS === 'web' ? 7 : 11,
 };
 const rewardButtonLabel = { fontSize: 12, lineHeight: 18, marginVertical: 4 };
-function RewardRow({
-  value,
-  goal,
-  expiresAt,
-}: {
-  value: number;
-  goal: MilestoneGoal;
-  expiresAt?: string | null;
-}) {
+function RewardRow({ value, goal }: { value: number; goal: MilestoneGoal }) {
   const { colors } = useAppTheme();
   return (
     <View
@@ -266,10 +257,7 @@ function RewardRow({
         {goal.unit}
       </Text>
       <Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted }}>
-        已发放 ·{' '}
-        {expiresAt === undefined
-          ? '未查到到期信息'
-          : formatTicketExpiry(expiresAt)}
+        已发放 · 永久有效
       </Text>
     </View>
   );
@@ -320,9 +308,6 @@ export function MilestonesScreen() {
     }
   }, [pagerWidth, selectedIndex, selectedPage, archiveFilter, search]);
   const rewards = goal ? unlockedRewards(goal) : [];
-  const rewardExpiries = goal
-    ? milestoneRewardExpiries(state.tickets, goal.id)
-    : undefined;
   const [historyOpen, setHistoryOpen] = useState(false);
   const [form, setForm] = useState<GoalForm | null>(null);
   const [record, setRecord] = useState('');
@@ -417,7 +402,10 @@ export function MilestonesScreen() {
         10,
     ) / 10;
   return (
-    <Page title="里程碑" subtitle="到达新刻度解锁 1 张奖券，同样适用到期规则。">
+    <Page
+      title="里程碑"
+      subtitle="到达新刻度解锁 1 张奖券，永久有效，不受到期设置影响。"
+    >
       <ActionButton
         mode="contained"
         icon="plus"
@@ -767,12 +755,7 @@ export function MilestonesScreen() {
               rewards
                 .slice(0, 6)
                 .map((value) => (
-                  <RewardRow
-                    key={value}
-                    value={value}
-                    goal={goal}
-                    expiresAt={rewardExpiries?.get(value)}
-                  />
+                  <RewardRow key={value} value={value} goal={goal} />
                 ))
             ) : (
               <Empty
@@ -869,13 +852,7 @@ export function MilestonesScreen() {
                 contentContainerStyle={styles.list}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
                 renderItem={({ item }) =>
-                  goal ? (
-                    <RewardRow
-                      value={item}
-                      goal={goal}
-                      expiresAt={rewardExpiries?.get(item)}
-                    />
-                  ) : null
+                  goal ? <RewardRow value={item} goal={goal} /> : null
                 }
               />
             </View>

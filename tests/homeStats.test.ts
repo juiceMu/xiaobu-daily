@@ -72,20 +72,20 @@ test('首页实际可用券表达式合计全部来源，排除已用到期券�
   });
   state.tickets = [
     ticket('weekly-1', 'checkin', later, null),
-    ticket('goal-1', 'weight', later, null),
+    ticket('goal-1', 'weight', null, null),
     ticket('gift-1', 'gift', later, null),
-    ticket('permanent-1', undefined, null, null),
+    ticket('no-deadline-1', undefined, null, null),
     ticket('used-1', 'checkin', later, previous),
     ticket('used-2', 'gift', previous, previous),
     ticket('expires-now', 'checkin', now.toISOString(), null),
-    ticket('expired-1', 'weight', previous, null),
+    ticket('expired-1', 'gift', previous, null),
   ];
   const before = structuredClone(state);
   for (const history of [new Date(2020, 0, 1), now, new Date(2026, 9, 19)])
     assert.equal(evaluate(state, now, getTicketStatus, history), 4);
   assert.equal(
     evaluate(state, new Date(later), getTicketStatus, new Date(2020, 0, 1)),
-    1,
+    2,
   );
   assert.deepEqual(state, before);
 });

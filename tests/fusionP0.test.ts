@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { numericInputError } from '../src/domain/engine';
-import { formatTicketExpiry } from '../src/ui/ticketLabels';
+import { formatTicketValidity } from '../src/ui/ticketLabels';
 import {
   bottomNavigationHeight,
   taskMenuLayout,
@@ -159,13 +159,26 @@ test('任务名称空白或次数越界均禁用保存，修正字段后可继�
 });
 
 test('奖券显示当地日期与 24 小时截止时间，已保存的空日期没有伪造截止时间', () => {
-  assert.equal(formatTicketExpiry(null), '未设到期时间');
   assert.equal(
-    formatTicketExpiry(new Date(2027, 0, 1, 0, 9).toISOString()),
+    formatTicketValidity({ source: 'weight', expiresAt: null }),
+    '永久有效',
+  );
+  assert.equal(
+    formatTicketValidity({ source: 'checkin', expiresAt: null }),
+    '未设到期时间',
+  );
+  assert.equal(formatTicketValidity({ expiresAt: null }), '未设到期时间');
+  assert.equal(
+    formatTicketValidity({
+      expiresAt: new Date(2027, 0, 1, 0, 9).toISOString(),
+    }),
     '2027年1月1日 00:09 到期',
   );
   assert.equal(
-    formatTicketExpiry(new Date(2026, 10, 25, 23, 59).toISOString()),
+    formatTicketValidity({
+      source: 'checkin',
+      expiresAt: new Date(2026, 10, 25, 23, 59).toISOString(),
+    }),
     '2026年11月25日 23:59 到期',
   );
 });

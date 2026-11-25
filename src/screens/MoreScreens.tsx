@@ -388,7 +388,7 @@ export function SettingsScreen() {
                   <View style={styles.grow}>
                     <Text style={styles.heading}>每周奖券到期</Text>
                     <Text style={styles.muted}>
-                      适用于以后兑换的奖券和新解锁的里程碑奖券
+                      只影响以后兑换的打卡券；里程碑券永久有效
                     </Text>
                   </View>
                   <CompactSwitch
@@ -438,13 +438,12 @@ export function SettingsScreen() {
                   />
                   <Text style={styles.muted}>
                     {expiryEnabled
-                      ? `新发奖券将在下一周周${'一二三四五六日'[expiryDay - 1]} ${expiryTime} 到期，按手机本地时间计算。`
+                      ? `新兑换的打卡券将在下一周周${'一二三四五六日'[expiryDay - 1]} ${expiryTime} 到期，按手机本地时间计算。`
                       : '开启「每周奖券到期」后可设置'}
                   </Text>
                 </View>
                 <Text style={styles.muted}>
-                  本周未兑换的打卡次数不会结转。到达新刻度解锁 1
-                  张奖券，同样适用到期规则。已发奖券维持原有效期。
+                  本周未兑换的打卡次数不会结转。已发奖券维持原有效期。
                 </Text>
                 <ErrorText message={error} />
                 <ActionButton

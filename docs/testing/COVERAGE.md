@@ -218,9 +218,9 @@ LAN-014 由 `tests/lanListener.test.ts` 抽取执行真实 `startLanListener`，
 
 - FUSION-005 / P0-6 由 `tests/themePreference.test.ts` 执行四类运行时配色解析，验证六套基线色板的分类随主题变化且原色板不变。二维码黑白属于识别功能色。真实切换、全页面对比和设备像素待 UI 验收。
 - FUSION-001／002／003／004／006 由 `tests/fusionP0.test.ts` 检查日期和设置的锁定、实际周日期回调、任务名称与次数、有效期显示以及菜单位置计算和界面结构。真实触控、键盘、日期浮层与菜单可见性需要项目 UI runtime 或设备。
-- FUSION-004 与 REWARD-006 由 `tests/groupSync.test.ts` 执行同版同步日志的导出、回放及本地重载，覆盖跨年限时券的到期边界、历史空日期和关闭规则后新奖券的空日期。端到端同步和旧版混用需单独验证。
+- FUSION-004 与 REWARD-006 由 `tests/groupSync.test.ts` 执行同版同步日志的导出、回放及本地重载，覆盖永久里程碑券、跨年限时打卡券的到期边界，以及关闭规则后打卡券无日期、重新开启也不改已发券。端到端同步需单独验证。
 - FUSION-001/002/003/004/006 由 `tests/fusionP0.test.ts` 执行部分真实回调并覆盖状态绑定、有效期格式及菜单位置模型。测试未挂载应用，实际可见性、触控和读屏需平台补证。
-- FUSION-004 还由 `tests/engine.test.mjs`、`tests/groupSync.test.ts` 验证发券规则、旧券无到期兼容、新旧券重载及同版本日志投影。未在真实设备上执行跨版本同步。
+- FUSION-004 由 `tests/fusionP0.test.ts` 执行有效期标签格式化，验证同为空日期时区分里程碑券和打卡券，兼容未标明来源的旧打卡券。`tests/engine.test.mjs` 覆盖 GOAL-003 的永久发券、跨周状态和使用后去重。未在真实设备上执行跨版本同步。
 - FUSION-007 至 FUSION-010 由 `tests/growthModel.test.ts` 与导航、演示数据、小组动态、奖券和里程碑相关测试覆盖真实数据模型、路由及部分界面结构。实际分页、返回焦点和弹窗交互需平台证据。
 - FUSION-011/012 由 `tests/uiTheme.test.ts`、`tests/compactInputs.test.ts`、`tests/settingsControls.test.ts`、`tests/compactCalendar.test.ts`、`tests/weekStrip.test.ts` 及 `tests/keyboardFocus.test.ts` 覆盖状态属性、样式声明和焦点模型。375px 布局、真实热区、读屏和键盘遍历仍待运行。
 - FUSION-013/014 使用成长记录模型、紧凑日历、导航、扫码入口与 `tests/fixtureLan.test.ts`。同步测试执行真实回调并注入超时，确认内联失败不会同时派发全局消息。相机、系统授权和颜色面积需平台验证。

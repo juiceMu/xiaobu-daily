@@ -76,7 +76,7 @@ test('奖励行12号文图24字14上下6，奖励区紧凑标题13并保留导�
     'size={14}',
     'fontSize: 12',
     'lineHeight: 18',
-    'formatTicketExpiry(expiresAt)',
+    '已发放 · 永久有效',
   ])
     assert.ok(row.includes(value), value);
   assert.equal(row.includes('fontSize: 14'), false);

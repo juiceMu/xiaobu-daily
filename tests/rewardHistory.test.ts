@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   groupUsedTickets,
-  milestoneRewardExpiries,
   usedTicketRows,
   unlockedRewards,
 } from '../src/ui/rewardHistory';
@@ -210,26 +209,4 @@ test('手机导航采用紧凑标题底栏，里程碑和奖券输入统一由�
     'utf8',
   );
   assert.ok(sharedInput.includes('fontSize: font[14], lineHeight: 20'));
-});
-
-test('里程碑历史按目标及刻度匹配券日期，区分未设到期与缺少信息', () => {
-  const state = createInitialState();
-  const rule = {
-    name: '阅读',
-    unit: '页',
-    startWeight: 0,
-    step: 1,
-    direction: 'increase',
-  } as const;
-  const first = addMilestoneGoal(state, rule).goal!;
-  const second = addMilestoneGoal(state, rule).goal!;
-  const now = new Date(2026, 10, 25, 12);
-  recordMilestoneValue(state, first.id, 1, now);
-  recordMilestoneValue(state, second.id, 1, now);
-  state.tickets[0].expiresAt = null;
-  const old = milestoneRewardExpiries(state.tickets, first.id);
-  const recent = milestoneRewardExpiries(state.tickets, second.id);
-  assert.equal(old.get(1), null);
-  assert.equal(recent.get(1), new Date(2026, 10, 30).toISOString());
-  assert.equal(recent.get(2), undefined);
 });

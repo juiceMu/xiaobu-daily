@@ -278,7 +278,7 @@ test('体重首次突破才发券，回升和同日反复记录均不会重复�
   assert.equal(getWeekStats(state, monday).total, 0);
   for (const ticket of state.tickets) {
     assert.equal(ticket.source, 'weight');
-    assert.equal(ticket.expiresAt, new Date(2026, 9, 26, 0, 0).toISOString());
+    assert.equal(ticket.expiresAt, null);
     assert.equal(ticket.usedAt, null);
   }
 });
@@ -308,13 +308,14 @@ test('小数起点每降低一斤解锁，十分之一刻度不误判边界', ()
   assert.deepEqual(recordWeight(precision, 128.1, monday).milestones, [128.1]);
 });
 
-test('不设到期的里程碑券跨周和规则调整后仍可用，使用后不补发', () => {
+test('永久里程碑券跨周和规则调整后仍可用，使用后不补发', () => {
   const state = createInitialState();
-  updateSettings(state, { expiryEnabled: false });
+  assert.ok(updateSettings(state, { expiryEnabled: false }).ok);
   configureWeightGoal(state, 130);
   recordWeight(state, 129, monday);
   const ticket = state.tickets[0];
-  updateSettings(state, { expiryEnabled: true, expiryDay: 7, expiryTime: '23:59' });
+  assert.equal(ticket.expiresAt, null);
+  assert.ok(updateSettings(state, { expiryEnabled: true, expiryDay: 7, expiryTime: '23:59' }).ok);
   assert.equal(getTicketStatus(ticket, state, new Date(2030, 0, 1)), 'available');
   assert.equal(useTicket(state, ticket.id, new Date(2030, 0, 1)).ok, true);
   assert.equal(useTicket(state, ticket.id, new Date(2030, 0, 1)).ok, false);
@@ -669,7 +670,7 @@ test('新增入口首次配置主目标，其后添加独立递增递减目标�
   assert.deepEqual(reading.unlockedMilestones, [5, 10]);
   assert.equal(state.tickets.filter((ticket) => ticket.goalId === reading.id).length, 2);
   assert.equal(state.tickets.filter((ticket) => ticket.goalId === weight.id).length, 3);
-  assert.equal(state.tickets.every((ticket) => ticket.expiresAt === new Date(2026, 9, 26, 0, 0).toISOString()), true);
+  assert.equal(state.tickets.every((ticket) => ticket.expiresAt === null), true);
 });
 
 test('暂停目标A不影响目标B，新目标相同阈值和名称也不会相互串券', () => {
