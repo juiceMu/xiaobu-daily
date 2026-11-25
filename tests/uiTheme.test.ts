@@ -1,8 +1,13 @@
+import { bottomNavigationHeight } from '../src/ui/taskMenuLayout';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-import { defaultColors, themeOptions } from '../src/ui/themeCatalog';
+import {
+  defaultColors,
+  themeOptions,
+  utilityColors,
+} from '../src/ui/themeCatalog';
 
 // 主题和结构回归，不替代浏览器/真机上的实际视觉验收。
 const themeText = readFileSync(
@@ -129,14 +134,16 @@ test('奖励按钮在森林、海盐和鸢尾跟随主题，其他主题保留�
   const getTones = new Function(
     'colors',
     'quiet',
+    'utilityColors',
     'return (' + initializer.getText(source) + ')',
   ) as (
     colors: typeof defaultColors,
     quiet: boolean,
+    utility: typeof utilityColors,
   ) => { reward: { fill: string; text: string } };
   for (const option of themeOptions) {
     const { colors } = option;
-    const tone = getTones(colors, option.quiet === true).reward;
+    const tone = getTones(colors, option.quiet === true, utilityColors).reward;
     assert.deepEqual(
       tone,
       option.quiet
@@ -273,38 +280,16 @@ test('页面标题16号且顶部留白16dp，底栏在系统安全区之外增�
   assert.ok(
     app.includes('safeAreaInsets={{ ...insets, bottom: bottomInset }}'),
   );
-  const source = ts.createSourceFile(
-    'App.tsx',
-    app,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
+  assert.ok(
+    app.includes('height: bottomNavigationHeight(fontScale, insets.bottom)'),
   );
-  let heightExpression = '';
-  function visit(node: ts.Node) {
-    if (
-      ts.isPropertyAssignment(node) &&
-      node.name.getText(source) === 'height' &&
-      node.initializer.getText(source).includes('bottomInset')
-    )
-      heightExpression = node.initializer.getText(source);
-    ts.forEachChild(node, visit);
-  }
-  visit(source);
-  assert.ok(heightExpression);
-  const height = new Function(
-    'fontScale',
-    'bottomInset',
-    'return ' + heightExpression,
-  ) as (scale: number, inset: number) => number;
   for (const bottom of [0, 20, 34]) {
     for (const scale of [1, 1.25, 1.5, 2]) {
       const reserved = bottom + 12;
       assert.equal(
-        height(scale, reserved) - reserved,
+        bottomNavigationHeight(scale, bottom) - reserved,
         64 + Math.max(0, Math.min(scale, 1.5) - 1) * 32,
       );
-      assert.equal(height(scale, reserved) - height(scale, bottom), 12);
     }
   }
   assert.ok(app.includes('labelMaxFontSizeMultiplier={1.5}'));

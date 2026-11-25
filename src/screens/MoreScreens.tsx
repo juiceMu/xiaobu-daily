@@ -93,7 +93,7 @@ export function MoreScreen({
     {
       route: 'milestones',
       title: '里程碑',
-      description: '每个新刻度，都值得一份永久奖励',
+      description: '每个新刻度，都能解锁奖券',
       icon: 'flag-outline',
       color: colors.primaryContainer,
     },
@@ -678,6 +678,8 @@ export function SettingsScreen() {
   );
   const [expiryDay, setExpiryDay] = useState(state.settings.expiryDay);
   const [expiryTime, setExpiryTime] = useState(state.settings.expiryTime);
+  const expiryLocked = busy || !expiryEnabled;
+  const canSave = !!rewardName.trim();
   const [error, setError] = useState('');
   const dirty =
     threshold !== String(state.settings.threshold) ||
@@ -694,7 +696,7 @@ export function SettingsScreen() {
     );
   });
   async function save() {
-    if (busy) return;
+    if (busy || !canSave) return;
     const result = await run((draft) =>
       updateSettings(draft, {
         threshold,
@@ -785,7 +787,9 @@ export function SettingsScreen() {
                 <View style={styles.row}>
                   <View style={styles.grow}>
                     <Text style={styles.heading}>每周奖券到期</Text>
-                    <Text style={styles.muted}>只影响以后兑换的打卡奖券</Text>
+                    <Text style={styles.muted}>
+                      适用于以后兑换的奖券和新解锁的里程碑奖券
+                    </Text>
                   </View>
                   <View
                     style={{
@@ -804,46 +808,53 @@ export function SettingsScreen() {
                     />
                   </View>
                 </View>
-                {expiryEnabled && (
-                  <>
-                    <Text style={styles.body}>下周哪一天过期？</Text>
-                    <View style={[styles.actions, { marginTop: 0 }]}>
-                      {Array.from({ length: 7 }, (_, index) => index + 1).map(
-                        (day) => (
-                          <ActionButton
-                            key={day}
-                            accessibilityLabel={
-                              '周' + '一二三四五六日'[day - 1]
-                            }
-                            mode={expiryDay === day ? 'contained' : 'outlined'}
-                            accessibilityState={{ selected: expiryDay === day }}
-                            disabled={busy}
-                            onPress={() => setExpiryDay(day)}
-                          >
-                            周{'一二三四五六日'[day - 1]}
-                          </ActionButton>
-                        ),
-                      )}
-                    </View>
-                    <TimeField
-                      label="到期时间"
-                      value={expiryTime}
-                      onChange={setExpiryTime}
-                      disabled={busy}
-                    />
-                    <Text style={styles.muted}>
-                      新兑换的奖券将在下一周周{'一二三四五六日'[expiryDay - 1]}{' '}
-                      {expiryTime} 到期，按手机本地时间计算。
-                    </Text>
-                  </>
-                )}
-                {!expiryEnabled && (
-                  <Text style={styles.muted}>
-                    以后兑换的打卡奖券将永久有效。
+                <View
+                  testID="expiry-settings"
+                  aria-disabled={!expiryEnabled}
+                  style={styles.form}
+                >
+                  <Text style={expiryEnabled ? styles.body : styles.muted}>
+                    下周哪一天过期？
                   </Text>
-                )}
+                  <View style={[styles.actions, { marginTop: 0 }]}>
+                    {Array.from({ length: 7 }, (_, index) => index + 1).map(
+                      (day) => (
+                        <ActionButton
+                          key={day}
+                          accessibilityLabel={'周' + '一二三四五六日'[day - 1]}
+                          mode={expiryDay === day ? 'contained' : 'outlined'}
+                          accessibilityState={{
+                            selected: expiryDay === day,
+                            disabled: expiryLocked,
+                          }}
+                          aria-disabled={expiryLocked}
+                          disabled={expiryLocked}
+                          onPress={() => {
+                            if (!expiryLocked) setExpiryDay(day);
+                          }}
+                        >
+                          周{'一二三四五六日'[day - 1]}
+                        </ActionButton>
+                      ),
+                    )}
+                  </View>
+                  <TimeField
+                    label="到期时间"
+                    value={expiryTime}
+                    onChange={(value) => {
+                      if (!expiryLocked) setExpiryTime(value);
+                    }}
+                    disabled={expiryLocked}
+                  />
+                  <Text style={styles.muted}>
+                    {expiryEnabled
+                      ? `新发奖券将在下一周周${'一二三四五六日'[expiryDay - 1]} ${expiryTime} 到期，按手机本地时间计算。`
+                      : '开启「每周奖券到期」后可设置'}
+                  </Text>
+                </View>
                 <Text style={styles.muted}>
-                  本周未兑换的打卡次数不会结转。里程碑奖券始终永久有效；已发奖券维持原有效期。
+                  本周未兑换的打卡次数不会结转。到达新刻度解锁 1
+                  张奖券，同样适用到期规则。已发奖券维持原有效期。
                 </Text>
                 <ErrorText message={error} />
                 <ActionButton
@@ -851,7 +862,8 @@ export function SettingsScreen() {
                   icon="check"
                   tone="save"
                   loading={busy}
-                  disabled={busy}
+                  disabled={busy || !canSave}
+                  aria-disabled={busy || !canSave}
                   onPress={() => {
                     void save();
                   }}

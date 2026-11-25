@@ -1,3 +1,4 @@
+import { formatTicketExpiry } from '../ui/ticketLabels';
 import React, { useState, type ComponentType } from 'react';
 import { Keyboard, Platform, View } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -221,7 +222,7 @@ export function GiftsScreen() {
                   onPress={() => setValidity(item)}
                   disabled={busy}
                 >
-                  {item === 'week' ? '本周有效' : '永久有效'}
+                  {item === 'week' ? '本周有效' : '不设到期'}
                 </ActionButton>
               ))}
             </View>
@@ -308,9 +309,7 @@ export function GiftsScreen() {
                     <Text style={styles.heading}>{gift.name}</Text>
                     <Text style={styles.muted}>
                       已制作 · {formatDate(gift.issuedAt)} ·{' '}
-                      {gift.expiresAt
-                        ? `${formatDate(gift.expiresAt)} 到期`
-                        : '永久有效'}
+                      {formatTicketExpiry(gift.expiresAt)}
                     </Text>
                     {(state.giftState?.receipts ?? [])
                       .filter((receipt) => receipt.giftId === gift.giftId)
@@ -356,7 +355,8 @@ export function GiftsScreen() {
                       )?.name ?? '收到的心意券'}
                     </Text>
                     <Text style={styles.muted}>
-                      本机已领取 · {formatDate(receipt.receivedAt)}
+                      本机已领取 · {formatDate(receipt.receivedAt)} ·{' '}
+                      {formatTicketExpiry(receipt.gift.expiresAt)}
                     </Text>
                   </View>
                   <ActionButton
@@ -421,7 +421,7 @@ export function GiftsScreen() {
           <Confirm
             visible={confirmCreate}
             title="制作这张赠券？"
-            description={`「${giftName}」将作为一张新的${validity === 'week' ? '本周' : '永久'}赠券发出，不消耗已有奖励。请只将券码给你想赠送的人。`}
+            description={`「${giftName}」将作为一张新的赠券发出（${validity === 'week' ? '本周有效' : '不设到期'}），不消耗已有奖励。请只将券码给你想赠送的人。`}
             busy={busy}
             error={error}
             onDismiss={() => {
@@ -437,7 +437,7 @@ export function GiftsScreen() {
             title="领取这张心意券？"
             description={
               incoming
-                ? `来自「${incoming.issuer.name}」的「${incoming.name}」。${incoming.expiresAt ? `${formatDate(incoming.expiresAt)} 前可用` : '永久有效'}。确认后保存到本机我的奖券。`
+                ? `来自「${incoming.issuer.name}」的「${incoming.name}」。${formatTicketExpiry(incoming.expiresAt)}。确认后保存到本机我的奖券。`
                 : ''
             }
             busy={busy}
@@ -460,9 +460,7 @@ export function GiftsScreen() {
                 <Text style={styles.heading}>{selected.name}</Text>
                 <Text style={styles.muted}>
                   来自 {selected.issuer.name} ·{' '}
-                  {selected.expiresAt
-                    ? `${formatDate(selected.expiresAt)} 到期`
-                    : '永久有效'}
+                  {formatTicketExpiry(selected.expiresAt)}
                 </Text>
                 {QrView ? <QrView value={exportGift(selected)} /> : null}
                 <Text style={styles.muted}>

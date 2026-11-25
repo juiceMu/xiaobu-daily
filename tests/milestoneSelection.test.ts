@@ -111,7 +111,7 @@ test('页内横向切换替代选择Modal，归档冻结目标并保留永久奖
     '已归档 · 归档前',
     '当前目标都已收好',
     'unlockedRewards(goal)',
-    '已解锁的永久奖励',
+    '已解锁的奖励',
   ])
     assert.ok(source.includes(text), text);
   assert.equal(source.includes('visible={selector}'), false);

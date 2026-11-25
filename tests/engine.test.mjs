@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { MILESTONE_ICONS, DEFAULT_MILESTONE_ICON, updateMilestoneIcon } from '../src/domain/engineCore.mjs';
 import { createInitialState, dateKey, weekKey, getWeekStats, getTaskCount, checkIn, undoCheckIn, redeemTicket, useTicket, getTicketStatus, addTask, updateTask, archiveTask, restoreTask, deleteTask, updateSettings, configureWeightGoal, configureMilestoneGoal, addMilestoneGoal, updateMilestoneGoal, deleteMilestoneGoal, recordMilestoneValue, setMilestoneEnabled, recordWeight, disableWeightGoal, migrateState } from '../src/domain/engineCore.mjs';
 
-test('里程碑可选独立图标，永久奖券保存对应图标且旧API使用默认图标', () => {
+test('里程碑可选独立图标，奖券保存对应图标且旧API使用默认图标', () => {
   const state = createInitialState();
   const first = addMilestoneGoal(state, { name: '阅读', unit: '页', startWeight: 0, step: 5, direction: 'increase', icon: '📖' }).goal;
   const second = addMilestoneGoal(state, { name: '跑步', unit: '公里', startWeight: 0, step: 1, direction: 'increase', icon: '🏃' }).goal;
@@ -261,7 +261,7 @@ test('任务新增编辑归档、非法配置原子拒绝并保留历史', () =>
   }
 });
 
-test('体重首次突破才发永久券，回升和同日反复记录均不会重复发券', () => {
+test('体重首次突破才发券，回升和同日反复记录均不会重复发券', () => {
   const state = createInitialState();
   assert.equal(state.version, 4);
   assert.deepEqual(state.weight, { id: 'legacy-weight', name: '体重', unit: '斤', direction: 'decrease', step: 1, enabled: false, startWeight: null, entries: [], unlockedMilestones: [] });
@@ -278,7 +278,7 @@ test('体重首次突破才发永久券，回升和同日反复记录均不会�
   assert.equal(getWeekStats(state, monday).total, 0);
   for (const ticket of state.tickets) {
     assert.equal(ticket.source, 'weight');
-    assert.equal(ticket.expiresAt, null);
+    assert.equal(ticket.expiresAt, new Date(2026, 9, 26, 0, 0).toISOString());
     assert.equal(ticket.usedAt, null);
   }
 });
@@ -308,8 +308,9 @@ test('小数起点每降低一斤解锁，十分之一刻度不误判边界', ()
   assert.deepEqual(recordWeight(precision, 128.1, monday).milestones, [128.1]);
 });
 
-test('永久里程碑券跨周和过期设置调整后仍可用，使用后不补发', () => {
+test('不设到期的里程碑券跨周和规则调整后仍可用，使用后不补发', () => {
   const state = createInitialState();
+  updateSettings(state, { expiryEnabled: false });
   configureWeightGoal(state, 130);
   recordWeight(state, 129, monday);
   const ticket = state.tickets[0];
@@ -401,7 +402,7 @@ test('v3重新加载保留已解锁里程碑和用券状态，不重复发券', 
   assert.equal(getTicketStatus(state.tickets[0], state, monday), 'used');
 });
 
-test('损坏或未来版存档拒绝加载，不能破坏永久券去重及渲染结构', () => {
+test('损坏或未来版存档拒绝加载，不能破坏里程碑券去重及渲染结构', () => {
   const base = createInitialState();
   configureWeightGoal(base, 130);
   recordWeight(base, 129, monday);
@@ -668,7 +669,7 @@ test('新增入口首次配置主目标，其后添加独立递增递减目标�
   assert.deepEqual(reading.unlockedMilestones, [5, 10]);
   assert.equal(state.tickets.filter((ticket) => ticket.goalId === reading.id).length, 2);
   assert.equal(state.tickets.filter((ticket) => ticket.goalId === weight.id).length, 3);
-  assert.equal(state.tickets.every((ticket) => ticket.expiresAt === null), true);
+  assert.equal(state.tickets.every((ticket) => ticket.expiresAt === new Date(2026, 9, 26, 0, 0).toISOString()), true);
 });
 
 test('暂停目标A不影响目标B，新目标相同阈值和名称也不会相互串券', () => {

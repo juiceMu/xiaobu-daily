@@ -18,7 +18,7 @@ import { ActionButton, Empty, Page, Panel } from '../ui/components';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { iconName } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
-import { formatMilestoneSource } from '../ui/ticketLabels';
+import { formatMilestoneSource, formatTicketExpiry } from '../ui/ticketLabels';
 import { TicketStatusBadge } from '../ui/TicketStatusBadge';
 import { usedTicketRows, type TicketListRow } from '../ui/rewardHistory';
 import { discardDraft, ErrorText, formatDate, useScreenStyles } from './shared';
@@ -432,10 +432,8 @@ export function TicketsScreen() {
             status === 'used'
               ? `已使用 · ${formatDate(item.usedAt!)}`
               : status === 'expired'
-                ? `已过期 · ${formatDate(item.expiresAt!)}`
-                : item.expiresAt
-                  ? `${formatDate(item.expiresAt)} 前可用`
-                  : '永久有效';
+                ? `已过期 · ${formatTicketExpiry(item.expiresAt)}`
+                : formatTicketExpiry(item.expiresAt);
           const activeCompanion = item.companionUses?.find(
             (session) => !['completed', 'cancelled'].includes(session.stage),
           );
@@ -531,6 +529,9 @@ export function TicketsScreen() {
                     }}
                   >
                     获得于 {formatDate(item.createdAt)}
+                    {status === 'used'
+                      ? ` · ${formatTicketExpiry(item.expiresAt)}`
+                      : ''}
                   </Text>
                 </View>
                 {status === 'available' &&

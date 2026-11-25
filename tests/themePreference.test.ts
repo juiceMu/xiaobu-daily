@@ -6,6 +6,7 @@ import {
   themeOptions,
   getThemeOption,
   isThemeId,
+  resolveThemeColors,
   type ThemeId,
 } from '../src/ui/themeCatalog';
 import {
@@ -13,6 +14,27 @@ import {
   parseThemePreference,
   THEME_STORAGE_KEY,
 } from '../src/state/themePreference';
+
+test('切换主题时四种分类同时更新，且原色板与任务色键保持可用', () => {
+  const categories = ['green', 'peach', 'blue', 'purple'] as const;
+  const palettes = themeOptions.map(({ colors }) => resolveThemeColors(colors));
+  assert.equal(palettes[0], defaultColors);
+  for (const category of categories) {
+    assert.equal(
+      new Set(palettes.map((colors) => colors[category])).size,
+      palettes.length,
+    );
+    for (const option of themeOptions) {
+      assert.equal(option.colors[category], defaultColors[category]);
+    }
+  }
+  for (const colors of palettes) {
+    assert.equal(
+      new Set(categories.map((category) => colors[category])).size,
+      categories.length,
+    );
+  }
+});
 
 test('暖灰米、薄荷花园和柔雾紫的颜色保持原样', () => {
   const original = {

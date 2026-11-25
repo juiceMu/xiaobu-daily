@@ -138,7 +138,7 @@ export function migrateState(saved) {
     if (milestoneUnits.length !== Math.floor(reached / stepUnits)) invalid();
     const weightTickets = state.tickets.filter((ticket) => ticket.source === 'weight' && ticket.goalId === weight.id);
     if (weightTickets.some((ticket) => ticket.goalIcon !== undefined && (!validMilestoneIcon(ticket.goalIcon) || ticket.goalIcon !== (weight.icon || DEFAULT_MILESTONE_ICON)))) invalid();
-    if (weightTickets.length !== milestoneUnits.length || weightTickets.some((ticket) => ticket.expiresAt !== null || typeof ticket.milestone !== 'number' || !weight.unlockedMilestones.includes(ticket.milestone) || (ticket.goalName !== undefined && ticket.goalName !== weight.name) || (ticket.unit !== undefined && ticket.unit !== weight.unit))) invalid();
+    if (weightTickets.length !== milestoneUnits.length || weightTickets.some((ticket) => (ticket.expiresAt !== null && Date.parse(ticket.expiresAt) <= Date.parse(ticket.createdAt)) || typeof ticket.milestone !== 'number' || !weight.unlockedMilestones.includes(ticket.milestone) || (ticket.goalName !== undefined && ticket.goalName !== weight.name) || (ticket.unit !== undefined && ticket.unit !== weight.unit))) invalid();
     if (new Set(weightTickets.map((ticket) => ticket.milestone)).size !== weightTickets.length) invalid();
   }
   return state;
@@ -287,7 +287,7 @@ function saveMilestoneGoal(state, current, input) {
   if (changed && (current?.entries.length || current?.unlockedMilestones.length)) return failure('已有记录后不能修改目标规则，避免重复解锁奖券；暂停和恢复会保留原规则');
   Object.assign(current, next, { enabled: true });
   applyMilestoneIcon(state, current, icon);
-  return success(changed ? '里程碑规则已保存，达到新里程碑即可获得永久奖券' : '目标已恢复，原规则和解锁记录保持不变', { goal: current });
+  return success(changed ? '里程碑规则已保存，达到新里程碑即可获得奖券' : '目标已恢复，原规则和解锁记录保持不变', { goal: current });
 }
 
 function findMilestoneGoal(state, id) {
@@ -301,7 +301,7 @@ export function addMilestoneGoal(state, input) {
   const result = saveMilestoneGoal(state, goal, input);
   if (!result.ok) return result;
   state.milestoneGoals.push(goal);
-  return success('新里程碑已添加，可独立记录和解锁永久奖券', { goal });
+  return success('新里程碑已添加，可独立记录和解锁奖券', { goal });
 }
 
 export function updateMilestoneGoal(state, id, input) {
@@ -393,9 +393,9 @@ export function recordMilestoneValue(state, id, weightValue, now = new Date()) {
   goal.entries.push({ id: makeId('weight'), date, weight: value, createdAt: asDate(now).toISOString() });
   for (const milestone of newMilestones) {
     goal.unlockedMilestones.push(milestone);
-    state.tickets.push({ id: makeId('ticket'), name: `${goal.name} · ${milestone}${goal.unit}里程碑奖券`, createdAt: asDate(now).toISOString(), week: weekKey(now), expiresAt: null, usedAt: null, source: 'weight', milestone, goalId: goal.id, goalName: goal.name, unit: goal.unit, goalIcon: goal.icon || DEFAULT_MILESTONE_ICON });
+    state.tickets.push({ id: makeId('ticket'), name: `${goal.name} · ${milestone}${goal.unit}里程碑奖券`, createdAt: asDate(now).toISOString(), week: weekKey(now), expiresAt: getExpiry(state.settings, now), usedAt: null, source: 'weight', milestone, goalId: goal.id, goalName: goal.name, unit: goal.unit, goalIcon: goal.icon || DEFAULT_MILESTONE_ICON });
   }
-  return success(newMilestones.length ? `记录成功，解锁 ${newMilestones.length} 张永久奖券！` : `${goal.name}已记录，尚未达到新的里程碑`, { milestones: newMilestones });
+  return success(newMilestones.length ? `记录成功，解锁 ${newMilestones.length} 张奖券！` : `${goal.name}已记录，尚未达到新的里程碑`, { milestones: newMilestones });
 }
 
 export function disableWeightGoal(state) {

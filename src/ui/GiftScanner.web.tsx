@@ -1,3 +1,4 @@
+import { utilityColors } from './themeCatalog';
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -88,7 +89,7 @@ export function GiftScanner({ onScan, onClose }: GiftScannerProps) {
           height: 280,
           objectFit: 'cover',
           borderRadius: 16,
-          background: '#111111',
+          background: utilityColors.cameraSurface,
         }}
       />
       <Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted }}>

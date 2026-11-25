@@ -72,7 +72,9 @@ test('时间框保持平台弹窗、触控高度和禁用状态，按压无着�
   assert.ok(native.includes('minHeight: 48'));
   for (const source of [web, native]) {
     assert.ok(source.includes('accessibilityState={{ disabled: !!disabled }}'));
-    assert.ok(source.includes('opacity: disabled ? 0.6 : 1'));
+    assert.ok(source.includes('aria-disabled={!!disabled}'));
+    assert.ok(source.includes('backgroundColor: theme.colors.surfaceDisabled'));
+    assert.doesNotMatch(source, /opacity:\s*disabled/);
     assert.ok(source.includes('backgroundColor: colors.field'));
     assert.doesNotMatch(source, /onPressIn|onPressOut|\bpressed\b/);
   }

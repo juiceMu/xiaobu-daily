@@ -2,10 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import {
+  addMilestoneGoal,
   checkIn,
   createInitialState,
   ensureGiftProfile,
+  getTicketStatus,
   migrateState,
+  recordMilestoneValue,
+  updateSettings,
 } from '../src/domain/engine';
 import {
   exportAccountJournal,
@@ -310,4 +314,61 @@ test('较短、相同和任意顺序的创建者日志均保留最新组名和�
   ).state;
   assert.equal(withImpostor.groupLink?.name, '新组名');
   assert.equal(withImpostor.groupLink?.ownerAccountId, owner.sync.accountId);
+});
+
+test('新里程碑奖券按取得时的设置到期，同版同步与本地重载保留日期和历史无日期状态', () => {
+  const goalRule = {
+    name: '阅读',
+    unit: '页',
+    startWeight: 0,
+    step: 1,
+    direction: 'increase',
+  } as const;
+  const now = new Date(2026, 11, 30, 13);
+  const expected = new Date(2027, 0, 10, 23, 59).toISOString();
+  const original = createInitialState(now);
+  const goal = addMilestoneGoal(original, goalRule);
+  assert.ok(goal.goal);
+  assert.ok(recordMilestoneValue(original, goal.goal.id, 1, now).ok);
+  // 模拟升级前已发奖券的无日期快照。
+  original.tickets[0].expiresAt = null;
+  let board = initializeSync(migrateState(original), clock('expiry'));
+  board = change(board, (draft) => {
+    assert.ok(updateSettings(draft, { expiryDay: 7, expiryTime: '23:59' }).ok);
+    assert.ok(recordMilestoneValue(draft, goal.goal!.id, 2, now).ok);
+  });
+  board = change(board, (draft) => {
+    assert.ok(updateSettings(draft, { expiryEnabled: false }).ok);
+    assert.ok(recordMilestoneValue(draft, goal.goal!.id, 3, now).ok);
+  });
+  assert.deepEqual(
+    board.tickets.map((ticket) => ticket.expiresAt),
+    [null, expected, null],
+  );
+  for (const returned of [
+    migrateState(structuredClone(board)),
+    journalState(exportAccountJournal(board)),
+  ]) {
+    const limited = returned.tickets.find(
+      (ticket) => ticket.expiresAt === expected,
+    )!;
+    assert.equal(
+      getTicketStatus(limited, returned, new Date(Date.parse(expected) - 1)),
+      'available',
+    );
+    assert.equal(
+      getTicketStatus(limited, returned, new Date(expected)),
+      'expired',
+    );
+    assert.deepEqual(
+      returned.tickets
+        .map((ticket) => [ticket.milestone, ticket.expiresAt])
+        .sort((a, b) => Number(a[0]) - Number(b[0])),
+      [
+        [1, null],
+        [2, expected],
+        [3, null],
+      ],
+    );
+  }
 });

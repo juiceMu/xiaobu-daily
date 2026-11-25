@@ -1,3 +1,4 @@
+import { utilityColors } from './themeCatalog';
 import React, {
   forwardRef,
   useMemo,
@@ -173,7 +174,7 @@ export const ActionButton = forwardRef<
       ? { fill: colors.brandFill, text: colors.onBrand }
       : { fill: colors.reward, text: colors.onReward },
     archive: { fill: colors.archive, text: colors.onArchive },
-    danger: { fill: colors.danger, text: '#FFFFFF' },
+    danger: { fill: colors.danger, text: utilityColors.onSolid },
   };
   const fill = disabled
     ? buttonTheme.colors.surfaceDisabled

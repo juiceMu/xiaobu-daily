@@ -32,6 +32,38 @@ export const defaultColors = {
   onExpiredBadge: '#89443F',
 };
 export type AppColors = { [K in keyof typeof defaultColors]: string };
+export const utilityColors = {
+  onSolid: '#FFFFFF',
+  qrInk: '#000000',
+  qrSurface: '#FFFFFF',
+  cameraSurface: '#111111',
+  timelineRule: '#B7C0B8',
+} as const;
+
+function blendHex(base: string, accent: string): string {
+  const baseValue = Number.parseInt(base.slice(1), 16);
+  const accentValue = Number.parseInt(accent.slice(1), 16);
+  const channels = [16, 8, 0].map((shift) => {
+    const from = (baseValue >> shift) & 255;
+    const to = (accentValue >> shift) & 255;
+    return Math.round((from * 3 + to) / 4)
+      .toString(16)
+      .padStart(2, '0');
+  });
+  return `#${channels.join('')}`;
+}
+
+// 保留已发布的色板，分类浅底从原分类色和当前主题的浅强调色取值。
+export function resolveThemeColors(palette: AppColors): AppColors {
+  if (palette === defaultColors) return palette;
+  return {
+    ...palette,
+    green: blendHex(palette.green, palette.primaryAccent),
+    peach: blendHex(palette.peach, palette.primaryAccent),
+    blue: blendHex(palette.blue, palette.primaryAccent),
+    purple: blendHex(palette.purple, palette.primaryAccent),
+  };
+}
 export type ThemeOption = {
   id: ThemeId;
   name: string;

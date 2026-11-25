@@ -22,7 +22,7 @@ export function TimeField({
   onChange,
   disabled,
 }: TimeFieldProps) {
-  const { colors } = useAppTheme();
+  const { colors, theme } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [visible, setVisible] = useState(false);
   const [draft, setDraft] = useState(() => parseTimeValue(value));
@@ -54,12 +54,28 @@ export function TimeField({
         rippleColor="transparent"
         accessibilityRole="button"
         accessibilityState={{ disabled: !!disabled }}
-        accessibilityLabel={label + '，' + value + '，点击选择时间'}
-        style={[styles.trigger, { opacity: disabled ? 0.6 : 1 }]}
+        aria-disabled={!!disabled}
+        accessibilityLabel={
+          label + '，' + value + (disabled ? '' : '，点击选择时间')
+        }
+        style={[
+          styles.trigger,
+          disabled && {
+            backgroundColor: theme.colors.surfaceDisabled,
+            borderWidth: 1,
+            borderColor: colors.border,
+          },
+        ]}
       >
         <View style={styles.triggerContent}>
-          <Text style={styles.value}>{value}</Text>
-          <Icon source="clock-outline" size={18} color={colors.primary} />
+          <Text style={[styles.value, disabled && { color: colors.muted }]}>
+            {value}
+          </Text>
+          <Icon
+            source="clock-outline"
+            size={18}
+            color={disabled ? colors.muted : colors.primary}
+          />
         </View>
       </TouchableRipple>
       {Platform.OS === 'ios' && visible ? (

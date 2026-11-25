@@ -5,7 +5,16 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { BackHandler, FlatList, Platform, Pressable, View } from 'react-native';
+import {
+  BackHandler,
+  FlatList,
+  Platform,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   StackActions,
   useFocusEffect,
@@ -23,6 +32,7 @@ import {
   getTaskCount,
   getWeekStats,
   getTicketStatus,
+  numericInputError,
   redeemTicket,
   redeemCompanionTicket,
   undoCheckIn,
@@ -59,6 +69,7 @@ import { peerBoards } from '../domain/groupSync';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { GroupActivityView } from './GroupActivityView';
 import { openMemberRecord } from '../ui/openMemberRecord';
+import { TASK_MENU_ROW_HEIGHT, taskMenuLayout } from '../ui/taskMenuLayout';
 
 const DATE_ACTION_THEME = { colors: { surfaceDisabled: 'transparent' } };
 
@@ -72,7 +83,11 @@ function hiddenDateActionProps(hidden: boolean) {
   };
 }
 
-export function TodayScreen() {
+export function TodayScreen({
+  navigationHeight,
+}: {
+  navigationHeight: number;
+}) {
   const { colors, quiet, signal, theme } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, busy, run } = useApp();
@@ -230,6 +245,24 @@ export function TodayScreen() {
   } | null>(null);
   const [error, setError] = useState('');
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [menuAnchorTop, setMenuAnchorTop] = useState(0);
+  const menuAnchors = useRef(new Map<string, View>());
+  const { height: windowHeight } = useWindowDimensions();
+  const { top: safeTop } = useSafeAreaInsets();
+  const menuLayout = taskMenuLayout(
+    menuAnchorTop,
+    windowHeight,
+    safeTop,
+    navigationHeight,
+  );
+  function openTaskMenu(taskId: string) {
+    const anchor = menuAnchors.current.get(taskId);
+    anchor?.measureInWindow((_x, y) => {
+      if (menuAnchors.current.get(taskId) !== anchor) return;
+      setMenuAnchorTop(Platform.OS === 'android' ? y + safeTop : y);
+      setMenuId(taskId);
+    });
+  }
   const menuIdRef = useRef(menuId);
   useLayoutEffect(() => {
     menuIdRef.current = menuId;
@@ -307,8 +340,12 @@ export function TodayScreen() {
     if (!busy)
       discardDraft(JSON.stringify(form) !== initialForm, () => setForm(null));
   }
+  const taskTargetError = form
+    ? numericInputError(form.target, 'integer', 1, 99)
+    : '';
+  const canSaveTask = !!form?.name.trim() && !taskTargetError;
   async function save() {
-    if (!form || busy) return;
+    if (!form || busy || !canSaveTask) return;
     const result = await run((draft) =>
       form.id ? updateTask(draft, form.id, form) : addTask(draft, form),
     );
@@ -579,7 +616,11 @@ export function TodayScreen() {
                         disabled: busy || calendar.isFuture,
                       }}
                       disabled={busy || calendar.isFuture}
-                      onPress={() => changePickedDate(day.date)}
+                      aria-disabled={busy || calendar.isFuture}
+                      onPress={() => {
+                        if (!busy && !calendar.isFuture)
+                          changePickedDate(day.date);
+                      }}
                       {...(Platform.OS === 'web'
                         ? {
                             onMouseDown: (event: {
@@ -599,7 +640,10 @@ export function TodayScreen() {
                         backgroundColor: 'transparent',
                       }}
                       accessible
-                      accessibilityLabel={calendar.accessibilityLabel}
+                      accessibilityLabel={
+                        calendar.accessibilityLabel +
+                        (calendar.isFuture ? '，未来不可选' : '')
+                      }
                     >
                       <Text
                         style={[
@@ -1181,149 +1225,168 @@ export function TodayScreen() {
                   <Menu
                     contentStyle={{
                       backgroundColor: colors.surface,
-                      borderRadius: 12,
-                      paddingVertical: 4,
+                      borderRadius: 10,
+                      paddingVertical: 0,
                     }}
+                    style={{ top: menuLayout.top }}
                     visible={menuId === item.id}
                     onDismiss={() => setMenuId(null)}
                     anchor={
-                      <IconButton
-                        testID="task-more-button"
-                        rippleColor={'transparent'}
-                        onPressIn={() => setPressedAction(item.id + '-more')}
-                        onPressOut={() =>
-                          setPressedAction((current) =>
-                            current === item.id + '-more' ? null : current,
-                          )
-                        }
-                        onFocus={() => {
-                          keyboardFocus.onFocus();
-                          setFocusedAction(item.id + '-more');
+                      <View
+                        collapsable={false}
+                        ref={(node) => {
+                          if (node) menuAnchors.current.set(item.id, node);
+                          else menuAnchors.current.delete(item.id);
                         }}
-                        onBlur={() => {
-                          keyboardFocus.onBlur();
-                          setFocusedAction(null);
-                          setPressedAction((current) =>
-                            current === item.id + '-more' ? null : current,
-                          );
-                        }}
-                        hitSlop={0}
-                        icon={({ color }) => (
-                          <View
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: 14,
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              backgroundColor: 'transparent',
-                              opacity:
-                                !busy && pressedAction === item.id + '-more'
-                                  ? 0.65
-                                  : 1,
-                            }}
-                          >
-                            <Icon
-                              source="dots-horizontal"
-                              size={18}
-                              color={color}
-                            />
-                          </View>
-                        )}
-                        iconColor={colors.primary}
-                        size={18}
-                        accessibilityLabel={item.name + '，更多操作'}
-                        disabled={busy}
-                        style={{
-                          margin: 0,
-                          width: taskActionSize,
-                          height: taskActionSize,
-                          borderRadius: taskActionSize / 2,
-                          borderWidth:
-                            keyboardFocus.focusVisible &&
-                            focusedAction === item.id + '-more'
-                              ? 1
-                              : 0,
-                          borderColor: colors.primary,
-                          flexShrink: 0,
-                          backgroundColor: 'transparent',
-                        }}
-                        onPress={() => setMenuId(item.id)}
-                      />
+                      >
+                        <IconButton
+                          testID="task-more-button"
+                          rippleColor={'transparent'}
+                          onPressIn={() => setPressedAction(item.id + '-more')}
+                          onPressOut={() =>
+                            setPressedAction((current) =>
+                              current === item.id + '-more' ? null : current,
+                            )
+                          }
+                          onFocus={() => {
+                            keyboardFocus.onFocus();
+                            setFocusedAction(item.id + '-more');
+                          }}
+                          onBlur={() => {
+                            keyboardFocus.onBlur();
+                            setFocusedAction(null);
+                            setPressedAction((current) =>
+                              current === item.id + '-more' ? null : current,
+                            );
+                          }}
+                          hitSlop={0}
+                          icon={({ color }) => (
+                            <View
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 14,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: 'transparent',
+                                opacity:
+                                  !busy && pressedAction === item.id + '-more'
+                                    ? 0.65
+                                    : 1,
+                              }}
+                            >
+                              <Icon
+                                source="dots-horizontal"
+                                size={18}
+                                color={color}
+                              />
+                            </View>
+                          )}
+                          iconColor={colors.primary}
+                          size={18}
+                          accessibilityLabel={item.name + '，更多操作'}
+                          disabled={busy}
+                          style={{
+                            margin: 0,
+                            width: taskActionSize,
+                            height: taskActionSize,
+                            borderRadius: taskActionSize / 2,
+                            borderWidth:
+                              keyboardFocus.focusVisible &&
+                              focusedAction === item.id + '-more'
+                                ? 1
+                                : 0,
+                            borderColor: colors.primary,
+                            flexShrink: 0,
+                            backgroundColor: 'transparent',
+                          }}
+                          onPress={() => openTaskMenu(item.id)}
+                        />
+                      </View>
                     }
                   >
-                    <Menu.Item
-                      dense
-                      style={{ minHeight: 40 }}
-                      titleStyle={{ fontSize: 13, lineHeight: 20 }}
-                      title="打卡记录"
-                      leadingIcon={({ color }) => (
-                        <Icon
-                          source="calendar-check-outline"
-                          size={18}
-                          color={color}
-                        />
-                      )}
-                      onPress={() => {
-                        setMenuId(null);
-                        navigation.dispatch(
-                          StackActions.push('taskHistory', {
-                            taskId: item.id,
-                            initialDate: selectedDate,
-                          }),
-                        );
-                      }}
-                    />
-                    <Menu.Item
-                      dense
-                      style={{ minHeight: 40 }}
-                      titleStyle={{ fontSize: 13, lineHeight: 20 }}
-                      title="编辑任务"
-                      leadingIcon={({ color }) => (
-                        <Icon source="pencil-outline" size={18} color={color} />
-                      )}
-                      disabled={busy || item.archived}
-                      onPress={() => {
-                        setMenuId(null);
-                        edit(item);
-                      }}
-                    />
-                    <Menu.Item
-                      dense
-                      style={{ minHeight: 40 }}
-                      titleStyle={{ fontSize: 13, lineHeight: 20 }}
-                      title="归档任务"
-                      leadingIcon={({ color }) => (
-                        <Icon
-                          source="archive-outline"
-                          size={18}
-                          color={color}
-                        />
-                      )}
-                      disabled={busy || item.archived}
-                      onPress={() => {
-                        setMenuId(null);
-                        ask('archive', item);
-                      }}
-                    />
-                    <Menu.Item
-                      dense
-                      style={{ minHeight: 40 }}
-                      titleStyle={{ fontSize: 13, lineHeight: 20 }}
-                      title="删除任务"
-                      leadingIcon={({ color }) => (
-                        <Icon
-                          source="trash-can-outline"
-                          size={18}
-                          color={color}
-                        />
-                      )}
-                      disabled={busy}
-                      onPress={() => {
-                        setMenuId(null);
-                        ask('delete', item);
-                      }}
-                    />
+                    <ScrollView
+                      style={{ maxHeight: menuLayout.height }}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      <Menu.Item
+                        dense
+                        style={{ height: TASK_MENU_ROW_HEIGHT }}
+                        titleStyle={{ fontSize: 13, lineHeight: 20 }}
+                        title="打卡记录"
+                        leadingIcon={({ color }) => (
+                          <Icon
+                            source="calendar-check-outline"
+                            size={18}
+                            color={color}
+                          />
+                        )}
+                        onPress={() => {
+                          setMenuId(null);
+                          navigation.dispatch(
+                            StackActions.push('taskHistory', {
+                              taskId: item.id,
+                              initialDate: selectedDate,
+                            }),
+                          );
+                        }}
+                      />
+                      <Menu.Item
+                        dense
+                        style={{ height: TASK_MENU_ROW_HEIGHT }}
+                        titleStyle={{ fontSize: 13, lineHeight: 20 }}
+                        title="编辑任务"
+                        leadingIcon={({ color }) => (
+                          <Icon
+                            source="pencil-outline"
+                            size={18}
+                            color={color}
+                          />
+                        )}
+                        disabled={busy || item.archived}
+                        onPress={() => {
+                          setMenuId(null);
+                          edit(item);
+                        }}
+                      />
+                      <Menu.Item
+                        dense
+                        style={{ height: TASK_MENU_ROW_HEIGHT }}
+                        titleStyle={{ fontSize: 13, lineHeight: 20 }}
+                        title="归档任务"
+                        leadingIcon={({ color }) => (
+                          <Icon
+                            source="archive-outline"
+                            size={18}
+                            color={color}
+                          />
+                        )}
+                        disabled={busy || item.archived}
+                        onPress={() => {
+                          setMenuId(null);
+                          ask('archive', item);
+                        }}
+                      />
+                      <View style={[styles.separator, { height: 1 }]} />
+                      <Menu.Item
+                        dense
+                        style={{ height: TASK_MENU_ROW_HEIGHT }}
+                        titleStyle={{ fontSize: 13, lineHeight: 20 }}
+                        title="删除任务"
+                        leadingIcon={({ color }) => (
+                          <Icon
+                            source="trash-can-outline"
+                            size={18}
+                            color={color}
+                          />
+                        )}
+                        disabled={busy}
+                        onPress={() => {
+                          setMenuId(null);
+                          ask('delete', item);
+                        }}
+                      />
+                    </ScrollView>
                   </Menu>
                 </View>
               </View>
@@ -1504,13 +1567,17 @@ export function TodayScreen() {
                       <Pressable
                         key={key}
                         accessibilityRole="button"
-                        accessibilityLabel={key}
+                        accessibilityLabel={
+                          key + (key > todayKey ? '，未来不可选' : '')
+                        }
                         accessibilityState={{
                           selected: key === dateInput,
                           disabled: busy || key > todayKey,
                         }}
                         disabled={busy || key > todayKey}
+                        aria-disabled={busy || key > todayKey}
                         onPress={() => {
+                          if (busy || key > todayKey) return;
                           setDateInput(key);
                           setDateError('');
                         }}
@@ -1534,6 +1601,13 @@ export function TodayScreen() {
                             backgroundColor: showSelection
                               ? colors.primaryContainer
                               : 'transparent',
+                            ...(key > todayKey
+                              ? {
+                                  borderWidth: 1,
+                                  borderStyle: 'dashed' as const,
+                                  borderColor: colors.border,
+                                }
+                              : null),
                           }}
                         >
                           <Text
@@ -1551,6 +1625,25 @@ export function TodayScreen() {
                     );
                   },
                 )}
+              </View>
+              <View style={[styles.row, { gap: 6 }]}>
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderStyle: 'dashed',
+                    borderColor: colors.border,
+                    borderRadius: 99,
+                    paddingHorizontal: 6,
+                  }}
+                  accessible={false}
+                  accessibilityElementsHidden
+                  aria-hidden
+                >
+                  <Text style={[styles.muted, { color: disabledDateColor }]}>
+                    日
+                  </Text>
+                </View>
+                <Text style={styles.muted}>未来不可选</Text>
               </View>
             </>
           ) : (
@@ -1700,7 +1793,7 @@ export function TodayScreen() {
               mode="outlined"
               label="每天打卡次数（1–99）"
               numericRule={{ kind: 'integer', min: 1, max: 99 }}
-              validationVisible={!!error}
+              validationVisible={!!taskTargetError}
               keyboardType="number-pad"
               value={form.target}
               onChangeText={(target) => setForm({ ...form, target })}
@@ -1771,7 +1864,8 @@ export function TodayScreen() {
               <ActionButton
                 mode="contained"
                 loading={busy}
-                disabled={busy}
+                disabled={busy || !canSaveTask}
+                aria-disabled={busy || !canSaveTask}
                 tone="save"
                 onPress={() => {
                   void save();

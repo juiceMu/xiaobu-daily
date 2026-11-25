@@ -20,7 +20,11 @@ import {
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import {
   BottomNavigation,
   Icon,
@@ -49,6 +53,8 @@ import { GroupViewProvider } from './src/ui/GroupViewProvider';
 import { ThemeProvider, useAppTheme } from './src/ui/ThemeProvider';
 import { TaskHistoryScreen } from './src/screens/TaskHistoryScreen';
 
+import { bottomNavigationHeight } from './src/ui/taskMenuLayout';
+
 type MoreStackParams = {
   index: undefined;
   milestones: undefined;
@@ -60,6 +66,7 @@ type MoreStackParams = {
   group: undefined;
   member: { accountId: string; date?: string };
 };
+
 type TabsParams = {
   today: undefined;
   tickets: { intent?: 'own-available'; at?: number } | undefined;
@@ -144,8 +151,7 @@ function TabBar({
       labeled
       labelMaxFontSizeMultiplier={1.5}
       style={{
-        height:
-          64 + Math.max(0, Math.min(fontScale, 1.5) - 1) * 32 + bottomInset,
+        height: bottomNavigationHeight(fontScale, insets.bottom),
         backgroundColor: colors.surface,
       }}
       activeColor={colors.primary}
@@ -275,9 +281,13 @@ function MoreNavigator() {
   );
 }
 function TodayRoute() {
+  const { fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <TodayScreen />
+      <TodayScreen
+        navigationHeight={bottomNavigationHeight(fontScale, insets.bottom)}
+      />
     </SafeAreaView>
   );
 }

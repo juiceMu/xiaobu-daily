@@ -153,7 +153,8 @@ export function prepareProtectionPeer(
     Object.assign(state, next);
     return {
       ok: true,
-      message: '已保存1名合法离线成员：3次打卡、1张永久可用券；不是WiFi同步',
+      message:
+        '已保存1名合法离线成员：3次打卡、1张未设到期时间的奖券；不是WiFi同步',
     };
   } catch {
     return { ok: false, message: '副本未追加；原存档保留' };

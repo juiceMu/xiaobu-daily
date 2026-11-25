@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   groupUsedTickets,
+  milestoneRewardExpiries,
   usedTicketRows,
   unlockedRewards,
 } from '../src/ui/rewardHistory';
@@ -104,7 +105,7 @@ test('奖励展示入口使用正常导航，界面不将普通记录当作奖�
     new URL('../src/screens/MilestonesScreen.tsx', import.meta.url),
     'utf8',
   );
-  assert.ok(source.includes('已解锁的永久奖励'));
+  assert.ok(source.includes('已解锁的奖励'));
   const parsed = ts.createSourceFile(
     'MilestonesScreen.tsx',
     source,
@@ -157,9 +158,7 @@ test('奖励展示入口使用正常导航，界面不将普通记录当作奖�
 test('手机导航采用紧凑标题底栏，里程碑和奖券输入统一由共享控件提供14dp字体', () => {
   const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
   assert.ok(
-    app.includes(
-      '64 + Math.max(0, Math.min(fontScale, 1.5) - 1) * 32 + bottomInset',
-    ),
+    app.includes('height: bottomNavigationHeight(fontScale, insets.bottom)'),
   );
   assert.ok(app.includes('headerTitleStyle: { fontSize: 16 }'));
   assert.ok(app.includes('color={color} size={22}'));
@@ -211,4 +210,26 @@ test('手机导航采用紧凑标题底栏，里程碑和奖券输入统一由�
     'utf8',
   );
   assert.ok(sharedInput.includes('fontSize: 14, lineHeight: 20'));
+});
+
+test('里程碑历史按目标及刻度匹配券日期，区分未设到期与缺少信息', () => {
+  const state = createInitialState();
+  const rule = {
+    name: '阅读',
+    unit: '页',
+    startWeight: 0,
+    step: 1,
+    direction: 'increase',
+  } as const;
+  const first = addMilestoneGoal(state, rule).goal!;
+  const second = addMilestoneGoal(state, rule).goal!;
+  const now = new Date(2026, 10, 25, 12);
+  recordMilestoneValue(state, first.id, 1, now);
+  recordMilestoneValue(state, second.id, 1, now);
+  state.tickets[0].expiresAt = null;
+  const old = milestoneRewardExpiries(state.tickets, first.id);
+  const recent = milestoneRewardExpiries(state.tickets, second.id);
+  assert.equal(old.get(1), null);
+  assert.equal(recent.get(1), new Date(2026, 10, 30).toISOString());
+  assert.equal(recent.get(2), undefined);
 });

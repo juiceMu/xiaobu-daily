@@ -54,7 +54,7 @@ test('目标胶囊Web透明ripple去悬停铺底，原生反馈和独立键盘�
   assert.ok(milestoneText.includes('<MilestoneTab'));
 });
 
-test('永久奖励行12号文图24字14上下6，奖励区紧凑标题13并保留导航和触控高度', () => {
+test('奖励行12号文图24字14上下6，奖励区紧凑标题13并保留导航和触控高度', () => {
   const row = functionSource('RewardRow');
   for (const value of [
     'paddingVertical: 6',
@@ -64,12 +64,12 @@ test('永久奖励行12号文图24字14上下6，奖励区紧凑标题13并保�
     'size={14}',
     'fontSize: 12',
     'lineHeight: 18',
-    '已发放 · 不重复领取',
+    'formatTicketExpiry(expiresAt)',
   ])
     assert.ok(row.includes(value), value);
   assert.equal(row.includes('fontSize: 14'), false);
   const section = milestoneText.slice(
-    milestoneText.indexOf('title="已解锁的永久奖励"'),
+    milestoneText.indexOf('title="已解锁的奖励"'),
     milestoneText.indexOf('{isArchived &&'),
   );
   assert.ok(
@@ -77,7 +77,7 @@ test('永久奖励行12号文图24字14上下6，奖励区紧凑标题13并保�
   );
   assert.ok(section.includes('contentStyle={rewardButtonContent}'));
   assert.ok(section.includes('labelStyle={rewardButtonLabel}'));
-  const sectionStart = milestoneText.indexOf('title="已解锁的永久奖励"');
+  const sectionStart = milestoneText.indexOf('title="已解锁的奖励"');
   const sectionEnd = milestoneText.indexOf('{isArchived &&');
   const destinations: ts.CallExpression[] = [];
   function visitNavigation(node: ts.Node) {

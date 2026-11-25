@@ -14,7 +14,7 @@ export function TimeField({
   onChange,
   disabled,
 }: TimeFieldProps) {
-  const { colors } = useAppTheme();
+  const { colors, theme } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const keyboardFocus = useKeyboardFocus();
   const [visible, setVisible] = useState(false);
@@ -37,21 +37,34 @@ export function TimeField({
         onBlur={keyboardFocus.onBlur}
         accessibilityRole="button"
         accessibilityState={{ disabled: !!disabled }}
-        accessibilityLabel={label + '，' + value + '，点击选择时间'}
+        aria-disabled={!!disabled}
+        accessibilityLabel={
+          label + '，' + value + (disabled ? '' : '，点击选择时间')
+        }
         style={[
           styles.trigger,
           {
-            outlineWidth: keyboardFocus.focusVisible ? 2 : 0,
+            outlineWidth: !disabled && keyboardFocus.focusVisible ? 2 : 0,
             outlineStyle: 'solid',
             outlineColor: colors.primary,
             outlineOffset: 2,
-            opacity: disabled ? 0.6 : 1,
+          },
+          disabled && {
+            backgroundColor: theme.colors.surfaceDisabled,
+            borderWidth: 1,
+            borderColor: colors.border,
           },
         ]}
       >
         <View style={styles.triggerContent}>
-          <Text style={styles.value}>{value}</Text>
-          <Icon source="clock-outline" size={18} color={colors.primary} />
+          <Text style={[styles.value, disabled && { color: colors.muted }]}>
+            {value}
+          </Text>
+          <Icon
+            source="clock-outline"
+            size={18}
+            color={disabled ? colors.muted : colors.primary}
+          />
         </View>
       </Pressable>
       {visible ? (

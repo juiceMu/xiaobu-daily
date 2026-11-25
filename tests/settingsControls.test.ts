@@ -79,9 +79,9 @@ test('开关本体不被48dp样式拉伸，触控留白由父容器提供', () =
   assert.ok(style.includes("alignItems: 'center'"));
   assert.ok(style.includes("justifyContent: 'center'"));
   assert.equal(find(source, 'TimeField').length, 1);
-  assert.equal(
+  assert.match(
     expr(find(source, 'TimeField')[0], 'onChange', source),
-    'setExpiryTime',
+    /if \(!expiryLocked\) setExpiryTime\(value\)/,
   );
 });
 

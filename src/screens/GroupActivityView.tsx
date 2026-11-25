@@ -1,3 +1,4 @@
+import { utilityColors } from '../ui/themeCatalog';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -180,7 +181,7 @@ export function GroupActivityView({
                           height: 9,
                           width: quiet ? 1 : 2,
                           backgroundColor: quiet
-                            ? '#B7C0B8'
+                            ? utilityColors.timelineRule
                             : colors.primaryContainer,
                         }}
                       />
@@ -193,7 +194,7 @@ export function GroupActivityView({
                           bottom: 0,
                           width: quiet ? 1 : 2,
                           backgroundColor: quiet
-                            ? '#B7C0B8'
+                            ? utilityColors.timelineRule
                             : colors.primaryContainer,
                         }}
                       />

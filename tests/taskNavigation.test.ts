@@ -217,7 +217,7 @@ test('各主题任务三操作实际图标回调在空闲、禁用、完成及�
       }
       if (action === 'more') {
         assert.equal(prop(button, 'disabled'), 'busy');
-        assert.equal(prop(button, 'onPress'), '() => setMenuId(item.id)');
+        assert.equal(prop(button, 'onPress'), '() => openTaskMenu(item.id)');
       }
     }
   }

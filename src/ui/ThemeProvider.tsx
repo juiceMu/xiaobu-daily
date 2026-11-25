@@ -9,7 +9,12 @@ import React, {
 } from 'react';
 import { themePreferenceRepository } from '../state/themeStorage';
 import { createAppTheme } from './theme';
-import { DEFAULT_THEME_ID, getThemeOption, type ThemeId } from './themeCatalog';
+import {
+  DEFAULT_THEME_ID,
+  getThemeOption,
+  resolveThemeColors,
+  type ThemeId,
+} from './themeCatalog';
 
 function useThemeValue() {
   const [themeId, setThemeId] = useState<ThemeId>(DEFAULT_THEME_ID);
@@ -36,7 +41,11 @@ function useThemeValue() {
     };
   }, []);
   const option = getThemeOption(themeId);
-  const theme = useMemo(() => createAppTheme(option.colors), [option.colors]);
+  const colors = useMemo(
+    () => resolveThemeColors(option.colors),
+    [option.colors],
+  );
+  const theme = useMemo(() => createAppTheme(colors), [colors]);
   async function selectTheme(id: ThemeId): Promise<boolean> {
     if (!themeReady || changing.current) return false;
     if (id === themeId && !themeError) return true;
@@ -57,7 +66,7 @@ function useThemeValue() {
   }
   return {
     themeId,
-    colors: option.colors,
+    colors,
     quiet: option.quiet === true,
     signal: option.signal ?? option.colors.primary,
     theme,

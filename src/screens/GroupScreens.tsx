@@ -1,3 +1,4 @@
+import { formatTicketExpiry } from '../ui/ticketLabels';
 import React, { useState, type ComponentType } from 'react';
 import { View } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -363,6 +364,8 @@ export function MemberScreen({
                 : getTicketStatus(ticket, peer.app, now) === 'expired'
                   ? '已过期'
                   : '可使用'}
+              {' · '}
+              {formatTicketExpiry(ticket.expiresAt)}
             </Text>
           ))
         ) : (
@@ -388,8 +391,8 @@ export function MemberScreen({
           每 {peer.app.settings.threshold} 次打卡兑换一张
           {peer.app.settings.rewardName}。
           {peer.app.settings.expiryEnabled
-            ? '新兑换的打卡券会到期。'
-            : '新兑换的打卡券永久有效。'}
+            ? '之后兑换的奖券及新解锁的里程碑奖券会到期。'
+            : '之后兑换的奖券及新解锁的里程碑奖券不设到期。'}
         </Text>
         <Text style={{ color: colors.muted, fontSize: 12 }}>
           这里只能查看，不能修改。

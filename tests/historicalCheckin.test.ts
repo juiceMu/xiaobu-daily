@@ -117,6 +117,6 @@ test('历史日期界面提供周切换月历与回今天，记录和确认按�
   assert.ok(source.includes('calendar.isSelected'));
   assert.ok(source.includes('calendar.isFuture'));
   assert.ok(source.includes('已归档 · 可补历史'));
-  assert.ok(source.includes('minHeight: 40'));
+  assert.ok(source.includes('height: TASK_MENU_ROW_HEIGHT'));
   assert.ok(source.includes('fontSize: 13'));
 });

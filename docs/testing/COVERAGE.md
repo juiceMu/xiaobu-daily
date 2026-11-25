@@ -213,3 +213,11 @@ LAN-014 由 `tests/lanListener.test.ts` 抽取执行真实 `startLanListener`，
 - VIEW-011：`tests/groupActivityLayout.test.ts` 覆盖公共区域与标签内容的结构约束；实际切换、选日、兑换及滚动需 UI 验收。
 - VIEW-012：排行榜比例及结构以对应自动化测试为准；`tests/groupActivityLayout.test.ts` 另检查名次与头像的 12dp 间距结构声明，不能证明真实字号排版、实际间距或读屏。实际不同主题、多位名次、系统大字号、长昵称与读屏仍需 UI 或设备验收。
 - 真机及 Web 实际操作、同步新旧副本、长列表、大字号和无障碍仍需独立设备或项目提供的 UI runtime 验证。
+
+## 融合 UI 结构改进
+
+- FUSION-005 / P0-6 由 `tests/themePreference.test.ts` 执行四类运行时配色解析，验证六套基线色板的分类随主题变化且原色板不变。二维码黑白属于识别功能色。真实切换、全页面对比和设备像素待 UI 验收。
+- FUSION-001／002／003／004／006 由 `tests/fusionP0.test.ts` 检查日期和设置的锁定、实际周日期回调、任务名称与次数、有效期显示以及菜单位置计算和界面结构。真实触控、键盘、日期浮层与菜单可见性需要项目 UI runtime 或设备。
+- FUSION-004 与 REWARD-006 由 `tests/groupSync.test.ts` 执行同版同步日志的导出、回放及本地重载，覆盖跨年限时券的到期边界、历史空日期和关闭规则后新奖券的空日期。端到端同步和旧版混用需单独验证。
+- FUSION-001/002/003/004/006 由 `tests/fusionP0.test.ts` 执行部分真实回调并覆盖状态绑定、有效期格式及菜单位置模型。测试未挂载应用，实际可见性、触控和读屏需平台补证。
+- FUSION-004 还由 `tests/engine.test.mjs`、`tests/groupSync.test.ts` 验证发券规则、旧券无到期兼容、新旧券重载及同版本日志投影。未在真实设备上执行跨版本同步。

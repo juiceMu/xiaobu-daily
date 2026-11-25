@@ -114,7 +114,7 @@ function ProtectionControls() {
           {confirm ? (
             <>
               <Text style={{ color: '#172435', fontSize: 16 }}>
-                确认只追加1名离线测试成员：自定义资料和任务、3次打卡、1张永久可用券？已有10名副本及本机业务不替换。重复或不满足专用夹具前置会拒绝。
+                确认只追加1名离线测试成员：自定义资料和任务、3次打卡、1张未设到期时间的奖券？已有10名副本及本机业务不替换。重复或不满足专用夹具前置会拒绝。
               </Text>
               {button('确认追加1名合法测试成员', () => {
                 void run((draft) => prepareProtectionPeer(draft)).then(

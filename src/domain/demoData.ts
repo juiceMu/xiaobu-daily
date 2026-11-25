@@ -436,6 +436,8 @@ function seedPersonalHistory(state: AppState, now: Date) {
         icon: '💰' as const,
       },
     ];
+    // 演示券跨多周展示已使用记录，签发时临时关闭到期，保留用户的规则。
+    draft.settings = { ...originalSettings, expiryEnabled: false };
     goalExamples.forEach((example, index) => {
       const goal = requireSuccess(
         addMilestoneGoal(draft, {
@@ -466,6 +468,7 @@ function seedPersonalHistory(state: AppState, now: Date) {
         requireSuccess(setMilestoneEnabled(draft, goal.id, false));
       if (index === 2) requireSuccess(archiveMilestoneGoal(draft, goal.id));
     });
+    draft.settings = originalSettings;
 
     if (!draft.giftState)
       requireSuccess(

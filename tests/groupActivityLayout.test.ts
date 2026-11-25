@@ -86,12 +86,15 @@ test('排行榜名次与头像间隔12dp且名次按内容伸展', () => {
 
 test('时间轴按日分组用节点连线，标签下划线且成员卡不重复任务清单', () => {
   assert.match(activity, /testID="timeline-date-heading"/);
-  assert.match(activity, /quiet\s*\? '#B7C0B8'\s*:\s*colors\.primaryContainer/);
+  assert.match(
+    activity,
+    /quiet\s*\? utilityColors\.timelineRule\s*:\s*colors\.primaryContainer/,
+  );
   assert.match(activity, /testID="timeline-date-divider"/);
   assert.match(activity, /!quiet \|\| continuesDay/);
   assert.match(
     activity,
-    /\{!startsDay \? \([\s\S]*?top: 0,[\s\S]*?height: 9,[\s\S]*?width: quiet \? 1 : 2,[\s\S]*?backgroundColor: quiet\s*\? '#B7C0B8'\s*:\s*colors\.primaryContainer/,
+    /\{!startsDay \? \([\s\S]*?top: 0,[\s\S]*?height: 9,[\s\S]*?width: quiet \? 1 : 2,[\s\S]*?backgroundColor: quiet\s*\? utilityColors\.timelineRule\s*:\s*colors\.primaryContainer/,
   );
   assert.doesNotMatch(activity, /quiet && !startsDay/);
   assert.match(
