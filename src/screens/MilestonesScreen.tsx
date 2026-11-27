@@ -39,6 +39,7 @@ import {
   MilestoneCard,
   MilestoneIconAction,
   MilestoneTicketSheet,
+  MilestoneTicketsEmpty,
 } from './MilestoneDesign';
 import { unlockedRewards } from '../ui/rewardHistory';
 import { formatCalendarDate } from '../ui/displayDate';
@@ -520,10 +521,7 @@ export function MilestonesScreen() {
                 <RewardRow key={value} value={value} goal={goal} />
               ))
           ) : (
-            <Empty
-              title="还没有解锁奖励"
-              description="首次达到新的里程碑后，奖励会出现在这里。普通记录不会重复发券。"
-            />
+            <MilestoneTicketsEmpty />
           )}
           {rewards.length > 6 && (
             <ActionButton
@@ -851,23 +849,26 @@ export function MilestonesScreen() {
       )}
       {!goal ? (
         <Empty
+          icon={
+            search.trim()
+              ? 'magnify'
+              : archiveFilter
+                ? 'archive-outline'
+                : 'flag-outline'
+          }
           title={
-            search
+            search.trim()
               ? '没有找到这个目标'
               : archiveFilter
                 ? '还没有归档的里程碑'
-                : groups.archived.length
-                  ? '当前目标都已收好'
-                  : '你想向哪个方向成长？'
+                : '还没有里程碑'
           }
           description={
-            search
+            search.trim()
               ? '试试其他关键词，或清空搜索查看全部。'
               : archiveFilter
                 ? '归档后会保留记录与奖励，可以随时恢复。'
-                : groups.archived.length
-                  ? '点击上方“已归档”查看并恢复；暂停的目标仍会保留在当前列表。'
-                  : '体重、阅读、存钱都可以。设置起点、方向与差值，开始积累自己的小成就。'
+                : '设定一个小目标，进度会在这里慢慢累积。'
           }
         />
       ) : !palette ? (

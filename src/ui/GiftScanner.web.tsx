@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ActionButton } from './components';
+import { ScannerWarning } from './ScannerWarning';
 import { useAppTheme } from './ThemeProvider';
 import type { GiftScannerProps } from './GiftScanner';
 
@@ -36,10 +37,14 @@ export function GiftScanner({
       if (element) element.srcObject = null;
     }
     async function start() {
-      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      if (!window.isSecureContext) {
         setError(
           '当前地址不能使用相机。请用 HTTPS 或本机 localhost 打开，也可以关闭后粘贴券码。',
         );
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError('当前浏览器无法使用相机，可以关闭后粘贴券码。');
         return;
       }
       try {
@@ -60,12 +65,17 @@ export function GiftScanner({
         controls = running;
         // 权限弹窗可能在离开页面后才结束，晚到的相机也必须关闭。
         if (cancelled || completed) release();
-      } catch {
+      } catch (cause) {
         release();
-        if (!cancelled)
-          setError(
-            '相机未能打开。请点击地址栏旁的站点设置，允许相机后重试，或粘贴券码。',
-          );
+        if (cancelled) return;
+        const reason = cause instanceof Error ? cause.name : '';
+        if (reason === 'NotFoundError') {
+          setError('没有找到可用相机，可以关闭后粘贴券码。');
+        } else if (reason === 'NotAllowedError') {
+          setError('请在浏览器的站点设置中允许使用相机，然后重试。');
+        } else {
+          setError('相机暂时无法使用，请重试或关闭后粘贴券码。');
+        }
       }
     }
     function pauseWhenHidden() {
@@ -84,42 +94,50 @@ export function GiftScanner({
       document.removeEventListener('visibilitychange', pauseWhenHidden);
     };
   }, [allowed, retry]);
-  const camera = allowed ? (
-    <video
-      ref={video}
-      muted
-      autoPlay
-      playsInline
-      aria-label="扫码相机预览"
-      style={{
-        width: '100%',
-        height: wrapPreview ? '100%' : 280,
-        objectFit: 'cover',
-        borderRadius: 16,
-        background: utilityColors.cameraSurface,
-      }}
-    />
-  ) : null;
+  const showWarning = !!wrapPreview && !!error;
+  const camera =
+    allowed && !showWarning ? (
+      <video
+        ref={video}
+        muted
+        autoPlay
+        playsInline
+        aria-label="扫码相机预览"
+        style={{
+          width: '100%',
+          height: wrapPreview ? '100%' : 280,
+          objectFit: 'cover',
+          borderRadius: 16,
+          background: utilityColors.cameraSurface,
+        }}
+      />
+    ) : null;
   return (
     <View style={{ gap: 8 }}>
-      {wrapPreview ? wrapPreview(camera) : camera}
+      {wrapPreview ? !showWarning && wrapPreview(camera) : camera}
       {!allowed && (
         <ActionButton mode="contained" onPress={() => setAllowed(true)}>
           允许使用相机
         </ActionButton>
       )}
-      <Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted }}>
-        将镜头对准赠券二维码。无法扫码时，可关闭并粘贴完整券码。
-      </Text>
+      {!showWarning && (
+        <Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted }}>
+          将镜头对准赠券二维码。无法扫码时，可关闭并粘贴完整券码。
+        </Text>
+      )}
+      {showWarning && <ScannerWarning description={error} />}
       {!!error && (
         <>
-          <Text
-            accessibilityRole="alert"
-            style={{ fontSize: 12, lineHeight: 18, color: colors.danger }}
-          >
-            {error}
-          </Text>
+          {!showWarning && (
+            <Text
+              accessibilityRole="alert"
+              style={{ fontSize: 12, lineHeight: 18, color: colors.danger }}
+            >
+              {error}
+            </Text>
+          )}
           <ActionButton
+            mode={showWarning ? 'contained' : 'text'}
             onPress={() => {
               setError('');
               setRetry((value) => value + 1);

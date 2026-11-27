@@ -9,7 +9,7 @@ import {
 import { dateKey } from '../domain/engine';
 import type { AppState } from '../domain/types';
 import { peerBoards } from '../domain/groupSync';
-import { ActionButton, Panel } from '../ui/components';
+import { ActionButton, Empty, Panel } from '../ui/components';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { font, radius, space } from '../ui/uiTokens';
@@ -23,11 +23,13 @@ export function GroupActivityView({
   selectedNow,
   now,
   historicalWeek,
+  onInvite,
 }: {
   state: AppState;
   selectedNow: Date;
   now: Date;
   historicalWeek: boolean;
+  onInvite: () => void;
 }) {
   const styles = useScreenStyles();
   const { colors } = useAppTheme();
@@ -111,7 +113,19 @@ export function GroupActivityView({
       </Text>
       <Text style={styles.muted}>按打卡所属日期排列；撤销的打卡不会显示。</Text>
       {activity.timeline.length === 0 ? (
-        <Text style={styles.muted}>这一周还没有打卡记录。</Text>
+        <Panel style={[styles.card, { padding: 0 }]}>
+          <Empty
+            icon="account-multiple-outline"
+            density="inline"
+            title="还没有伙伴动态"
+            description="邀请朋友一起打卡，这里会热闹起来。"
+            cta={{
+              label: '邀请伙伴',
+              variant: 'secondary',
+              onPress: onInvite,
+            }}
+          />
+        </Panel>
       ) : (
         <View style={{ paddingHorizontal: 4 }}>
           {activity.timeline.slice(0, visibleCount).map((entry, index) => {

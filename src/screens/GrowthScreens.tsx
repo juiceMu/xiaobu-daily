@@ -421,7 +421,11 @@ function WeeklyChart({ summary }: { summary: GrowthProgress }) {
 export function GrowthScreen() {
   const [view, setView] = useState<GrowthView>('weekly');
   const [offset, setOffset] = useState(0);
-  const navigation = useNavigation<NavigationProp<{ today: undefined }>>();
+  const navigation = useNavigation<
+    NavigationProp<{
+      today: { addTaskAt?: number; startCheckinAt?: number } | undefined;
+    }>
+  >();
   const { colors, palette } = useAppTheme();
   const screen = useScreenStyles();
   const { state, now } = useApp();
@@ -488,28 +492,53 @@ export function GrowthScreen() {
           ListHeaderComponent={
             isWeekly ? (
               <View style={[screen.column, screen.listHeader]}>
-                <WeeklyChart summary={summary} />
-                <SectionTitle title="每个任务的小积累" />
+                {summary.total === 0 ? (
+                  <Panel style={screen.card}>
+                    <Empty
+                      icon="chart-bar"
+                      title={
+                        offset === 0 ? '这一周还没有记录' : `${range}还没有记录`
+                      }
+                      description="完成第一次打卡，这里长出第一根柱子。"
+                      cta={{
+                        label: '去打卡',
+                        onPress: () =>
+                          navigation.navigate('today', {
+                            startCheckinAt: Date.now(),
+                          }),
+                      }}
+                    />
+                  </Panel>
+                ) : (
+                  <WeeklyChart summary={summary} />
+                )}
+                {progress.length > 0 && (
+                  <SectionTitle title="每个任务的小积累" />
+                )}
               </View>
             ) : null
           }
           ListEmptyComponent={
-            <View>
-              <Empty
-                title={isWeekly ? '该周没有任务明细' : '还没有任务'}
-                description={
-                  isWeekly && summary.total > 0
-                    ? '已删除的任务仍计入上方统计。'
-                    : '在今日打卡完成一个任务后，就能在这里查看记录。'
-                }
-              />
-              <ActionButton
-                mode="contained"
-                onPress={() => navigation.navigate('today')}
-              >
-                去今日打卡
-              </ActionButton>
-            </View>
+            isWeekly ? (
+              summary.total > 0 ? (
+                <Text style={screen.muted}>
+                  这段时间的打卡来自已删除的任务，次数仍计入上方统计。
+                </Text>
+              ) : null
+            ) : (
+              <Panel style={screen.card}>
+                <Empty
+                  icon="flag-outline"
+                  title="还没有任务数据"
+                  description="先添加一个任务，统计才有内容。"
+                  cta={{
+                    label: '添加任务',
+                    onPress: () =>
+                      navigation.navigate('today', { addTaskAt: Date.now() }),
+                  }}
+                />
+              </Panel>
+            )
           }
           renderItem={({ item }) =>
             isWeekly ? (
@@ -680,7 +709,8 @@ function MonthCalendar({
 }
 
 export function MonthReviewScreen() {
-  const navigation = useNavigation<NavigationProp<{ today: undefined }>>();
+  const navigation =
+    useNavigation<NavigationProp<{ today: { startCheckinAt: number } }>>();
   const [offset, setOffset] = useState(0);
   const { state, now } = useApp();
   const screen = useScreenStyles();
@@ -725,17 +755,20 @@ export function MonthReviewScreen() {
           summary.total === 0 ? (
             <Panel style={screen.card}>
               <Empty
+                icon="chart-bar"
                 title="这个月还没有打卡记录"
-                description="完成一次打卡后，这里会显示当月进度。"
+                description="从当月第一次打卡开始，这里会慢慢长出痕迹。"
+                cta={{
+                  label: offset < 0 ? '回到本月' : '去打卡',
+                  onPress: () => {
+                    if (offset < 0) setOffset(0);
+                    else
+                      navigation.navigate('today', {
+                        startCheckinAt: Date.now(),
+                      });
+                  },
+                }}
               />
-              <ActionButton
-                mode="contained"
-                onPress={() =>
-                  offset < 0 ? setOffset(0) : navigation.navigate('today')
-                }
-              >
-                {offset < 0 ? '回到本月' : '去今日打卡'}
-              </ActionButton>
             </Panel>
           ) : null
         }

@@ -9,6 +9,7 @@ import { AppState, Linking, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Text } from 'react-native-paper';
 import { ActionButton } from './components';
+import { ScannerWarning } from './ScannerWarning';
 import { useAppTheme } from './ThemeProvider';
 
 export type GiftScannerProps = {
@@ -149,7 +150,10 @@ export function GiftScanner({
       const result = await requestPermission();
       if (closedRef.current || requestId !== requestIdRef.current) return;
       if (!result.granted) {
-        setError('未获得相机权限，请重试或在系统设置中允许，也可以粘贴券码。');
+        if (!wrapPreview)
+          setError(
+            '未获得相机权限，请重试或在系统设置中允许，也可以粘贴券码。',
+          );
       } else {
         setError('');
         const enable = !permissionPausedRef.current && activeRef.current;
@@ -180,6 +184,9 @@ export function GiftScanner({
 
   const cameraVisible =
     permission?.granted && active && cameraEnabled && !requesting;
+  const permissionDenied = permission?.status === 'denied';
+  const showWarning =
+    !!wrapPreview && !requesting && (permissionDenied || !!error);
   const camera = cameraVisible ? (
     <CameraView
       ref={cameraAttachment}
@@ -218,50 +225,65 @@ export function GiftScanner({
   ) : null;
   return (
     <View style={{ gap: 8 }}>
-      {wrapPreview ? wrapPreview(camera) : camera}
-      {!cameraVisible && (
-        <>
-          <Text style={{ color: colors.muted, fontSize: 12, lineHeight: 18 }}>
-            {permission?.granted
-              ? '已允许使用相机，点击「开始扫码」继续。'
-              : '允许使用相机后，将镜头对准对方的二维码。也可以关闭后粘贴券码。'}
-          </Text>
-          <ActionButton
-            disabled={
-              requesting ||
-              !active ||
-              (permission?.canAskAgain === false && !permission.granted)
-            }
-            loading={requesting}
-            onPress={() => {
-              void allowCamera();
-            }}
-          >
-            {requesting
-              ? '等待相机授权'
-              : permission?.granted
-                ? '开始扫码'
-                : '允许使用相机'}
-          </ActionButton>
-        </>
+      {wrapPreview ? !showWarning && wrapPreview(camera) : camera}
+      {showWarning && (
+        <ScannerWarning
+          description={error || '在设置里允许使用相机，就能扫券啦。'}
+        >
+          {permissionDenied && (
+            <ActionButton
+              mode="contained"
+              disabled={!active}
+              onPress={() => void openCameraSettings()}
+            >
+              去设置
+            </ActionButton>
+          )}
+        </ScannerWarning>
       )}
-      {!!error && (
+      {!cameraVisible &&
+        (!showWarning || !permissionDenied || permission.canAskAgain) && (
+          <>
+            {!showWarning && (
+              <Text
+                style={{ color: colors.muted, fontSize: 12, lineHeight: 18 }}
+              >
+                {permission?.granted
+                  ? '已允许使用相机，点击「开始扫码」继续。'
+                  : '允许使用相机后，将镜头对准对方的二维码。也可以关闭后粘贴券码。'}
+              </Text>
+            )}
+            <ActionButton
+              mode={showWarning && !permissionDenied ? 'contained' : 'text'}
+              disabled={
+                requesting ||
+                !active ||
+                (permission?.canAskAgain === false && !permission.granted)
+              }
+              loading={requesting}
+              onPress={() => {
+                void allowCamera();
+              }}
+            >
+              {requesting
+                ? '等待相机授权'
+                : permission?.granted
+                  ? showWarning
+                    ? '重试相机'
+                    : '开始扫码'
+                  : permissionDenied
+                    ? '重试授权'
+                    : '允许使用相机'}
+            </ActionButton>
+          </>
+        )}
+      {!!error && !wrapPreview && (
         <Text
           accessibilityRole="alert"
           style={{ color: colors.danger, fontSize: 12, lineHeight: 18 }}
         >
           {error}
         </Text>
-      )}
-      {wrapPreview && permission && !permission.granted && (
-        <ActionButton
-          mode="text"
-          tone="neutral"
-          disabled={requesting || !active}
-          onPress={() => void openCameraSettings()}
-        >
-          去系统设置开启相机
-        </ActionButton>
       )}
       <ActionButton tone="neutral" onPress={closeScanner}>
         关闭扫码

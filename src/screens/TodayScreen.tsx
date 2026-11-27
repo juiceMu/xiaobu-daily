@@ -97,8 +97,16 @@ function hiddenDateActionProps(hidden: boolean) {
 
 export function TodayScreen({
   navigationHeight,
+  addTaskAt,
+  onAddTaskHandled,
+  startCheckinAt,
+  onStartCheckinHandled,
 }: {
   navigationHeight: number;
+  addTaskAt?: number;
+  onAddTaskHandled?: () => void;
+  startCheckinAt?: number;
+  onStartCheckinHandled?: () => void;
 }) {
   const { colors, quiet, signal, theme, palette } = useAppTheme();
   const styles = useScreenStyles();
@@ -122,6 +130,13 @@ export function TodayScreen({
   });
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [section, setSection] = useState<'mine' | 'activity'>('mine');
+  function openGroupInvite() {
+    (navigation.navigate as (name: string, params: object) => void)('more', {
+      initial: false,
+      screen: 'group',
+      params: { showInvite: !!state.groupLink },
+    });
+  }
   const listRef = useRef<FlatList<Task>>(null);
   const scrollOffsetRef = useRef(0);
   const restoreScrollRef = useRef<number | null>(null);
@@ -230,6 +245,8 @@ export function TodayScreen({
   calendarEnd.setMonth(calendarEnd.getMonth() + 1);
   calendarEnd.setDate(0);
   const calendarLength = calendarEnd.getDate();
+  // 系统日期在弹窗打开期间回拨时，当前月历可能落在未来。
+  const dateMonthEmpty = calendarView === 'day' && calendarMonth > todayKey;
   const dateNavigationSize = control[44];
   const dateNavigationIconSize = 22;
   const disabledDateColor = theme.colors.onSurfaceDisabled;
@@ -342,14 +359,53 @@ export function TodayScreen({
     task?: Task;
     date: string;
   } | null>(null);
-  function edit(task?: Task) {
-    const next = task
-      ? { ...task, target: String(task.target) }
-      : { name: '', target: '1', icon: '🌱', color: 'green' };
-    setError('');
-    setInitialForm(JSON.stringify(next));
-    setForm(next);
-  }
+  const edit = useCallback(
+    (task?: Task) => {
+      const next = task
+        ? { ...task, target: String(task.target) }
+        : { name: '', target: '1', icon: '🌱', color: 'green' };
+      setError('');
+      setInitialForm(JSON.stringify(next));
+      setForm(next);
+    },
+    [setForm],
+  );
+  const handledAddTaskAt = useRef<number | undefined>(undefined);
+  const handledCheckinAt = useRef<number | undefined>(undefined);
+  useFocusEffect(
+    useCallback(() => {
+      if (busy || form || confirm || datePickerVisible) return;
+      const addTask =
+        addTaskAt != null && handledAddTaskAt.current !== addTaskAt;
+      const startCheckin =
+        startCheckinAt != null && handledCheckinAt.current !== startCheckinAt;
+      if (!addTask && !startCheckin) return;
+      setSection('mine');
+      if (addTask) {
+        handledAddTaskAt.current = addTaskAt;
+        edit();
+        onAddTaskHandled?.();
+      } else {
+        restoreScrollRef.current = null;
+        setPickedDate(null);
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      }
+      if (startCheckin) {
+        handledCheckinAt.current = startCheckinAt;
+        onStartCheckinHandled?.();
+      }
+    }, [
+      addTaskAt,
+      busy,
+      confirm,
+      datePickerVisible,
+      edit,
+      form,
+      onAddTaskHandled,
+      onStartCheckinHandled,
+      startCheckinAt,
+    ]),
+  );
   function dismissForm() {
     if (!busy)
       discardDraft(JSON.stringify(form) !== initialForm, () => setForm(null));
@@ -515,7 +571,7 @@ export function TodayScreen({
                               setFocusedAction(null);
                             }}
                             style={{
-                              minWidth: control[44],
+                              width: control[32],
                               minHeight: control[44],
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -1023,6 +1079,7 @@ export function TodayScreen({
                 selectedNow={selectedNow}
                 now={now}
                 historicalWeek={historicalWeek}
+                onInvite={openGroupInvite}
               />
             ) : null}
             {section === 'mine' ? (
@@ -1145,20 +1202,18 @@ export function TodayScreen({
         }
         ListEmptyComponent={
           section === 'mine' ? (
-            <Empty
-              title="从一个小任务开始"
-              description="新增任务后，可在这里记录打卡。"
-              action={
-                <ActionButton
-                  mode="contained"
-                  icon="plus"
-                  disabled={busy}
-                  onPress={() => edit()}
-                >
-                  新增任务
-                </ActionButton>
-              }
-            />
+            <Panel style={styles.card}>
+              <Empty
+                icon="plus"
+                title="还没有任务"
+                description="添加第一个小目标，从一件小事开始。"
+                cta={{
+                  label: '添加任务',
+                  disabled: busy,
+                  onPress: () => edit(),
+                }}
+              />
+            </Panel>
           ) : null
         }
         renderItem={({ item }) => {
@@ -1706,7 +1761,23 @@ export function TodayScreen({
               }}
             />
           </View>
-          {calendarView === 'day' ? (
+          {dateMonthEmpty ? (
+            <Empty
+              icon="calendar-outline"
+              density="sheet"
+              title="这个月没有可补的日期"
+              description="到新的一天再来，或看看上个月。"
+              cta={{
+                label: '回到今天',
+                variant: 'secondary',
+                disabled: busy,
+                onPress: () => {
+                  changePickedDate(null);
+                  setDatePickerVisible(false);
+                },
+              }}
+            />
+          ) : calendarView === 'day' ? (
             <>
               <View style={{ flexDirection: 'row' }}>
                 {['一', '二', '三', '四', '五', '六', '日'].map((day) => (
@@ -1914,36 +1985,41 @@ export function TodayScreen({
               })}
             </View>
           )}
-          <Text style={styles.muted}>
-            已选 {formatCalendarDate(dateInput, true)}。可切换年月，未来不可选。
-          </Text>
-          <ErrorText message={dateError} />
-          <View style={styles.actions}>
-            <ActionButton
-              disabled={busy}
-              onPress={() => setDatePickerVisible(false)}
-              tone="neutral"
-            >
-              取消
-            </ActionButton>
-            <ActionButton
-              mode="contained"
-              disabled={busy}
-              onPress={() => {
-                if (
-                  !localDateFromKey(dateInput) ||
-                  dateInput > dateKey(new Date())
-                ) {
-                  setDateError('请选择有效的今天或过去日期');
-                  return;
-                }
-                changePickedDate(dateInput);
-                setDatePickerVisible(false);
-              }}
-            >
-              查看日期
-            </ActionButton>
-          </View>
+          {!dateMonthEmpty && (
+            <>
+              <Text style={styles.muted}>
+                已选 {formatCalendarDate(dateInput, true)}
+                。可切换年月，未来不可选。
+              </Text>
+              <ErrorText message={dateError} />
+              <View style={styles.actions}>
+                <ActionButton
+                  disabled={busy}
+                  onPress={() => setDatePickerVisible(false)}
+                  tone="neutral"
+                >
+                  取消
+                </ActionButton>
+                <ActionButton
+                  mode="contained"
+                  disabled={busy}
+                  onPress={() => {
+                    if (
+                      !localDateFromKey(dateInput) ||
+                      dateInput > dateKey(new Date())
+                    ) {
+                      setDateError('请选择有效的今天或过去日期');
+                      return;
+                    }
+                    changePickedDate(dateInput);
+                    setDatePickerVisible(false);
+                  }}
+                >
+                  查看日期
+                </ActionButton>
+              </View>
+            </>
+          )}
         </View>
       </FormModal>
       <FormModal

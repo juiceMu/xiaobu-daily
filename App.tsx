@@ -18,8 +18,12 @@ import {
 import {
   createBottomTabNavigator,
   type BottomTabBarProps,
+  type BottomTabScreenProps,
 } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  createNativeStackNavigator,
+  type NativeStackScreenProps,
+} from '@react-navigation/native-stack';
 import {
   SafeAreaProvider,
   SafeAreaView,
@@ -66,12 +70,12 @@ type MoreStackParams = {
   settings: undefined;
   gifts: undefined;
   account: undefined;
-  group: undefined;
+  group: { showInvite?: boolean } | undefined;
   member: { accountId: string; date?: string };
 };
 
 type TabsParams = {
-  today: undefined;
+  today: { addTaskAt?: number; startCheckinAt?: number } | undefined;
   tickets: { intent?: 'own-available'; at?: number } | undefined;
   more: NavigatorScreenParams<MoreStackParams> | undefined;
 };
@@ -283,7 +287,7 @@ function MoreNavigator() {
       />
       <Stack.Screen
         name="group"
-        component={GroupScreen}
+        component={GroupRoute}
         options={{ title: '小组' }}
       />
       <Stack.Screen
@@ -294,13 +298,33 @@ function MoreNavigator() {
     </Stack.Navigator>
   );
 }
-function TodayRoute() {
+function GroupRoute({
+  route,
+  navigation,
+}: NativeStackScreenProps<MoreStackParams, 'group'>) {
+  return (
+    <GroupScreen
+      inviteRequested={route.params?.showInvite}
+      onInviteHandled={() => navigation.setParams({ showInvite: undefined })}
+    />
+  );
+}
+function TodayRoute({
+  route,
+  navigation,
+}: BottomTabScreenProps<TabsParams, 'today'>) {
   const { fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <TodayScreen
         navigationHeight={bottomNavigationHeight(fontScale, insets.bottom)}
+        addTaskAt={route.params?.addTaskAt}
+        onAddTaskHandled={() => navigation.setParams({ addTaskAt: undefined })}
+        startCheckinAt={route.params?.startCheckinAt}
+        onStartCheckinHandled={() =>
+          navigation.setParams({ startCheckinAt: undefined })
+        }
       />
     </SafeAreaView>
   );

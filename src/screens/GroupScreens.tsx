@@ -1,8 +1,9 @@
 import { formatTicketValidity } from '../ui/ticketLabels';
 import { formatCalendarDate } from '../ui/displayDate';
-import React, { useState, type ComponentType } from 'react';
+import React, { useCallback, useState, type ComponentType } from 'react';
 import { View } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Icon, Text } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Crypto from 'expo-crypto';
 import {
   dateKey,
@@ -24,6 +25,7 @@ import { useApp } from '../state/AppProvider';
 import {
   ActionButton,
   Empty,
+  FormModal,
   Page,
   Panel,
   SectionTitle,
@@ -39,7 +41,7 @@ import { CopyCodeButton } from '../ui/CopyCodeButton';
 import { softThemeRoles } from '../ui/themeCatalog';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { useGroupView } from '../ui/GroupViewProvider';
-import { space } from '../ui/uiTokens';
+import { radius, space } from '../ui/uiTokens';
 import { formatDate, useScreenStyles } from './shared';
 
 const INVITE_QR_ERROR = '二维码暂时无法显示，请点击「复制邀请码」。';
@@ -50,7 +52,13 @@ function memberTasks(app: AppState, date: string, today: string) {
     (task) => !task.deleted && (!task.archived || !isToday),
   );
 }
-export function GroupScreen() {
+export function GroupScreen({
+  inviteRequested,
+  onInviteHandled,
+}: {
+  inviteRequested?: boolean;
+  onInviteHandled?: () => void;
+}) {
   const mountReady = useAndroidMountReady(600);
   const styles = useScreenStyles();
   const { colors, palette } = useAppTheme();
@@ -68,6 +76,7 @@ export function GroupScreen() {
     null,
   );
   const peers = state.groupLink ? peerBoards(state) : [];
+  const hasPeers = peers.length > 0;
   const inviteCode = state.groupLink ? exportInvite(state) : '';
   async function create() {
     if (busy) return;
@@ -88,38 +97,84 @@ export function GroupScreen() {
     }
     setError(result.ok ? '' : result.message);
   }
-  function showInvite() {
+  const showInvite = useCallback(() => {
     void import('../ui/GiftQrCode')
       .then((module) => setQrView(() => module.GiftQrCode))
       .catch(() => setError(INVITE_QR_ERROR));
+  }, []);
+  const inGroup = !!state.groupLink;
+  useFocusEffect(
+    useCallback(() => {
+      if (!inviteRequested || !mountReady) return;
+      if (inGroup) showInvite();
+      onInviteHandled?.();
+    }, [inGroup, inviteRequested, mountReady, onInviteHandled, showInvite]),
+  );
+  function startSync() {
+    void syncGroup(true);
   }
-  const syncFeedback = syncStatus ? (
+  const syncFeedback = !syncStatus ? null : syncFailed ? (
     <View
-      accessibilityLiveRegion="polite"
-      style={
-        syncFailed
-          ? {
-              padding: space[8],
-              backgroundColor: palette
-                ? softThemeRoles.warningSoft
-                : colors.field,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }
-          : undefined
-      }
+      style={[
+        styles.row,
+        {
+          gap: space[8],
+          paddingVertical: space[10],
+          paddingHorizontal: space[12],
+          borderRadius: radius[10],
+          backgroundColor: softThemeRoles.warningSoft,
+        },
+      ]}
     >
-      <Text
-        accessibilityRole={syncFailed ? 'alert' : undefined}
-        style={[
-          styles.muted,
-          palette && syncFailed ? { color: softThemeRoles.warning } : undefined,
-        ]}
+      <View
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        aria-hidden
       >
-        {syncStatus}
-      </Text>
+        <Icon
+          source="alert-circle-outline"
+          size={16}
+          color={softThemeRoles.warning}
+        />
+      </View>
+      <View style={styles.grow} accessibilityLiveRegion="polite">
+        <Text
+          accessibilityRole="alert"
+          style={{ color: softThemeRoles.warning }}
+        >
+          {state.groupLink ? '动态没能同步' : '离开通知没能同步'}
+        </Text>
+        <Text style={[styles.muted, { color: softThemeRoles.warning }]}>
+          {syncStatus}
+        </Text>
+      </View>
+      <ActionButton
+        size="sm"
+        mode="contained"
+        buttonColor={colors.surface}
+        textColor={softThemeRoles.warning}
+        disabled={busy || syncing}
+        onPress={startSync}
+      >
+        重试
+      </ActionButton>
     </View>
+  ) : (
+    <Text style={styles.muted} accessibilityLiveRegion="polite">
+      {syncStatus}
+    </Text>
+  );
+  const inviteQr = QrView ? (
+    <QrView
+      value={inviteCode}
+      accessibilityLabel="小组邀请二维码，请让对方扫码"
+      errorMessage={INVITE_QR_ERROR}
+    />
   ) : null;
+  const copyInvite = (
+    <CopyCodeButton value={inviteCode} label="邀请码" compactHeight outlined />
+  );
   return (
     <Page title="小组" subtitle="同步后即可查看成员记录">
       {!mountReady ? (
@@ -128,13 +183,14 @@ export function GroupScreen() {
         <View collapsable={false} style={styles.column}>
           <GroupViewSwitch />
           {viewError ? <Text style={styles.muted}>{viewError}</Text> : null}
+          {state.groupLink && syncFailed ? syncFeedback : null}
           {state.groupLink ? (
             <Panel>
               <SectionTitle title={state.groupLink.name} />
               <Text style={styles.muted}>
-                {peers.length
+                {hasPeers
                   ? `已同步 ${peers.length} 位成员的数据`
-                  : '还没有其他成员的记录。双方都打开应用后点同步。'}
+                  : '当前仅显示本机成员'}
               </Text>
               {state.groupOwned ? (
                 <AppTextInput
@@ -174,33 +230,48 @@ export function GroupScreen() {
                   {formatDate(peer.syncedAt)}
                 </Text>
               ))}
-              <ActionButton
-                mode="contained"
-                loading={syncing}
-                disabled={busy || syncing}
-                onPress={() => {
-                  void syncGroup(true);
-                }}
-              >
-                {syncFailed ? '重试' : '同步'}
-              </ActionButton>
-              {syncFeedback}
-              <ActionButton mode="outlined" tone="neutral" onPress={showInvite}>
-                显示邀请二维码
-              </ActionButton>
-              {QrView ? (
-                <QrView
-                  value={inviteCode}
-                  accessibilityLabel="小组邀请二维码，请让对方扫码"
-                  errorMessage={INVITE_QR_ERROR}
+              {!hasPeers ? (
+                <Empty
+                  icon="account-multiple-outline"
+                  title="还没有伙伴"
+                  description="邀请朋友加入，一起打卡更有劲。"
+                  cta={{ label: '邀请伙伴', onPress: showInvite }}
                 />
               ) : null}
-              <CopyCodeButton
-                value={inviteCode}
-                label="邀请码"
-                compactHeight
-                outlined
-              />
+              {!syncFailed ? (
+                <>
+                  <ActionButton
+                    mode="contained"
+                    loading={syncing}
+                    disabled={busy || syncing}
+                    onPress={startSync}
+                  >
+                    同步
+                  </ActionButton>
+                  {syncFeedback}
+                </>
+              ) : null}
+              {hasPeers ? (
+                <ActionButton
+                  mode="outlined"
+                  tone="neutral"
+                  onPress={showInvite}
+                >
+                  显示邀请二维码
+                </ActionButton>
+              ) : null}
+              {inviteQr ? (
+                <FormModal
+                  title="邀请伙伴"
+                  visible
+                  onDismiss={() => setQrView(null)}
+                >
+                  {inviteQr}
+                  {copyInvite}
+                </FormModal>
+              ) : (
+                copyInvite
+              )}
               <View
                 style={{
                   borderTopWidth: 1,
@@ -226,16 +297,16 @@ export function GroupScreen() {
               <Text style={styles.muted}>
                 连接原小组中的任一成员并同步。对方保存离开状态后，这台设备才能加入或创建其他小组。
               </Text>
-              <ActionButton
-                mode="contained"
-                loading={syncing}
-                disabled={busy || syncing}
-                onPress={() => {
-                  void syncGroup(true);
-                }}
-              >
-                {syncFailed ? '重试' : '同步离开通知'}
-              </ActionButton>
+              {!syncFailed ? (
+                <ActionButton
+                  mode="contained"
+                  loading={syncing}
+                  disabled={busy || syncing}
+                  onPress={startSync}
+                >
+                  同步离开通知
+                </ActionButton>
+              ) : null}
               {syncFeedback}
             </Panel>
           ) : (

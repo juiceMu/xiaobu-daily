@@ -90,7 +90,7 @@ test('关闭奖券到期后星期和时间仍挂载，并使用同一锁定状�
       ? node.getText(settings)
       : undefined,
   );
-  assert.match(group, /<ExpiryWeekday[^]*disabled=\{expiryLocked\}/);
+  assert.match(group, /<ExpiryWeekdayPicker[^]*disabled=\{expiryLocked\}/);
   assert.match(
     group,
     /<TimeField[^]*label="到期时间"[^]*disabled=\{expiryLocked\}/,

@@ -31,7 +31,11 @@ function scannerHarness(
   let pauses = 0;
   let settingsOpens = 0;
   let permissionReads = 0;
-  let permission = { granted: false, canAskAgain: true };
+  let permission = {
+    granted: false,
+    canAskAgain: true,
+    status: 'undetermined',
+  };
   let resolvePermission!: (result: typeof permission) => void;
   let rejectPermission!: (error: Error) => void;
   let listener: ((status: string) => void) | undefined;
@@ -96,6 +100,7 @@ function scannerHarness(
     'useCameraPermissions',
     'Text',
     'ActionButton',
+    'ScannerWarning',
     'useAppTheme',
     'Linking',
     ts.transpileModule(
@@ -174,6 +179,7 @@ function scannerHarness(
     ],
     'Text',
     'ActionButton',
+    'ScannerWarning',
     () => ({ colors: { muted: 'muted', danger: 'danger' } }),
     {
       async openSettings() {
@@ -191,7 +197,9 @@ function scannerHarness(
     return renderComponent({
       onClose,
       onScan,
-      wrapPreview: dedicatedPage ? (preview: unknown) => preview : undefined,
+      wrapPreview: dedicatedPage
+        ? (preview: unknown) => createElement('ScannerFrame', null, preview)
+        : undefined,
     }) as Element;
   }
   function nodes(root: unknown, type: string): Element[] {
@@ -210,7 +218,9 @@ function scannerHarness(
     },
     request() {
       const button = nodes(render(), 'ActionButton').find(
-        (node) => !node.children.includes('关闭扫码'),
+        (node) =>
+          !node.children.includes('关闭扫码') &&
+          !node.children.includes('去设置'),
       );
       assert.ok(button);
       (button.props.onPress as () => void)();
@@ -223,14 +233,22 @@ function scannerHarness(
       (button.props.onPress as () => void)();
     },
     resolve(granted: boolean, canAskAgain = true) {
-      resolvePermission({ granted, canAskAgain });
+      resolvePermission({
+        granted,
+        canAskAgain,
+        status: granted ? 'granted' : 'denied',
+      });
     },
     setPermission(granted: boolean) {
-      permission = { granted, canAskAgain: granted };
+      permission = {
+        granted,
+        canAskAgain: granted,
+        status: granted ? 'granted' : 'denied',
+      };
     },
     settings() {
       const button = nodes(render(), 'ActionButton').find((node) =>
-        node.children.includes('去系统设置开启相机'),
+        node.children.includes('去设置'),
       );
       assert.ok(button);
       (button.props.onPress as () => void)();
@@ -244,6 +262,7 @@ function scannerHarness(
       effects.forEach((cleanup) => cleanup());
     },
     cameras: () => nodes(render(), 'CameraView').length,
+    frames: () => nodes(render(), 'ScannerFrame').length,
     text: () => JSON.stringify(render()),
     closed: () => closed,
     requests: () => requests,
@@ -542,10 +561,14 @@ for (const pauseMode of ['resolve', 'reject', 'throw'] as const) {
 
 test('独立扫码页拒绝授权后打开系统设置，返回刷新权限并等用户继续', async () => {
   const scanner = scannerHarness('resolve', 'active', false, true);
+  assert.equal(scanner.frames(), 1);
   scanner.request();
   scanner.resolve(false, false);
   await Promise.resolve();
   assert.equal(scanner.cameras(), 0);
+  assert.equal(scanner.frames(), 0);
+  assert.match(scanner.text(), /在设置里允许使用相机/);
+  assert.doesNotMatch(scanner.text(), /重试授权/);
   scanner.settings();
   scanner.settings();
   assert.equal(scanner.settingsOpens(), 1);
@@ -556,8 +579,23 @@ test('独立扫码页拒绝授权后打开系统设置，返回刷新权限并�
   await Promise.resolve();
   assert.equal(scanner.permissionReads(), 1);
   assert.equal(scanner.cameras(), 0);
+  assert.equal(scanner.frames(), 1);
   scanner.request();
   assert.equal(scanner.cameras(), 1);
   scanner.change('background');
   assert.equal(scanner.closed(), 1);
+});
+
+test('独立扫码页拒绝后仍可重新授权，成功后恢复取景框', async () => {
+  const scanner = scannerHarness('resolve', 'active', false, true);
+  scanner.request();
+  scanner.resolve(false);
+  await settle();
+  assert.equal(scanner.frames(), 0);
+  assert.match(scanner.text(), /重试授权/);
+  scanner.request();
+  scanner.resolve(true);
+  await settle();
+  assert.equal(scanner.frames(), 1);
+  assert.equal(scanner.cameras(), 1);
 });

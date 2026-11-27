@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, View } from 'react-native';
 import {
   useIsFocused,
+  useNavigation,
   useRoute,
+  type NavigationProp,
   type RouteProp,
 } from '@react-navigation/native';
 import { Icon, Text } from 'react-native-paper';
@@ -114,6 +116,8 @@ function MemberFilter({
 }
 
 export function TicketsScreen() {
+  const navigation =
+    useNavigation<NavigationProp<{ today: { startCheckinAt: number } }>>();
   const { colors, theme, palette } = useAppTheme();
   const styles = useScreenStyles();
   const { state, now, run, busy } = useApp();
@@ -201,6 +205,19 @@ export function TicketsScreen() {
   const tickets = ownedTickets.filter(
     (item) => filter === 'all' || item.status === filter,
   );
+  const noMemberMatches =
+    tickets.length === 0 &&
+    showGroup &&
+    memberId !== 'all' &&
+    people.some(
+      (person) =>
+        person.id !== memberId &&
+        person.app.tickets.some(
+          (ticket) =>
+            filter === 'all' ||
+            getTicketStatus(ticket, person.app, now) === filter,
+        ),
+    );
   const groupByMember = showGroup && memberId === 'all';
   const rows: TicketListRow[] = (() => {
     const ticketRowsFor = (
@@ -257,6 +274,54 @@ export function TicketsScreen() {
     );
     if (result.ok) setSelected(null);
     else setError(result.message);
+  }
+  function renderEmptyTickets() {
+    if (noMemberMatches)
+      return (
+        <Empty
+          icon="magnify"
+          title="没有符合条件的奖券"
+          description="换个筛选条件试试，或者看看全部。"
+          cta={{
+            label: '清除筛选',
+            variant: 'secondary',
+            onPress: () => setMemberId('all'),
+          }}
+        />
+      );
+    if (filter === 'used')
+      return (
+        <Empty
+          icon="archive-outline"
+          title="还没有用过奖券"
+          description="攒到券后，喜欢的时刻就兑一张。"
+          cta={{
+            label: '看看可用券',
+            variant: 'secondary',
+            onPress: () => setFilter('available'),
+          }}
+        />
+      );
+    if (filter === 'expired')
+      return (
+        <Empty
+          icon="clock-outline"
+          title="没有过期的奖券"
+          description="有到期时间的未使用奖券，到期后会显示在这里。"
+        />
+      );
+    return (
+      <Empty
+        icon="ticket-outline"
+        title={filter === 'available' ? '还没有可用奖券' : '还没有奖券'}
+        description={`本周累计 ${state.settings.threshold} 次未兑换打卡，就能兑换一张奖券。`}
+        cta={{
+          label: '去打卡',
+          onPress: () =>
+            navigation.navigate('today', { startCheckinAt: Date.now() }),
+        }}
+      />
+    );
   }
   return (
     <Page
@@ -353,10 +418,7 @@ export function TicketsScreen() {
           </View>
         }
         ListEmptyComponent={
-          <Empty
-            title="这里还没有奖券"
-            description="完成打卡后兑换，或首次达到新里程碑，即可收获奖励。"
-          />
+          <Panel style={styles.card}>{renderEmptyTickets()}</Panel>
         }
         renderItem={({ item: row }) => {
           if (row.type === 'member') {

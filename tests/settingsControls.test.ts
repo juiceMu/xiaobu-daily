@@ -86,21 +86,26 @@ test('关闭到期仍保留设置入口，Web 开关使用真实按钮和对称�
   assert.match(track, /boxShadow: disabled/);
 });
 
-test('到期星期保持单行触控，不随共享按钮容器换行', () => {
+test('到期星期保留七个单排选项及首末边框，允许每格随容器缩窄', () => {
   const source = parse('../src/screens/MoreScreens.tsx');
-  const group = find(source, 'ScrollView').find((node) =>
-    node.getText(source).includes("Array.from('一二三四五六日'"),
+  assert.ok(source.text.includes("EXPIRY_WEEKDAYS = '一二三四五六日'"));
+  const picker = find(source, 'View').find(
+    (node) =>
+      attr(node, 'testID', source)?.initializer?.getText(source) ===
+      '"expiry-weekdays"',
   );
-  assert.ok(group);
-  assert.ok(attr(group, 'horizontal', source));
-  assert.match(
-    expr(group, 'contentContainerStyle', source),
-    /flexDirection: 'row'/,
+  assert.ok(picker);
+  assert.match(expr(picker, 'style', source), /flexDirection: 'row'/);
+  assert.doesNotMatch(picker.getText(source), /ScrollView|flexWrap/);
+  const radio = find(source, 'Pressable').find(
+    (node) =>
+      attr(node, 'accessibilityRole', source)?.initializer?.getText(source) ===
+      '"radio"',
   );
-  assert.match(
-    expr(group, 'contentContainerStyle', source),
-    /7 \* control\[44\]/,
-  );
+  assert.ok(radio);
+  assert.match(expr(radio, 'style', source), /minWidth: 0/);
+  assert.match(expr(radio, 'style', source), /minHeight: control\[44\]/);
+  assert.match(radio.getText(source), /borderTopRightRadius: last/);
 });
 
 test('Web使用小时分钟选择弹窗，不用系统time输入，仅确认提交时间', () => {

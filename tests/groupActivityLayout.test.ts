@@ -66,7 +66,10 @@ test('小组动态说明同步、空态和打卡日期与操作时间', () => {
   assert.match(activity, /暂无其他成员记录/);
   assert.match(activity, /同步后即可查看成员记录/);
   assert.match(activity, /最近一次同步/);
-  assert.match(activity, /这一周还没有打卡记录/);
+  assert.match(
+    activity,
+    /activity\.timeline\.length === 0[\s\S]*?title="还没有伙伴动态"[\s\S]*?onPress: onInvite/,
+  );
   assert.match(activity, /撤销的打卡不会显示/);
   assert.match(activity, /timelineDateLabel\(entry.date, now\)/);
   assert.match(activity, /补卡 · 操作于/);

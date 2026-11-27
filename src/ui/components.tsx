@@ -113,24 +113,66 @@ export function Panel({
 export function Empty({
   title,
   description,
+  icon = 'sprout-outline',
+  density = 'page',
+  cta,
   action,
 }: {
   title: string;
   description: string;
+  icon?: string;
+  density?: 'page' | 'inline' | 'sheet';
+  cta?: {
+    label: string;
+    onPress: () => void;
+    variant?: 'primary' | 'secondary';
+    disabled?: boolean;
+  };
   action?: ReactNode;
 }) {
-  const { colors } = useAppTheme();
+  const { colors, palette } = useAppTheme();
   const styles = useStyles();
+  const secondary = cta?.variant === 'secondary';
   return (
-    <View style={styles.empty}>
-      <View style={styles.emptyIcon}>
-        <Icon source="sprout-outline" size={24} color={colors.primary} />
+    <View
+      style={[
+        styles.empty,
+        density === 'inline' && styles.emptyInline,
+        density === 'sheet' && styles.emptySheet,
+      ]}
+    >
+      <View
+        aria-hidden
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        <Icon
+          source={icon}
+          size={density === 'sheet' ? 24 : 30}
+          color={colors.muted}
+        />
       </View>
-      <Text variant="titleMedium" style={styles.center}>
-        {title}
-      </Text>
-      <Text style={[styles.subtitle, styles.center]}>{description}</Text>
-      {action}
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyDescription}>{description}</Text>
+      {cta ? (
+        <ActionButton
+          mode="contained"
+          buttonColor={
+            secondary
+              ? (palette?.brand.soft ?? colors.primaryContainer)
+              : undefined
+          }
+          textColor={
+            secondary ? (palette?.brand.ink ?? colors.primary) : undefined
+          }
+          disabled={cta.disabled}
+          onPress={cta.onPress}
+        >
+          {cta.label}
+        </ActionButton>
+      ) : (
+        action
+      )}
     </View>
   );
 }
@@ -591,12 +633,28 @@ const createStyles = (colors: AppColors) =>
       flexShrink: 0,
     },
     sectionText: { flex: 1, fontWeight: '600' },
-    empty: { paddingVertical: 24, gap: 8, alignItems: 'center' },
-    center: { textAlign: 'center' },
-    emptyIcon: {
-      padding: 14,
-      backgroundColor: colors.primaryContainer,
-      borderRadius: 28,
+    empty: {
+      paddingVertical: 34,
+      paddingHorizontal: space[20],
+      gap: space[8],
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyInline: { paddingVertical: space[20] },
+    emptySheet: { paddingVertical: 24, paddingHorizontal: 24 },
+    emptyTitle: {
+      color: colors.ink,
+      fontSize: font[13],
+      fontWeight: '500',
+      lineHeight: 18,
+      textAlign: 'center',
+    },
+    emptyDescription: {
+      color: colors.muted,
+      fontSize: font[11],
+      lineHeight: 18,
+      maxWidth: 230,
+      textAlign: 'center',
     },
     icons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     iconButton: {

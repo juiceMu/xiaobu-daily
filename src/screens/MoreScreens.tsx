@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   View,
 } from 'react-native';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
@@ -418,36 +417,14 @@ export function SettingsScreen() {
                   <Text style={expiryEnabled ? styles.body : styles.muted}>
                     下周哪一天过期？
                   </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{
-                      flexGrow: 1,
-                      minWidth: 7 * control[44],
-                      flexDirection: 'row',
+                  <ExpiryWeekdayPicker
+                    value={expiryDay}
+                    disabled={expiryLocked}
+                    borderColor={weekdayBorder}
+                    onChange={(day) => {
+                      if (!expiryLocked) setExpiryDay(day);
                     }}
-                  >
-                    <View
-                      accessibilityRole="radiogroup"
-                      accessibilityLabel="到期星期"
-                      style={{ flex: 1, flexDirection: 'row' }}
-                    >
-                      {Array.from('一二三四五六日', (name, index) => (
-                        <ExpiryWeekday
-                          key={name}
-                          label={'周' + name}
-                          checked={expiryDay === index + 1}
-                          disabled={expiryLocked}
-                          borderColor={weekdayBorder}
-                          onPress={() => {
-                            if (!expiryLocked) setExpiryDay(index + 1);
-                          }}
-                          first={index === 0}
-                          last={index === 6}
-                        />
-                      ))}
-                    </View>
-                  </ScrollView>
+                  />
                   <TimeField
                     label="到期时间"
                     value={expiryTime}
@@ -491,6 +468,42 @@ export function SettingsScreen() {
   );
 }
 
+const EXPIRY_WEEKDAYS = '一二三四五六日';
+
+function ExpiryWeekdayPicker({
+  value,
+  disabled,
+  borderColor,
+  onChange,
+}: {
+  value: number;
+  disabled: boolean;
+  borderColor: string;
+  onChange: (day: number) => void;
+}) {
+  return (
+    <View
+      testID="expiry-weekdays"
+      accessibilityRole="radiogroup"
+      accessibilityLabel="到期星期"
+      style={{ flexDirection: 'row' }}
+    >
+      {Array.from(EXPIRY_WEEKDAYS, (name, index) => (
+        <ExpiryWeekday
+          key={name}
+          label={'周' + name}
+          checked={value === index + 1}
+          disabled={disabled}
+          borderColor={borderColor}
+          onPress={() => onChange(index + 1)}
+          first={index === 0}
+          last={index === EXPIRY_WEEKDAYS.length - 1}
+        />
+      ))}
+    </View>
+  );
+}
+
 function ExpiryWeekday({
   label,
   checked,
@@ -523,7 +536,7 @@ function ExpiryWeekday({
       onBlur={focus.onBlur}
       style={{
         flex: 1,
-        minWidth: control[44],
+        minWidth: 0,
         minHeight: control[44],
         justifyContent: 'center',
       }}

@@ -5,9 +5,20 @@ import { Icon, Text } from 'react-native-paper';
 import type { MilestoneGoal, Ticket } from '../domain/types';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { softThemeRoles } from '../ui/themeCatalog';
-import { ActionButton } from '../ui/components';
+import { ActionButton, Empty } from '../ui/components';
 import { formatChineseDateTime } from '../ui/displayDate';
 import { useKeyboardFocus } from '../ui/useKeyboardFocus';
+
+export function MilestoneTicketsEmpty() {
+  return (
+    <Empty
+      icon="gift-outline"
+      density="sheet"
+      title="这个里程碑还没解锁奖券"
+      description="继续积累，达到下一个刻度就能领到。"
+    />
+  );
+}
 
 export function MilestoneIconAction({
   icon,
@@ -361,18 +372,7 @@ export function MilestoneTicketSheet({
             }
             scrollEventThrottle={16}
             ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
-            ListEmptyComponent={
-              <Text
-                style={{
-                  textAlign: 'center',
-                  paddingVertical: 24,
-                  fontSize: 12,
-                  color: colors.muted,
-                }}
-              >
-                还没有解锁奖券
-              </Text>
-            }
+            ListEmptyComponent={MilestoneTicketsEmpty}
             renderItem={({ item, index }) => (
               <View
                 style={{
